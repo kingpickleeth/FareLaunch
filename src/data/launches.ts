@@ -144,3 +144,12 @@ export async function getLaunch(id: string) {
   if (error) throw error;
   return data;
 }
+export async function listByCreator(wallet: string) {
+  const { data, error } = await supabase
+    .from('launches')
+    .select('id, name, token_symbol, status, start_at, end_at, soft_cap, hard_cap, updated_at')
+    .eq('creator_wallet', wallet)
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}

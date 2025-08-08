@@ -8,6 +8,8 @@ import SaleDetail from './pages/SaleDetail.tsx'
 import LaunchWizard from './pages/LaunchWizard.tsx'
 import Locker from './pages/Locker.tsx'
 import { WalletProvider } from './lib/wallet';
+import MyLaunches from './pages/MyLaunches';
+import Tools from './pages/Tools';
 
 const router = createBrowserRouter([
   { path: '/', element: <App />, children: [
@@ -15,6 +17,8 @@ const router = createBrowserRouter([
     { path: 'sale/:id', element: <SaleDetail /> },
     { path: 'launch', element: <LaunchWizard /> },
     { path: 'locker', element: <Locker /> },
+    { path: 'me', element: <MyLaunches /> },
+    { path: 'tools', element: <Tools /> },
   ] }
 ])
 
