@@ -68,7 +68,6 @@ export default function LaunchWizard() {
   <StepReview
     value={data}
     onBack={() => setStep(3)}
-    onFinish={() => alert('Saved draft! (Deploy comes after contracts)')}
   />
 )}
 
