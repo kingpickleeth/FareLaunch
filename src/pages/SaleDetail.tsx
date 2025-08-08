@@ -1,6 +1,9 @@
+// src/pages/SaleDetail.tsx
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getLaunch } from '../data/launches';
+import { salePhase, countdown } from '../utils/time';
+import AllowlistCheck from '../components/AllowlistCheck';
 
 type AnyRow = Record<string, any>;
 
@@ -9,7 +12,15 @@ export default function SaleDetail() {
   const [row, setRow] = useState<AnyRow | null>(null);
   const [err, setErr] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [, setTick] = useState(0); // re-render every second for countdown
 
+  // ticker
+  useEffect(() => {
+    const t = setInterval(() => setTick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // fetch
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -26,8 +37,30 @@ export default function SaleDetail() {
   const start = row.start_at ? new Date(row.start_at) : null;
   const end = row.end_at ? new Date(row.end_at) : null;
 
+  const phase = salePhase(Date.now(), row.start_at, row.end_at);
+  const timeToShow =
+    phase === 'upcoming' ? countdown(row.start_at)
+    : phase === 'active' ? countdown(row.end_at)
+    : null;
+
+  // progress (mock until contracts)
+  const soft = Number(row.soft_cap ?? NaN);
+  const hard = Number(row.hard_cap ?? NaN);
+  const raised = 0; // TODO: replace with on-chain
+  const pct = Number.isFinite(hard) && hard > 0 ? Math.min(100, Math.max(0, (raised / hard) * 100)) : 0;
+
+  const statusStyle: React.CSSProperties = (() => {
+    switch (phase) {
+      case 'active':   return { background: 'rgba(46,204,113,.15)', color: '#2ecc71' };
+      case 'upcoming': return { background: 'rgba(52,152,219,.15)', color: '#3498db' };
+      case 'ended':    return { background: 'rgba(127,140,141,.15)', color: '#95a5a6' };
+      default:         return { background: 'rgba(241,196,15,.15)', color: '#f1c40f' };
+    }
+  })();
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
+      {/* Header */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
         {row.logo_url
           ? <img src={row.logo_url} alt="" width={56} height={56} style={{ borderRadius: 12, objectFit: 'cover' }} />
@@ -40,12 +73,37 @@ export default function SaleDetail() {
         </div>
       </div>
 
-      <div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
-        <div>Status: <b>{row.status}</b></div>
-        <div>Window: <b>{start?.toLocaleString() ?? 'TBA'}</b> → <b>{end?.toLocaleString() ?? 'TBA'}</b></div>
-        <div>Caps: Soft <b>{row.soft_cap ?? '—'}</b> • Hard <b>{row.hard_cap ?? '—'}</b> • Quote <b>{row.quote ?? 'WAPE'}</b></div>
+      {/* Status + countdown + progress */}
+      <div className="card" style={{ padding: 12, display: 'grid', gap: 10 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span className="badge" style={{ ...statusStyle, padding: '2px 8px', borderRadius: 999, textTransform: 'capitalize' }}>
+            {phase}
+          </span>
+          <span style={{ opacity: .85 }}>
+            Window: <b>{start?.toLocaleString() ?? 'TBA'}</b> → <b>{end?.toLocaleString() ?? 'TBA'}</b>
+          </span>
+        </div>
+
+        {timeToShow && (
+          <div>
+            {phase === 'upcoming' ? 'Starts in' : 'Ends in'}:{' '}
+            <b>{timeToShow.d}d {timeToShow.h}h {timeToShow.m}m {timeToShow.s}s</b>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
+          <div>Raised: <b>{raised}</b></div>
+          <div>Soft: <b>{Number.isFinite(soft) ? soft : '—'}</b></div>
+          <div>Hard: <b>{Number.isFinite(hard) ? hard : '—'}</b></div>
+          <div>Quote: <b>{row.quote ?? 'WAPE'}</b></div>
+        </div>
+
+        <div style={{ height: 8, borderRadius: 999, background: '#2a2d36', overflow: 'hidden' }}>
+          <div style={{ width: `${pct}%`, height: '100%', background: 'var(--fl-purple)' }} />
+        </div>
       </div>
 
+      {/* About / links */}
       <div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
         <div>Website: {row.website ? <a href={row.website} target="_blank" rel="noreferrer">{row.website}</a> : '—'}</div>
         <div>Twitter: {row.twitter ? <a href={row.twitter} target="_blank" rel="noreferrer">{row.twitter}</a> : '—'}</div>
@@ -53,11 +111,14 @@ export default function SaleDetail() {
         <div style={{ opacity: .85 }}>{row.description || '—'}</div>
       </div>
 
+      {/* Allowlist (client demo) */}
+      <AllowlistCheck root={row.allowlist_root} />
+
+      {/* Actions */}
       <div style={{ display: 'flex', gap: 8 }}>
         <Link className="button" to="/">← Back</Link>
-        {/* placeholders for next steps */}
         <button className="button button-secondary" disabled>Buy (soon)</button>
-        <button className="button" disabled>Check Allowlist (soon)</button>
+        <button className="button" disabled>Claim (soon)</button>
       </div>
     </div>
   );
