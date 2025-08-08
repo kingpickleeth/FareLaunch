@@ -20,6 +20,30 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
   // Schedule
   const [start, setStart] = useState<string>(value.sale?.start ?? '');
   const [end, setEnd] = useState<string>(value.sale?.end ?? '');
+  const now = new Date();
+const maxFuture = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // 60 days ahead
+
+function formatDateForInput(date: Date) {
+  return date.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+}
+
+const minStart = formatDateForInput(now);
+const maxStart = formatDateForInput(maxFuture);
+
+// Calculate max end date based on start (max 14 days after start, and not beyond 60 days from now)
+const maxEndDate = useMemo(() => {
+  if (!start) return maxStart;
+  const startDate = new Date(start);
+  const limitBy14Days = new Date(startDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+  const limitBy60Days = maxFuture;
+  const actualMax = limitBy14Days < limitBy60Days ? limitBy14Days : limitBy60Days;
+  return formatDateForInput(actualMax);
+}, [start]);
+
+const minEndDate = useMemo(() => {
+  if (!start) return minStart;
+  return formatDateForInput(new Date(new Date(start).getTime() + 60 * 1000)); // at least 1 minute after start
+}, [start]);
 
   // Caps (fair-launch): soft cap required, hard cap optional
   const [softCap, setSoftCap] = useState<string>(value.sale?.softCap ?? '');
@@ -117,23 +141,46 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
 
       {/* Schedule */}
       <section style={{ display: 'grid', gap: 12 }}>
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr 1fr' }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Presale Currency</div>
-            <input value={quote} readOnly style={{ ...inputStyle, opacity: .7 }} />
-          </label>
+  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr 1fr' }}>
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Presale Currency</div>
+      <input value={quote} readOnly style={{ ...inputStyle, opacity: .7 }} />
+    </label>
 
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Start (local)</div>
-            <input type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} style={inputStyle} />
-          </label>
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Start (local)</div>
+      <input
+        type="datetime-local"
+        value={start}
+        min={minStart}
+        max={maxStart}
+        onChange={(e) => {
+          const val = e.target.value;
+          setStart(val);
+          // Auto-fix end if it's before start or beyond allowed
+          if (end && new Date(end) <= new Date(val)) {
+            setEnd('');
+          }
+        }}
+        style={inputStyle}
+      />
+    </label>
 
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>End (local)</div>
-            <input type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} style={inputStyle} />
-          </label>
-        </div>
-      </section>
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>End (local)</div>
+      <input
+        type="datetime-local"
+        value={end}
+        min={minEndDate}
+        max={maxEndDate}
+        onChange={(e) => setEnd(e.target.value)}
+        style={inputStyle}
+        disabled={!start}
+      />
+    </label>
+  </div>
+</section>
+
 
       {/* Caps */}
       <section style={{ display: 'grid', gap: 12 }}>
