@@ -11,7 +11,7 @@ type Props = {
 export default function StepLPFees({ value, onChange, onNext, onBack }: Props) {
   const [percentToLP, setPercentToLP] = useState<number>(value.lp?.percentToLP ?? 60);
   const [lockDays, setLockDays] = useState<30 | 90 | 180 | 365>(value.lp?.lockDays ?? 90);
-  const [slippageBps, setSlippageBps] = useState<number>(value.lp?.slippageBps ?? 50);
+  const [slippageBps] = useState<number>(value.lp?.slippageBps ?? 50);
 
   const totalSupply = Number(value.token.totalSupply ?? NaN);
   const supplyFeePct = value.fees?.supplyPct ?? 0.05;  // %
@@ -108,12 +108,3 @@ export default function StepLPFees({ value, onChange, onNext, onBack }: Props) {
     </div>
   );
 }
-
-const inputStyle: React.CSSProperties = {
-  background: '#101216',
-  border: '1px solid rgba(255,255,255,.08)',
-  color: 'var(--fl-white)',
-  borderRadius: 12,
-  padding: '10px 12px',
-  outline: 'none',
-};
