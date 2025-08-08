@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react'; // add useRef
 import type { WizardData } from '../../types/wizard';
 
 type Props = {
@@ -20,30 +20,40 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
   // Schedule
   const [start, setStart] = useState<string>(value.sale?.start ?? '');
   const [end, setEnd] = useState<string>(value.sale?.end ?? '');
+  function fmtLocal(date: Date) {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const y = date.getFullYear();
+    const m = pad(date.getMonth() + 1);
+    const d = pad(date.getDate());
+    const hh = pad(date.getHours());
+    const mm = pad(date.getMinutes());
+    return `${y}-${m}-${d}T${hh}:${mm}`;
+  }
+  
   const now = new Date();
-const maxFuture = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // 60 days ahead
+  const maxFuture = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // +60 days
+  
+  const minStart = fmtLocal(now);
+  const maxStart = fmtLocal(maxFuture);
+  
+  // End constraints depend on start:
+  // minEnd = start + 1 minute
+  // maxEnd = min(start + 14 days, now + 60 days)
+  const minEndDate = useMemo(() => {
+    if (!start) return minStart;
+    const s = new Date(start);
+    return fmtLocal(new Date(s.getTime() + 60 * 1000));
+  }, [start]);
+  
+  const maxEndDate = useMemo(() => {
+    const limit60 = maxFuture;
+    if (!start) return fmtLocal(limit60);
+    const s = new Date(start);
+    const limit14 = new Date(s.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const max = limit14.getTime() < limit60.getTime() ? limit14 : limit60;
+    return fmtLocal(max);
+  }, [start]);
 
-function formatDateForInput(date: Date) {
-  return date.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
-}
-
-const minStart = formatDateForInput(now);
-const maxStart = formatDateForInput(maxFuture);
-
-// Calculate max end date based on start (max 14 days after start, and not beyond 60 days from now)
-const maxEndDate = useMemo(() => {
-  if (!start) return maxStart;
-  const startDate = new Date(start);
-  const limitBy14Days = new Date(startDate.getTime() + 14 * 24 * 60 * 60 * 1000);
-  const limitBy60Days = maxFuture;
-  const actualMax = limitBy14Days < limitBy60Days ? limitBy14Days : limitBy60Days;
-  return formatDateForInput(actualMax);
-}, [start]);
-
-const minEndDate = useMemo(() => {
-  if (!start) return minStart;
-  return formatDateForInput(new Date(new Date(start).getTime() + 60 * 1000)); // at least 1 minute after start
-}, [start]);
 
   // Caps (fair-launch): soft cap required, hard cap optional
   const [softCap, setSoftCap] = useState<string>(value.sale?.softCap ?? '');
@@ -141,12 +151,25 @@ const minEndDate = useMemo(() => {
 
       {/* Schedule */}
       <section style={{ display: 'grid', gap: 12 }}>
-  <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr 1fr' }}>
+  <div
+    style={{
+      display: 'grid',
+      gap: 12,
+      gridTemplateColumns: '1fr 1fr 1fr',
+      alignItems: 'end',         // <-- align bottoms
+    }}
+  >
+    {/* Presale Currency */}
     <label style={{ display: 'grid', gap: 6 }}>
       <div>Presale Currency</div>
-      <input value={quote} readOnly style={{ ...inputStyle, opacity: .7 }} />
+      <input value={quote} readOnly style={{ ...inputStyle, height: 44 }} />
+      {/* reserve helper space so height matches other columns */}
+      <small style={{ visibility: 'hidden' }}>
+        placeholder to match helper height
+      </small>
     </label>
 
+    {/* Start */}
     <label style={{ display: 'grid', gap: 6 }}>
       <div>Start (local)</div>
       <input
@@ -154,18 +177,24 @@ const minEndDate = useMemo(() => {
         value={start}
         min={minStart}
         max={maxStart}
+        onFocus={(e) => (e.currentTarget as any).showPicker?.()}
+        onClick={(e) => (e.currentTarget as any).showPicker?.()}
         onChange={(e) => {
           const val = e.target.value;
           setStart(val);
-          // Auto-fix end if it's before start or beyond allowed
-          if (end && new Date(end) <= new Date(val)) {
-            setEnd('');
+          if (end) {
+            const sMs = new Date(val).getTime();
+            const eMs = new Date(end).getTime();
+            const maxEndMs = new Date(maxEndDate).getTime();
+            if (!Number.isFinite(eMs) || eMs <= sMs || eMs > maxEndMs) setEnd('');
           }
         }}
-        style={inputStyle}
+        style={{ ...inputStyle, height: 44 }}
       />
+      <small style={{ opacity: .7 }}>Must start within 60 days; not in the past.</small>
     </label>
 
+    {/* End */}
     <label style={{ display: 'grid', gap: 6 }}>
       <div>End (local)</div>
       <input
@@ -173,14 +202,18 @@ const minEndDate = useMemo(() => {
         value={end}
         min={minEndDate}
         max={maxEndDate}
+        onFocus={(e) => (e.currentTarget as any).showPicker?.()}
+        onClick={(e) => (e.currentTarget as any).showPicker?.()}
         onChange={(e) => setEnd(e.target.value)}
-        style={inputStyle}
+        style={{ ...inputStyle, height: 44 }}
         disabled={!start}
       />
+      <small style={{ opacity: .7 }}>
+        End within 14 days of start, and within 60 days from today.
+      </small>
     </label>
   </div>
 </section>
-
 
       {/* Caps */}
       <section style={{ display: 'grid', gap: 12 }}>
@@ -239,11 +272,12 @@ const minEndDate = useMemo(() => {
   );
 }
 
+// at bottom of StepTokenomics.tsx
 const inputStyle: React.CSSProperties = {
-  background: '#101216',
-  border: '1px solid rgba(255,255,255,.08)',
-  color: 'var(--fl-white)',
-  borderRadius: 12,
-  padding: '10px 12px',
-  outline: 'none',
-};
+    background: '#101216',
+    border: '1px solid rgba(255,255,255,.08)',
+    color: 'var(--fl-white)',
+    borderRadius: 12,
+    padding: '10px 12px',
+    outline: 'none',
+  };  
