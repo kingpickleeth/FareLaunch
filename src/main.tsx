@@ -4,7 +4,6 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import './styles/theme.css'
 import App from './App'
 import Explore from './pages/Explore.tsx';
-import LaunchDetail from './pages/LaunchDetail';
 import SaleDetail from './pages/SaleDetail.tsx'
 import LaunchWizard from './pages/LaunchWizard.tsx'
 import Locker from './pages/Locker.tsx'
