@@ -7,8 +7,8 @@ import SaleList from './pages/SaleList.tsx'
 import SaleDetail from './pages/SaleDetail.tsx'
 import LaunchWizard from './pages/LaunchWizard.tsx'
 import Locker from './pages/Locker.tsx'
-import { Buffer } from 'buffer';
-(window as any).Buffer ||= Buffer;
+import { WalletProvider } from './lib/wallet';
+
 const router = createBrowserRouter([
   { path: '/', element: <App />, children: [
     { index: true, element: <SaleList /> },
@@ -20,6 +20,8 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
+        <WalletProvider>
     <RouterProvider router={router}/>
+    </WalletProvider>
   </React.StrictMode>
 )

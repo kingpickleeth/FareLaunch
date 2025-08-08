@@ -1,7 +1,7 @@
 import { saveAs as saveFile } from 'file-saver';
 import type { WizardData } from '../../types/wizard';
 import { upsertLaunch } from '../../data/launches';
-import { useRef } from 'react';
+import { useAccount } from 'wagmi';
 
 type Props = {
   value: WizardData;
@@ -14,37 +14,24 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
     const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
     saveFile(blob, `farelaunch-config-${Date.now()}.json`);
   }
-  const draftCooldownUntil = useRef(0);
+  const { address, isConnected } = useAccount();
   async function handleCreate() {
-    try {
-      // ignore any draft saves for the next 1500ms
-      draftCooldownUntil.current = Date.now() + 1500;
-  
-      const wallet = '0x1111111111111111111111111111111111111111';
-      const row = await upsertLaunch(wallet, value, undefined, 'upcoming');
-      console.log('Created launch:', row);
-      alert(`Launch created! ID: ${row.id}`);
-      onFinish?.();
-    } catch (e:any) {
-      console.error(e);
-      alert('Error creating launch: ' + (e?.message ?? e));
+    if (!isConnected || !address) {
+      alert('Connect your wallet first.');
+      return;
     }
+    const row = await upsertLaunch(address, value, undefined, 'upcoming');
+    alert(`Launch created! ID: ${row.id}`);
+    onFinish?.();
   }
-  
+
   async function handleSaveDraft() {
-    console.trace('handleSaveDraft fired');
-    // bail if we're within the cooldown window after Create
-    if (Date.now() < draftCooldownUntil.current) return;
-  
-    try {
-      const wallet = '0x1111111111111111111111111111111111111111';
-      const row = await upsertLaunch(wallet, value);
-      console.log('Saved draft:', row);
-      alert(`Saved draft! ID: ${row.id}`);
-    } catch (e:any) {
-      console.error(e);
-      alert('Error saving draft: ' + (e?.message ?? e));
+    if (!isConnected || !address) {
+      alert('Connect your wallet first.');
+      return;
     }
+    const row = await upsertLaunch(address, value);
+    alert(`Saved draft! ID: ${row.id}`);
   }
   
 
