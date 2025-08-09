@@ -433,3 +433,46 @@ html, body, #root { overflow-x: hidden; }
   opacity: .85; 
   font-weight: 600; 
 }
+
+/* Actions row */
+.review-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;           /* allow wrapping on small screens */
+}
+
+/* Back stays compact */
+.review-actions .button-back {
+  flex: 0 0 auto;            /* never stretch */
+  min-width: unset;
+  padding-inline: 14px;
+}
+
+/* Right-side buttons */
+.review-actions-right {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Consistent button height */
+.review-actions .button {
+  min-height: 44px;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+/* Mobile: Back remains small; others wrap to next line and expand evenly */
+@media (max-width: 640px) {
+  .review-actions {
+    justify-content: flex-start;
+  }
+  .review-actions-right {
+    width: 100%;
+  }
+  .review-actions-right .button {
+    flex: 1 1 150px;         /* grow to fill row nicely */
+  }
+}
