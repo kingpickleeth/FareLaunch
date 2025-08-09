@@ -128,12 +128,13 @@ export async function upsertLaunch(
 export async function listExplore() {
   const { data, error } = await supabase
     .from('launches')
-    .select('id, name, token_symbol, start_at, end_at, status, soft_cap, hard_cap')
-    .order('start_at', { ascending: false })
-    .limit(30);
+    .select('id, name, token_symbol, status, start_at, end_at, soft_cap, hard_cap')
+    .neq('status', 'draft')                 // ⬅️ exclude drafts
+    .order('start_at', { ascending: false, nullsFirst: false });
   if (error) throw error;
   return data ?? [];
 }
+
 
 export async function getLaunch(id: string) {
   const { data, error } = await supabase

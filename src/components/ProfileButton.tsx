@@ -281,7 +281,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
                 border: '1px solid rgba(255,255,255,.12)'
               }}
             >
-              My launches
+              Dashboard
             </a>
             <a
               className="button"

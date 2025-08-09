@@ -12,38 +12,43 @@ type Row = {
   end_at: string | null;
   soft_cap: string | null;
   hard_cap: string | null;
-  // add others if you later select them in listExplore()
 };
+
+const STATUS_FILTERS = ['all','upcoming','active','ended','finalized','failed'] as const;
+type StatusFilter = typeof STATUS_FILTERS[number];
 
 export default function Explore() {
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState('');
+  const [status, setStatus] = useState<StatusFilter>('all');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>('');
 
   useEffect(() => {
     setLoading(true);
     listExplore()
-      .then((r) => setRows(r as Row[]))
+      .then((r) => setRows(r as Row[])) // already excludes drafts
       .catch((e) => setErr(e?.message ?? String(e)))
       .finally(() => setLoading(false));
   }, []);
 
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
-    if (!s) return rows;
-    return rows.filter(r =>
-      (r.name ?? '').toLowerCase().includes(s) ||
-      (r.token_symbol ?? '').toLowerCase().includes(s)
-    );
-  }, [rows, q]);
+    return rows.filter(r => {
+      if (status !== 'all' && r.status !== status) return false;
+      if (!s) return true;
+      return (r.name ?? '').toLowerCase().includes(s)
+          || (r.token_symbol ?? '').toLowerCase().includes(s);
+    });
+  }, [rows, q, status]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'tomato' }}>Error: {err}</div>;
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between' }}>
+      {/* Header with search */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap:'wrap' }}>
         <div className="h2">Explore</div>
         <input
           placeholder="Search name or symbol"
@@ -60,8 +65,42 @@ export default function Explore() {
         />
       </div>
 
+      {/* Status filters */}
+    {/* Status filters */}
+<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+  {STATUS_FILTERS.map((opt) => {
+    const active = status === opt;
+    return (
+      <button
+        key={opt}
+        onClick={() => setStatus(opt)}
+        className="button"
+        style={{
+          padding: '6px 12px',
+          borderRadius: 999,
+          background: active ? 'var(--fl-white)' : 'transparent',  // white when active
+          color: active ? '#000' : 'var(--fl-white)',               // black text on active
+          border: '1px solid var(--fl-white)',                      // always visible border
+          fontWeight: 600,
+          textTransform: 'capitalize',
+          cursor: 'pointer',
+          transition: 'all 0.15s ease',
+        }}
+        onMouseEnter={(e) => {
+          if (!active) (e.currentTarget.style.background = 'rgba(255,255,255,0.1)');
+        }}
+        onMouseLeave={(e) => {
+          if (!active) (e.currentTarget.style.background = 'transparent');
+        }}
+      >
+        {opt}
+      </button>
+    );
+  })}
+</div>
+
       {filtered.length === 0 ? (
-        <div style={{ opacity: .75 }}>No launches yet.</div>
+        <div style={{ opacity: .75 }}>No launches match your filters.</div>
       ) : (
         <div style={{
           display: 'grid',
@@ -111,7 +150,7 @@ function StatusBadge({ s }: { s: Row['status'] }) {
     draft:    { background: 'rgba(241,196,15,.15)', color: '#f1c40f' },
   };
   return (
-    <span className="badge" style={{ ...(styles[s] || {}), padding: '2px 8px', borderRadius: 999 }}>
+    <span className="badge" style={{ ...(styles[s] || {}), padding: '2px 8px', borderRadius: 999, textTransform:'capitalize' }}>
       {s}
     </span>
   );
