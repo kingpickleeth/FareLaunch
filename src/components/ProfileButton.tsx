@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAccount } from 'wagmi';
+import { useAccount, useDisconnect } from 'wagmi';
 import { supabase } from '../lib/supabase';
+const DEFAULT_AVATAR = 'https://dengdefense.xyz/taxi.svg';
 
 function short(addr?: string) { return addr ? `${addr.slice(0,6)}…${addr.slice(-4)}` : ''; }
 
@@ -14,13 +15,11 @@ async function getCreator(wallet: string) {
   if (error) throw error;
   return data;
 }
-
-async function upsertCreator(payload: {
-  wallet: string;
-  display_name?: string | null;
-  avatar_url?: string | null;
-}) {
-  if (!supabase) throw new Error('Supabase not configured');
+async function upsertCreator(payload: { wallet: string; display_name?: string | null; avatar_url?: string | null }) {
+  const defaultAvatar = 'https://dengdefense.xyz/taxi.svg';
+  if (!payload.avatar_url) {
+    payload.avatar_url = defaultAvatar;
+  }
   const { data, error } = await supabase
     .from('creators')
     .upsert(payload, { onConflict: 'wallet' })
@@ -38,20 +37,40 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
   const [editingName, setEditingName] = useState(false);
   const [form, setForm] = useState<{ display_name: string; avatar_url: string }>({ display_name: '', avatar_url: '' });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const { disconnect } = useDisconnect();
 
   useEffect(() => {
-    if (!isConnected || !address) { setCreator(null); setForm({ display_name:'', avatar_url:'' }); return; }
+    if (!isConnected || !address) {
+      setCreator(null);
+      setForm({ display_name: '', avatar_url: '' });
+      return;
+    }
+  
+    let cancelled = false;
     (async () => {
       try {
-        const c = await getCreator(address);
-        setCreator(c);
-        setForm({
-          display_name: c?.display_name ?? '',
-          avatar_url: c?.avatar_url ?? '',
-        });
-      } catch (e) { console.error(e); }
+        // 1) Try to load
+        let c = await getCreator(address);
+  
+        // 2) If none, create immediately with defaults
+        if (!c) {
+          c = await upsertCreator({ wallet: address });
+        }
+  
+        if (!cancelled) {
+          setCreator(c);
+          setForm({
+            display_name: c?.display_name ?? '',
+            avatar_url: c?.avatar_url ?? '',
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
     })();
-  }, [address, isConnected]);
+  
+    return () => { cancelled = true; };
+  }, [address, isConnected]);  
 
   if (!isConnected) {
     return (
@@ -60,9 +79,19 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
       </button>
     );
   }
-
+  function disconnectWallet() {
+    try {
+      disconnect();
+      setOpen(false);
+      setCreator(null);
+      setForm({ display_name: '', avatar_url: '' });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  
   const title = (creator?.display_name ?? form.display_name ?? '').trim() || short(address);
-  const avatar = form.avatar_url || creator?.avatar_url || '';
+  const avatar = form.avatar_url || creator?.avatar_url || DEFAULT_AVATAR;
   const fullAddr = address || '';
 
   async function onAvatarPick(file: File) {
@@ -216,7 +245,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
                   onClick={() => setEditingName(true)}
                   style={{ padding:'2px 8px', fontSize:12, backgroundColor:'#366fda' }}
                 >
-                  Change
+                  Change Name
                 </button>
               </div>
             ) : (
@@ -241,34 +270,50 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
 
             {/* Wallet line with copy (click text or icon) */}
             {fullAddr && (
-              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                <span
-                  onClick={() => copy(fullAddr)}
-                  style={{
-                    fontFamily:'var(--font-data)',
-                    fontSize:12,
-                    opacity:.8,
-                    color:'white',
-                    cursor:'pointer',
-                    userSelect:'none'
-                  }}
-                  title="Click to copy"
-                >
-                  {short(fullAddr)}
-                </span>
-                <button
-                  className="button"
-                  onClick={() => copy(fullAddr)}
-                  style={{ padding:'2px 6px', fontSize:11 }}
-                  title="Copy address"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-                    <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor"/>
-                    <rect x="5" y="5" width="10" height="10" rx="2" stroke="currentColor" opacity=".8"/>
-                  </svg>
-                </button>
-              </div>
-            )}
+  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+    <span
+      onClick={() => copy(fullAddr)}
+      style={{
+        fontFamily:'var(--font-data)',
+        fontSize:12,
+        opacity:.8,
+        color:'white',
+        cursor:'pointer',
+        userSelect:'none'
+      }}
+      title="Click to copy"
+    >
+      {short(fullAddr)}
+    </span>
+
+    {/* Copy button */}
+    <button
+      className="button"
+      onClick={() => copy(fullAddr)}
+      style={{ padding:'2px 6px', fontSize:11 }}
+      title="Copy address"
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+        <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor"/>
+        <rect x="5" y="5" width="10" height="10" rx="2" stroke="currentColor" opacity=".8"/>
+      </svg>
+    </button>
+
+    {/* Disconnect button */}
+    <button
+      className="button"
+      onClick={disconnectWallet}
+      style={{ padding:'2px 6px', fontSize:11 }}
+      title="Disconnect wallet"
+    >
+      {/* power icon */}
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 3v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M6.2 6.2a7 7 0 1 0 11.6 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    </button>
+  </div>
+)}
           </div>
 
           {/* Action links — centered, side-by-side with outline */}
