@@ -134,8 +134,8 @@ export default function SaleDetail() {
         <div className="meta-grid">
         <div>Soft Cap: <b>{formatNumber(soft)} $APE</b></div>
         <div>Hard Cap: <b>{formatNumber(hard)} $APE</b></div>
-          <div>Raised: <b>{raised}</b></div>
-          <div>Quote: <b>{row.quote ?? 'WAPE'}</b></div>
+          <div>Raised: <b>{raised} $APE</b></div>
+          <div>Quote: <b>${row.quote ?? 'WAPE'}</b></div>
         </div>
 
         <div className="progress-outer">
