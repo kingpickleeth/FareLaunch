@@ -44,11 +44,7 @@ export default function SaleDetail() {
 
     let cancelled = false;
     (async () => {
-      await supabase
-        .from('launches')
-        .update({ status: newPhase })
-        .eq('id', row.id);
-
+      await supabase.from('launches').update({ status: newPhase }).eq('id', row.id);
       lastPhaseSentRef.current = newPhase;
       if (!cancelled) setRow(prev => (prev ? { ...prev, status: newPhase } : prev));
     })();
@@ -58,7 +54,7 @@ export default function SaleDetail() {
 
   // ---- Early returns ----
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
-  if (err) return <div style={{ padding: 24, color: 'tomato' }}>Error: {err}</div>;
+  if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
   if (!row) return <div style={{ padding: 24 }}>Sale not found.</div>;
 
   // Derived display values
@@ -71,20 +67,44 @@ export default function SaleDetail() {
     : phase === 'active' ? countdown(row.end_at)
     : null;
 
+  // quote + formatting
+  const quote: string = row.quote ?? 'WAPE';
+  const fmtq = (n: unknown) =>
+    `${formatNumber(Number(n ?? NaN))} ${quote}`;
+
   // progress (mock until contracts)
   const soft = Number(row.soft_cap ?? NaN);
   const hard = Number(row.hard_cap ?? NaN);
   const raised = 0; // TODO: replace with on-chain
   const pct = Number.isFinite(hard) && hard > 0 ? Math.min(100, Math.max(0, (raised / hard) * 100)) : 0;
 
-  const statusStyle: React.CSSProperties = (() => {
-    switch (phase) {
-      case 'active':   return { background: 'rgba(46,204,113,.15)', color: '#2ecc71' };
-      case 'upcoming': return { background: 'rgba(52,152,219,.15)', color: '#3498db' };
-      case 'ended':    return { background: 'rgba(127,140,141,.15)', color: '#95a5a6' };
-      default:         return { background: 'rgba(241,196,15,.15)', color: '#f1c40f' };
-    }
-  })();
+  // Themed status badge
+ // Replace your badgeStyle block with this:
+const badgeStyle: React.CSSProperties = (() => {
+  switch (phase) {
+    case 'active':
+      return { background: 'var(--badge-success-bg)', color: 'var(--success)' };
+    case 'upcoming':
+      return { background: 'var(--badge-info-bg)', color: 'var(--info)' };
+    case 'ended':
+      return { background: 'var(--badge-muted-bg)', color: 'var(--muted)' };
+    // 'tba' and anything else
+    default:
+      return { background: 'var(--badge-warning-bg)', color: 'var(--warning)' };
+  }
+})();
+
+
+  // LP / flow fields (support a few possible DB column names)
+  const tokenPctToLP = Number(
+    row.token_percent_to_lp ?? row.lp_token_percent_to_lp ?? row.tokenPercentToLP ?? NaN
+  );
+  const raisePctToLP = Number(
+    row.percent_to_lp ?? row.lp_percent_to_lp ?? row.raise_percent_to_lp ?? NaN
+  );
+  const lockDays: number | undefined = row.lock_days ?? row.lockDays ?? undefined;
+  const keepPct = Number(row.keep_pct ?? row.keepPct ?? NaN);
+  const saleTokensPool = row.sale_tokens_pool ?? row.saleTokensPool ?? undefined;
 
   return (
     <div className="sale-detail" style={{ display: 'grid', gap: 16 }}>
@@ -95,16 +115,19 @@ export default function SaleDetail() {
           : <div className="sale-logo placeholder" />}
         <div className="sale-title">
           <div className="h1 break-anywhere">
-            {row.name ?? 'Untitled'} <span style={{ opacity: .7 }}>({row.token_symbol ?? '—'})</span>
+            {row.name ?? 'Untitled'}{' '}
+            <span style={{ opacity: .7 }}>({row.token_symbol ?? '—'})</span>
           </div>
-          <div className="sale-creator">by <span className="break-anywhere">{row.creator_wallet ?? '—'}</span></div>
+          <div className="sale-creator">
+            by <span className="break-anywhere">{row.creator_wallet ?? '—'}</span>
+          </div>
         </div>
       </div>
 
       {/* Status + countdown + progress */}
       <div className="card" style={{ padding: 12, display: 'grid', gap: 10 }}>
         <div className="meta-line">
-          <span className="badge" style={{ ...statusStyle, padding: '2px 8px', borderRadius: 999, textTransform: 'capitalize' }}>
+          <span className="badge" style={{ ...badgeStyle, padding: '2px 8px', borderRadius: 999, textTransform: 'capitalize' }}>
             {phase}
           </span>
 
@@ -132,14 +155,28 @@ export default function SaleDetail() {
         )}
 
         <div className="meta-grid">
-        <div>Soft Cap: <b>{formatNumber(soft)} $APE</b></div>
-        <div>Hard Cap: <b>{formatNumber(hard)} $APE</b></div>
-          <div>Raised: <b>{raised} $APE</b></div>
-          <div>Quote: <b>${row.quote ?? 'WAPE'}</b></div>
+          <div>Soft Cap: <b>{fmtq(soft)}</b></div>
+          <div>Hard Cap: <b>{Number.isFinite(hard) ? fmtq(hard) : '—'}</b></div>
+          <div>Raised: <b>{fmtq(raised)}</b></div>
+          <div>Quote: <b>{quote}</b></div>
         </div>
 
         <div className="progress-outer">
           <div className="progress-inner" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      {/* Tokenomics / LP summary (reflects the new flow) */}
+      <div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>Tokenomics / LP</div>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
+          <div>% Tokens → LP: <b>{Number.isFinite(tokenPctToLP) ? `${tokenPctToLP}%` : '—'}</b></div>
+          <div>% Raise → LP: <b>{Number.isFinite(raisePctToLP) ? `${raisePctToLP}%` : '—'}</b></div>
+          <div>Lock: <b>{lockDays ? `${lockDays} days` : '—'}</b></div>
+          <div>Keep % of remainder: <b>{Number.isFinite(keepPct) ? `${keepPct}%` : '—'}</b></div>
+          <div>Tokens for Sale: <b className="break-anywhere">
+            {saleTokensPool ? formatNumber(Number(saleTokensPool)) : '—'}
+          </b></div>
         </div>
       </div>
 
@@ -157,9 +194,9 @@ export default function SaleDetail() {
         <div className="break-anywhere" style={{ opacity: .85 }}>{row.description || '—'}</div>
       </div>
 
-      {/* Allowlist (client demo) */}
+      {/* Allowlist */}
       <div className="allowlist-wrap">
-      <AllowlistCheck key={row.id} saleId={row.id} root={row.allowlist_root} />
+        <AllowlistCheck key={row.id} saleId={row.id} root={row.allowlist_root} />
       </div>
 
       {/* Actions */}

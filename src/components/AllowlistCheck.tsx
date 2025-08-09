@@ -10,16 +10,16 @@ const UUID_RE =
 
 export default function AllowlistCheck({ saleId, root }: Props) {
   const { address } = useAccount();
-  const [input, setInput] = useState(''); // <- controlled, no auto-fill on empty
+  const [input, setInput] = useState(''); // controlled
   const [status, setStatus] = useState<'idle'|'checking'|'allowed'|'not'|'error'>('idle');
   const [msg, setMsg] = useState<string>('');
 
   const canCheckRoot = !!root && root.startsWith('0x') && root.length === 66;
   const saleIdValid = !!saleId && UUID_RE.test(String(saleId));
 
-  // Reset when sale changes (or root changes)
+  // Reset when sale/root changes
   useEffect(() => {
-    setInput('');        // <- clears field when navigating away / to new sale
+    setInput('');
     setStatus('idle');
     setMsg('');
   }, [saleId, root]);
@@ -61,23 +61,44 @@ export default function AllowlistCheck({ saleId, root }: Props) {
   const short = (a?: string) => (a ? `${a.slice(0,6)}…${a.slice(-4)}` : '');
 
   return (
-    <div className="card" style={{ padding: 12, display: 'grid', gap: 8 }}>
+    <div className="card" style={{ padding: 12, display: 'grid', gap: 10 }}>
       <div style={{ fontWeight: 700 }}>Allowlist{!saleIdValid ? ' (saleId missing/invalid)' : ''}</div>
 
       {!canCheckRoot ? (
-        <div style={{ opacity:.75 }}>Open sale or allowlist not set.</div>
+        <div style={{ opacity:.8, color: 'var(--muted)' }}>Open sale or allowlist not set.</div>
       ) : (
         <>
-          <div style={{ fontSize:12, opacity:.8 }}>
-            Merkle root: <code className="merkle-root" style={{ opacity:.8 }}>{root}</code>
+          <div style={{ fontSize:12, color: 'var(--muted)' }}>
+            Merkle root:{' '}
+            <code
+              className="break-anywhere"
+              style={{
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
+                padding: '2px 6px',
+                borderRadius: 6,
+                opacity: .9
+              }}
+            >
+              {root}
+            </code>
           </div>
 
           <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             <input
               placeholder={address ? `${short(address)} (tap “Use my wallet”)` : '0x… wallet to check'}
-              value={input}                            // <- controlled (no auto-refill)
+              value={input}
               onChange={(e)=>setInput(e.target.value)}
-              style={{ flex:1, minWidth: 220, background:'#101216', border:'1px solid rgba(255,255,255,.08)', borderRadius:12, color:'white', padding:'8px 10px' }}
+              style={{
+                flex:1,
+                minWidth: 220,
+                background: 'var(--input-bg)',
+                border: '1px solid var(--input-border)',
+                borderRadius: 12,
+                color: 'var(--text)',
+                padding: '8px 10px',
+                outline: 'none'
+              }}
             />
             {address && (
               <button
@@ -90,19 +111,28 @@ export default function AllowlistCheck({ saleId, root }: Props) {
               </button>
             )}
             <button
-              className="button"
+              className="button button-secondary"
               disabled={!saleIdValid || !isAddress(input)}
               onClick={() => runCheck(input)}
               title={!isAddress(input) ? 'Enter a valid address' : 'Check'}
+              style={{ opacity: (!saleIdValid || !isAddress(input)) ? .6 : 1 }}
             >
               Check
             </button>
           </div>
 
-          {status === 'checking' && <div style={{ opacity:.8 }}>Checking…</div>}
-          {status === 'allowed' && <div style={{ color:'#2ecc71' }}>✅ On the allowlist</div>}
-          {status === 'not' && <div style={{ color:'#e74c3c' }}>❌ Not on the allowlist</div>}
-          {status === 'error' && <div style={{ color:'#f39c12' }}>⚠️ {msg}</div>}
+          {status === 'checking' && (
+            <div style={{ opacity:.9, color:'var(--muted)' }}>Checking…</div>
+          )}
+          {status === 'allowed' && (
+            <div style={{ color:'var(--success)' }}>✅ On the allowlist</div>
+          )}
+          {status === 'not' && (
+            <div style={{ color:'var(--fl-danger)' }}>❌ Not on the allowlist</div>
+          )}
+          {status === 'error' && (
+            <div style={{ color:'var(--warning)' }}>⚠️ {msg}</div>
+          )}
         </>
       )}
     </div>
