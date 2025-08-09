@@ -193,8 +193,8 @@ useEffect(() => {
 
         <div style={{ display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
           <div>Raised: <b>{raised}</b></div>
-          <div>Soft: <b>{Number.isFinite(soft) ? soft : '—'}</b></div>
-          <div>Hard: <b>{Number.isFinite(hard) ? hard : '—'}</b></div>
+          <div>Soft Cap: <b>{Number.isFinite(soft) ? soft : '—'}</b></div>
+          <div>Hard Cap: <b>{Number.isFinite(hard) ? hard : '—'}</b></div>
           <div>Quote: <b>{row.quote ?? 'WAPE'}</b></div>
         </div>
 

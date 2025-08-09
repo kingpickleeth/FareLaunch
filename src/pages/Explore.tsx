@@ -137,7 +137,7 @@ export default function Explore() {
               </div>
 
               <div style={{ opacity: .85, fontFamily: 'var(--font-data)' }}>
-                Soft {r.soft_cap ?? '—'} • Hard {r.hard_cap ?? '—'}
+                Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
               </div>
             </Link>
           ))}
