@@ -55,7 +55,7 @@ export default function MyLaunches() {
       ) : (
         <div className="card" style={{ padding:0, overflow:'hidden' }}>
           <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 120px', gap:0, borderBottom:'1px solid rgba(255,255,255,.06)', padding:'10px 12px', fontSize:12, opacity:.8 }}>
-            <div>Project</div><div>Status</div><div>Start</div><div>End</div><div>Actions</div>
+            <div>Project</div><div>Status</div><div>Start</div><div>End</div><div style={{ display:'flex', gap:8, justifyContent: 'center' }}> Actions</div>
           </div>
           {rows.map(r => (
             <div key={r.id} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 120px', gap:0, padding:'12px', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
@@ -66,7 +66,7 @@ export default function MyLaunches() {
               <div style={{ textTransform:'capitalize' }}>{r.status}</div>
               <div>{r.start_at ? new Date(r.start_at).toLocaleString() : '—'}</div>
               <div>{r.end_at ? new Date(r.end_at).toLocaleString() : '—'}</div>
-              <div style={{ display:'flex', gap:8 }}>
+              <div style={{ display:'flex', gap:8, justifyContent: 'center' }}>
                 <Link className="button" to={`/sale/${r.id}`}>View</Link>
                 {r.status === 'draft' && (
                   <Link className="button" to={`/launch?id=${r.id}`}>Edit</Link>
