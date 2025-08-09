@@ -28,6 +28,17 @@ export default function MyLaunches() {
       .catch(e => setErr(e?.message ?? String(e)));
   }, [isConnected, address]);
 
+  const formatNoSeconds = (dateStr: string | null) => {
+    if (!dateStr) return '—';
+    return new Date(dateStr).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
   if (!isConnected) {
     return (
       <div className="card" style={{ padding: 16 }}>
@@ -61,11 +72,11 @@ export default function MyLaunches() {
             <div key={r.id} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 120px', gap:0, padding:'12px', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
               <div>
                 <div style={{ fontWeight:700 }}>{r.name || 'Untitled'} <span style={{ opacity:.7 }}>({r.token_symbol || '—'})</span></div>
-                <div style={{ opacity:.6, fontSize:12 }}>Updated: {r.updated_at ? new Date(r.updated_at).toLocaleString() : '—'}</div>
+                <div style={{ opacity:.6, fontSize:12 }}>Updated: {formatNoSeconds(r.updated_at)}</div>
               </div>
               <div style={{ textTransform:'capitalize' }}>{r.status}</div>
-              <div>{r.start_at ? new Date(r.start_at).toLocaleString() : '—'}</div>
-              <div>{r.end_at ? new Date(r.end_at).toLocaleString() : '—'}</div>
+              <div>{formatNoSeconds(r.start_at)}</div>
+              <div>{formatNoSeconds(r.end_at)}</div>
               <div style={{ display:'flex', gap:8, justifyContent: 'center' }}>
                 <Link className="button" to={`/sale/${r.id}`}>View</Link>
                 {r.status === 'draft' && (
