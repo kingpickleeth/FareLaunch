@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { makeMerkle, isAddress } from '../utils/merkle';
 
 type Props = {
-  onResult?: (res: { root: string; count: number; invalid: number }) => void;
+  onResult?: (res: { root: string; count: number; invalid: number; addresses: string[] }) => void;
 };
 
 export default function AllowlistUploader({ onResult }: Props) {
@@ -43,7 +43,7 @@ export default function AllowlistUploader({ onResult }: Props) {
         setAddresses([]);
         setInvalid(bad);
         setRoot('');
-        onResult?.({ root: '', count: 0, invalid: bad.length });
+        onResult?.({ root: '', count: 0, invalid: bad.length, addresses: [] });
         return;
       }
 
@@ -52,7 +52,7 @@ export default function AllowlistUploader({ onResult }: Props) {
       setInvalid(bad);
       setRoot(root);
       console.log('Merkle:', { root, good: dedup.length, bad: bad.length });
-      onResult?.({ root, count: dedup.length, invalid: bad.length });
+      onResult?.({ root, count: dedup.length, invalid: bad.length, addresses: dedup });
     } finally {
       setLoading(false);
     }

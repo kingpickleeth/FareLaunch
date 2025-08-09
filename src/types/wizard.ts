@@ -57,6 +57,7 @@ export interface WizardData {
     enabled?: boolean;
     root?: string;
     count?: number;
+    addresses?: string[]; // ⬅️ add this
   };
 }
 

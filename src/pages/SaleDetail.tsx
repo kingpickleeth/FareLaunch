@@ -112,7 +112,9 @@ export default function SaleDetail() {
       </div>
 
       {/* Allowlist (client demo) */}
-      <AllowlistCheck root={row.allowlist_root} />
+
+
+<AllowlistCheck saleId={row.id} root={row.allowlist_root} />
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8 }}>

@@ -13,20 +13,28 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
   const [enabled, setEnabled] = useState<boolean>(!!value.allowlist?.enabled);
   const [root, setRoot] = useState<string>(value.allowlist?.root ?? '');
   const [count, setCount] = useState<number>(value.allowlist?.count ?? 0);
-
+  const [addresses, setAddresses] = useState<string[]>(value.allowlist?.addresses ?? []);
   useEffect(() => {
     if (!enabled) {
       setRoot('');
       setCount(0);
+      setAddresses([]);
     }
   }, [enabled]);
 
   const canContinue = enabled ? (root.startsWith('0x') && root.length === 66 && count > 0) : true;
 
   function commitAndNext() {
+    console.log('[StepAllowlist][commit] about to save', {
+      enabled,
+      root,
+      count,
+      addressesLen: addresses.length,
+      sample: addresses.slice(0, 3),
+    });
     onChange({
       ...value,
-      allowlist: enabled ? { enabled: true, root, count } : { enabled: false },
+      allowlist: enabled ? { enabled: true, root, count, addresses } : { enabled: false },
     });
     onNext();
   }
@@ -47,10 +55,11 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
 
       {enabled ? (
         <AllowlistUploader
-          onResult={({ root, count }) => {
+        onResult={({ root, count, addresses }) => {
             console.log('AllowlistUploader -> onResult', { root, count });
             setRoot(root);
             setCount(count);
+            setAddresses(addresses);
           }}
         />
       ) : (
