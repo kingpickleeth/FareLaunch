@@ -5,6 +5,7 @@ import { getLaunch } from '../data/launches';
 import { salePhase, countdown } from '../utils/time';
 import AllowlistCheck from '../components/AllowlistCheck';
 import { supabase } from '../lib/supabase';
+import { formatNumber } from '../utils/format';
 
 type AnyRow = Record<string, any>;
 
@@ -131,9 +132,9 @@ export default function SaleDetail() {
         )}
 
         <div className="meta-grid">
+        <div>Soft Cap: <b>{formatNumber(soft)} $APE</b></div>
+        <div>Hard Cap: <b>{formatNumber(hard)} $APE</b></div>
           <div>Raised: <b>{raised}</b></div>
-          <div>Soft Cap: <b>{Number.isFinite(soft) ? soft : '—'}</b></div>
-          <div>Hard Cap: <b>{Number.isFinite(hard) ? hard : '—'}</b></div>
           <div>Quote: <b>{row.quote ?? 'WAPE'}</b></div>
         </div>
 
