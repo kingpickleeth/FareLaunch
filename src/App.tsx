@@ -97,7 +97,7 @@ useEffect(() => {
   style={{
   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   padding: '16px 24px', position: 'sticky', top: 0, background: 'rgba(15,17,21,.7)',
-  backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(255,255,255,.06)', zIndex: 2000}}>
+  backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(255,255,255,.)', zIndex: 2000}}>
   {/* Brand */}
   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
   <div
@@ -208,16 +208,21 @@ useEffect(() => {
 {isMobile && menuOpen && (
   <div
     style={{
-      position: 'fixed', top: navH,
+      position: 'fixed',
+      top: 0,
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 1000,        // above page content & the sticky nav
-      overflowY: 'auto',   // scroll menu if it gets tall
-      WebkitOverflowScrolling: 'touch'
+      zIndex: 1000,
+      background: 'rgba(0,0,0,0.7)', // 🔹 darker background
+      overflowY: 'auto',
+      WebkitOverflowScrolling: 'touch',
+      display: 'flex',
+      flexDirection: 'column'
     }}
+    onClick={() => setMenuOpen(false)} // click outside closes menu
   >
-    {/* Spacer so the panel starts just below the navbar height */}
+    {/* Spacer so panel starts just below navbar height */}
     <div style={{ height: navH }} />
 
     {/* Solid menu panel */}
@@ -227,9 +232,14 @@ useEffect(() => {
         padding: 12,
         display: 'grid',
         gap: 6,
-        borderBottom: '1px solid rgba(255,255,255,.06)'
+        borderBottom: '1px solid rgba(255,255,255,.06)',
+        position: 'relative',
+        zIndex: 1001 // keep menu content above the background scrim
       }}
+      onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside menu
     >
+      {/* menu items here */}
+
       <NavLink
         to="/"
         style={({ isActive }) => (isActive ? linkActive : linkIdle)}
