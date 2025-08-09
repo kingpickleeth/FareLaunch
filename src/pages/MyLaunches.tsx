@@ -50,34 +50,56 @@ export default function MyLaunches() {
 
   if (err) return <div style={{ color:'tomato', padding:16 }}>Error: {err}</div>;
   if (!rows) return <div style={{ padding:16 }}>Loading…</div>;
-
   return (
-    <div style={{ display:'grid', gap:16 }}>
+    <div style={{ display: 'grid', gap: 16 }}>
       <div className="h2">My Launches</div>
-
-      <div style={{ display:'flex', justifyContent:'flex-end' }}>
+  
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
         <button className="button button-secondary" onClick={() => nav('/launch')}>+ New Launch</button>
       </div>
-
+  
       {rows.length === 0 ? (
-        <div className="card" style={{ padding:16, opacity:.85 }}>
+        <div className="card" style={{ padding: 16, opacity: .85 }}>
           You have no launches yet. Click “New Launch” to start.
         </div>
       ) : (
-        <div className="card" style={{ padding:0, overflow:'hidden' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 120px', gap:0, borderBottom:'1px solid rgba(255,255,255,.06)', padding:'10px 12px', fontSize:12, opacity:.8 }}>
-            <div>Project</div><div>Status</div><div>Start</div><div>End</div><div style={{ display:'flex', gap:8, justifyContent: 'center' }}> Actions</div>
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Header (hidden on mobile) */}
+          <div className="launch-header">
+            <div>Project</div>
+            <div>Status</div>
+            <div>Start</div>
+            <div>End</div>
+            <div className="center">Actions</div>
           </div>
+  
           {rows.map(r => (
-            <div key={r.id} style={{ display:'grid', gridTemplateColumns:'2fr 1fr 1fr 1fr 120px', gap:0, padding:'12px', borderBottom:'1px solid rgba(255,255,255,.06)' }}>
-              <div>
-                <div style={{ fontWeight:700 }}>{r.name || 'Untitled'} <span style={{ opacity:.7 }}>({r.token_symbol || '—'})</span></div>
-                <div style={{ opacity:.6, fontSize:12 }}>Updated: {formatNoSeconds(r.updated_at)}</div>
+            <div key={r.id} className="launch-row">
+              <div className="cell cell-project">
+                <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {r.name || 'Untitled'} <span style={{ opacity: .7 }}>({r.token_symbol || '—'})</span>
+                </div>
+                <div style={{ opacity: .6, fontSize: 12 }}>
+                  Updated: {formatNoSeconds(r.updated_at)}
+                </div>
               </div>
-              <div style={{ textTransform:'capitalize' }}>{r.status}</div>
-              <div>{formatNoSeconds(r.start_at)}</div>
-              <div>{formatNoSeconds(r.end_at)}</div>
-              <div style={{ display:'flex', gap:8, justifyContent: 'center' }}>
+  
+              <div className="cell cell-status">
+                <span className="cell-label">Status</span>
+                <span style={{ textTransform: 'capitalize' }}>{r.status}</span>
+              </div>
+  
+              <div className="cell">
+                <span className="cell-label">Start</span>
+                {formatNoSeconds(r.start_at)}
+              </div>
+  
+              <div className="cell">
+                <span className="cell-label">End</span>
+                {formatNoSeconds(r.end_at)}
+              </div>
+  
+              <div className="cell cell-actions">
                 <Link className="button" to={`/sale/${r.id}`}>View</Link>
                 {r.status === 'draft' && (
                   <Link className="button" to={`/launch?id=${r.id}`}>Edit</Link>
@@ -88,5 +110,5 @@ export default function MyLaunches() {
         </div>
       )}
     </div>
-  );
+  );  
 }

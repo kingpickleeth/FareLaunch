@@ -476,3 +476,81 @@ html, body, #root { overflow-x: hidden; }
     flex: 1 1 150px;         /* grow to fill row nicely */
   }
 }
+/* Desktop table layout */
+.launch-header {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 120px;
+  gap: 0;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  padding: 10px 12px;
+  font-size: 12px;
+  opacity: .8;
+}
+.launch-header .center { display:flex; justify-content:center; }
+
+.launch-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr 120px;
+  gap: 0;
+  padding: 12px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  align-items: center;
+}
+.launch-row .cell-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.launch-row .cell-label { display: none; }
+
+/* Make long names behave */
+.cell-project { min-width: 0; }
+.cell-project > div:first-child { min-width: 0; }
+
+/* Mobile: stack rows as cards */
+@media (max-width: 720px) {
+  .launch-header { display: none; }
+
+  .launch-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .launch-row .cell {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .launch-row .cell-label {
+    display: inline-block;
+    min-width: 64px;
+    font-size: 12px;
+    opacity: .7;
+  }
+
+  .launch-row .cell-actions {
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .launch-row .cell-actions .button {
+    flex: 0 0 auto;
+    min-width: 96px;          /* nice tap targets */
+  }
+
+  /* Give each row a subtle card feel */
+  .launch-row {
+    background: rgba(255,255,255,.02);
+    border-radius: 12px;
+    margin: 8px 8px;
+  }
+}
+.cell-project > div:first-child {
+  color: #FFB82E;
+}
+.cell-project > div:first-child span {
+  color: #F4E285;
+}
