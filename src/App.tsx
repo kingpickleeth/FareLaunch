@@ -97,8 +97,7 @@ useEffect(() => {
   style={{
   display: 'flex', justifyContent: 'space-between', alignItems: 'center',
   padding: '16px 24px', position: 'sticky', top: 0, background: 'rgba(15,17,21,.7)',
-  backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(255,255,255,.06)', zIndex: 50
-}}>
+  backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(255,255,255,.06)', zIndex: 2000}}>
   {/* Brand */}
   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
   <div
@@ -209,8 +208,7 @@ useEffect(() => {
 {isMobile && menuOpen && (
   <div
     style={{
-      position: 'fixed',
-      top: 0,
+      position: 'fixed', top: navH,
       left: 0,
       right: 0,
       bottom: 0,
