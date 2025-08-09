@@ -105,37 +105,17 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
   return (
     <div className="card" style={{ padding: 16, display: 'grid', gap: 16 }}>
       <div className="h2">Allowlist</div>
-
-      <label
-  className="allowlist-toggle"
-  style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: 10,
-    padding: '10px 12px',
-    background: '#2a2d36',
-    border: '1px solid rgba(255,255,255,.12)',
-    borderRadius: 12,
-    width: 'fit-content',
-    color: '#fff',
-    userSelect: 'none',
-    cursor: 'pointer',
-  }}
->
+      <label className="allowlist-toggle">
   <input
     type="checkbox"
     checked={enabled}
     onChange={(e) => setEnabled(e.target.checked)}
-    style={{
-      width: 20,
-      height: 20,
-      accentColor: 'var(--fl-gold)',    // modern browsers
-      transform: 'scale(1.15)',         // ensures it’s visibly larger everywhere
-    }}
   />
-  <span style={{ lineHeight: 1 }}>Enable allowlist (private sale)</span>
+  <span className="allowlist-toggle__text">
+    <b>Enable allowlist</b>
+    <span>(private sale)</span>
+  </span>
 </label>
-
 
       {!enabled ? (
         <div style={{ opacity: .8 }}>
