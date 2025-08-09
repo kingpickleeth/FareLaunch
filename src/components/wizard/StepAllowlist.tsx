@@ -106,7 +106,7 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
     <div className="card" style={{ padding: 16, display: 'grid', gap: 16 }}>
       <div className="h2">Allowlist</div>
 
-      <label className="button" style={{ background:'#2a2d36', color:'#fff', width:'fit-content' }}>
+      <label className="button" style={{ background:'#2a2d36', color:'#fffff', width:'fit-content' }}>
         <input
           type="checkbox"
           checked={enabled}
