@@ -309,17 +309,23 @@ useEffect(() => {
         Dashboard
       </NavLink>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
-        <ProfileButton
-          onConnect={() => {
-            setMenuOpen(false);
-            openConnectModal?.();
-          }}
-        />
-        <div style={{ marginLeft: 'auto' }}>
-          <ConnectButton chainStatus="icon" showBalance={false} accountStatus="avatar" />
-        </div>
-      </div>
+      <div
+  style={{
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    justifyContent: 'flex-end'     // 👉 push ProfileButton to the right
+  }}
+>
+  <ProfileButton
+    onConnect={() => {
+      setMenuOpen(false);
+      openConnectModal?.();        // still opens modal if tapped while disconnected
+    }}
+  />
+</div>
+
     </div>
   </div>
 )}
