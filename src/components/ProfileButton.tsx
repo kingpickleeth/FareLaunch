@@ -130,7 +130,8 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
             alt=""
             width={38}
             height={38}
-            style={{objectFit: 'cover' }}
+            style={{ borderRadius: '50%',
+                objectFit: 'cover' }}
           />
         ) : (
           <div
