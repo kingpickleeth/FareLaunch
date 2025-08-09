@@ -342,21 +342,24 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
     onClick={() => setMenuOpen(false)} // click outside closes menu
   >
     {/* Spacer so panel starts just below navbar height */}
-    <div style={{ height: navH }} />
+    <div style={{ height: navH, background: 'var(--menu-panel-bg, var(--fl-surface))' }} />
 
     {/* Solid menu panel */}
-    <div
-      style={{
-        background: '#0F1115',
-        padding: 12,
-        display: 'grid',
-        gap: 6,
-        borderBottom: '1px solid rgba(255,255,255,.06)',
-        position: 'relative',
-        zIndex: 1001 // keep menu content above the background scrim
-      }}
-      onClick={(e) => e.stopPropagation()} // prevent closing when clicking inside menu
-    >
+<div
+  style={{
+    background: 'var(--menu-panel-bg, var(--fl-surface))',
+    color: 'var(--text)',
+    padding: 12,
+    display: 'grid',
+    gap: 6,
+    borderBottom: '1px solid var(--panel-border, var(--fl-border, var(--border)))',
+    boxShadow: 'var(--shadow)',
+    position: 'relative',
+    zIndex: 1001
+  }}
+  onClick={(e) => e.stopPropagation()}
+>
+
       {/* menu items here */}
 
       <NavLink
@@ -366,6 +369,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
       >
         Explore
       </NavLink>
+      <div style={{ height: 1, background: 'var(--panel-border, var(--border))', opacity: .6, margin: '6px 0' }} />
 
       {/* Tools: button toggles submenu (no navigation) */}
       <div style={{ paddingTop: 6 }}>
@@ -392,6 +396,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
           <span>Tools</span>
           <span>{toolsMobileOpen ? '▴' : '▾'}</span>
         </button>
+        <div style={{ height: 1, background: 'var(--panel-border, var(--border))', opacity: .6, margin: '6px 0' }} />
 
         {toolsMobileOpen && (
           <div
