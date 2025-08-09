@@ -239,11 +239,11 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
             {/* Username row: title + Change/Save */}
             {!editingName ? (
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <div style={{ fontWeight:700, fontSize:20, textAlign:'center', color:'#FFB82E' }}>{title}</div>
+                <div style={{ fontWeight:700, fontSize:20, textAlign:'center', color:'var(--fl-gold)' }}>{title}</div>
                 <button
                   className="button"
                   onClick={() => setEditingName(true)}
-                  style={{ padding:'2px 8px', fontSize:12, backgroundColor:'#366fda' }}
+                  style={{ padding:'2px 8px', fontSize:12, backgroundColor:'var(--fl-purple)' }}
                 >
                   Change Name
                 </button>

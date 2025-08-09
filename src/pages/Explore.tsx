@@ -114,7 +114,7 @@ export default function Explore() {
               className="card"
               style={{ padding: 12, textDecoration: 'none', color: 'inherit', display: 'grid', gap: 8 }}
             >
-              <div style={{ fontWeight: 800, color: '#FFB82E' }}>
+              <div style={{ fontWeight: 800, color: 'var(--fl-gold)' }}>
                 {r.name ?? 'Untitled'}{' '}
                 <span style={{ opacity: .7 }}>
                   ({r.token_symbol ?? '—'})
