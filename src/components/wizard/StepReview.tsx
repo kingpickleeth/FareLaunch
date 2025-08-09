@@ -10,7 +10,8 @@ import { useNavigate } from 'react-router-dom';
 type Props = {
   value: WizardData;
   onBack: () => void;
-  onFinish?: () => void; // optional
+  onFinish?: () => void; // called after successful Create or Save Draft to let parent reset wizard
+  editingId?: string;     // <-- we’ll actually use this below
 };
 
 async function upsertAllowlistBatched(saleId: string, addrs: string[]) {
@@ -25,7 +26,7 @@ async function upsertAllowlistBatched(saleId: string, addrs: string[]) {
   }
 }
 
-export default function StepReview({ value, onBack, onFinish }: Props) {
+export default function StepReview({ value, onBack, onFinish, editingId }: Props) {
   const { address, isConnected } = useAccount();
   const navigate = useNavigate();
 
@@ -54,10 +55,11 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
         sample: rawAddrs.slice(0, 3),
       });
 
-      // insert/promote to upcoming
-      const row = await upsertLaunch(address, value, undefined, 'upcoming');
+      // INSERT new or UPDATE existing to "upcoming"
+      const row = await upsertLaunch(address, value, editingId, 'upcoming'); // <-- use editingId
       console.log('[Review] launch row returned', { id: row?.id, typeofId: typeof row?.id });
 
+      // If allowlist enabled: verify & upload
       if (value.allowlist?.enabled) {
         const normalized = Array.from(
           new Set(
@@ -66,10 +68,12 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
               .filter((a): a is string => !!a && isAddress(a))
           )
         );
+
         if (normalized.length === 0) {
           alert('Allowlist is enabled but contains 0 valid addresses.');
           return;
         }
+
         const { root: recomputed } = makeMerkle(normalized);
         if (!value.allowlist.root || recomputed !== value.allowlist.root) {
           console.warn('[Review] Merkle mismatch', { wizard: value.allowlist.root, recomputed });
@@ -79,6 +83,7 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
 
         await upsertAllowlistBatched(row.id, normalized);
 
+        // Patch launch with root & count if missing/stale
         if (row.allowlist_root !== value.allowlist.root || row.allowlist_count !== normalized.length) {
           const { error: patchErr } = await supabase
             .from('launches')
@@ -89,11 +94,23 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
             .eq('id', row.id);
           if (patchErr) throw patchErr;
         }
+      } else {
+        // If editing and allowlist is now disabled, clear any previous root/count
+        if (editingId) {
+          const { error: clrErr } = await supabase
+            .from('launches')
+            .update({ allowlist_root: null, allowlist_count: null, allowlist_enabled: false })
+            .eq('id', row.id);
+          if (clrErr) throw clrErr;
+        }
       }
 
       alert(`Launch created! ID: ${row.id}`);
-      // 👉 go to the sale you just created
+
+      // 👉 Navigate to the sale you just created / promoted
       navigate(`/sale/${row.id}`, { replace: true });
+
+      // 👉 Let parent reset wizard state / clear any storage
       onFinish?.();
     } catch (e: any) {
       console.error(e);
@@ -107,10 +124,15 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
         alert('Connect your wallet first.');
         return;
       }
-      const row = await upsertLaunch(address, value);
+      // UPDATE existing draft if editing, otherwise INSERT new draft
+      const row = await upsertLaunch(address, value, editingId);
       alert(`Saved draft! ID: ${row.id}`);
+
       // drafts → My Launches
       navigate('/me', { replace: true });
+
+      // Let parent reset wizard (so next Create starts fresh)
+      onFinish?.();
     } catch (e: any) {
       console.error(e);
       alert(`Failed to save draft: ${e?.message || e}`);
