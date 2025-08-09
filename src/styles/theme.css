@@ -21,6 +21,7 @@
     background: var(--fl-bg);
     color: var(--fl-text);
     font-family: var(--font-body);
+    overflow-x: hidden;
   }
   
   a { color: inherit; text-decoration: none; }
@@ -72,4 +73,167 @@ input[type="time"] {
   padding: 12px 16px; font-weight: 600; cursor: pointer; border: none;
   transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
   background-color: var(--fl-gold);
+}
+
+/* === SaleDetail responsive helpers === */
+.sale-detail { max-width: 100%; }
+
+/* Header: stack on small, row on larger */
+.sale-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap; /* allows clean wrap on narrow screens */
+}
+.sale-logo {
+  width: 56px; height: 56px; border-radius: 12px; object-fit: cover;
+  background: #2a2d36;
+}
+.sale-logo.placeholder { background: #2a2d36; }
+.sale-title { min-width: 0; }
+.sale-creator { opacity: .75; font-size: 12px; }
+
+/* Meta row: wrap gracefully */
+.meta-line {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.meta-text { opacity: .85; }
+
+/* Compact timer on small screens */
+.meta-timer { font-size: 14px; opacity: .95; }
+
+/* Metrics: 2 columns on mobile, 4 on md+ */
+.meta-grid {
+  display: grid;
+  gap: 8px 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  font-family: var(--font-data);
+}
+@media (min-width: 720px) {
+  .meta-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+/* Progress bar */
+.progress-outer {
+  height: 8px;
+  border-radius: 999px;
+  background: #2a2d36;
+  overflow: hidden;
+}
+.progress-inner {
+  height: 100%;
+  background: var(--fl-purple);
+}
+
+/* Actions: sticky at bottom on phones, inline on md+ */
+.sale-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  position: sticky;
+  bottom: 0;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--fl-bg) 92%, black 8%); /* subtle opacity */
+  border-top: 1px solid rgba(255,255,255,.06);
+  backdrop-filter: blur(4px);
+  z-index: 5;
+}
+@media (min-width: 720px) {
+  .sale-actions {
+    position: static;
+    padding: 0;
+    background: transparent;
+    border-top: 0;
+    backdrop-filter: none;
+  }
+}
+
+/* Long strings/URLs don’t explode layouts */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+/* --- SaleDetail: prevent horizontal overflow on tiny screens --- */
+.sale-detail,
+.sale-detail .card,
+.sale-header,
+.meta-line {
+  min-width: 0;               /* allow children to shrink */
+}
+
+.sale-detail * { box-sizing: border-box; }
+
+.sale-detail img,
+.sale-detail video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Long strings/urls/addresses */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* Inputs inside Allowlist/links never exceed viewport */
+.sale-detail input,
+.sale-detail textarea,
+.sale-detail a {
+  max-width: 100%;
+}
+
+/* Actions bar: never creates extra width */
+.sale-actions {
+  width: 100%;
+  box-sizing: border-box;
+  flex-wrap: wrap;
+}
+.sale-actions .button {
+  min-width: 0;               /* let buttons shrink */
+  white-space: normal;        /* allow wrapping */
+  flex: 1 1 auto;             /* share space nicely */
+}
+
+/* Optional: last resort to kill stray 1–2px overflow from shadows */
+html, body, #root { overflow-x: hidden; }
+/* --- Allowlist: keep within viewport on tiny screens --- */
+.allowlist-wrap,
+.allowlist-wrap * {
+  min-width: 0; /* allow shrink in flex/grid contexts */
+  box-sizing: border-box;
+}
+
+/* Make any text inputs shrink and not force horizontal scroll */
+.allowlist-wrap input[type="text"],
+.allowlist-wrap input[type="search"],
+.allowlist-wrap textarea {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Style + wrap long hashes (root, addresses) safely */
+.allowlist-wrap .hash,
+.allowlist-wrap .merkle-root,
+.allowlist-wrap code,
+.allowlist-wrap .mono {
+  display: block;
+  font-family: var(--font-data, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  background: #101216;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px;
+  padding: 6px 8px;
+  overflow-wrap: anywhere;  /* wrap at any point */
+  word-break: break-all;    /* fallback for older browsers */
+  max-width: 100%;
+}
+
+
+/* If the allowlist has buttons inline, let them wrap nicely */
+.allowlist-wrap .button {
+  min-width: 0;
+  white-space: normal;
 }
