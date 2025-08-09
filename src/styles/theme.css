@@ -294,11 +294,8 @@ html, body, #root { overflow-x: hidden; }
 .tokenomics-grid-3 {
   display: grid;
   gap: 12px;
-  grid-template-columns:
-    minmax(220px, 1fr)
-    minmax(200px, 1fr)
-    minmax(200px, 1fr);
-  align-items: end;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;           /* <-- was end; make inputs line up */
 }
 .tokenomics-grid-2 {
   display: grid;
@@ -329,4 +326,110 @@ html, body, #root { overflow-x: hidden; }
   .navsubtitle {
     display: none !important;
   }
+}
+/* Basics top grid */
+.basics-head {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(96px, 120px) minmax(0, 1fr); /* right side can shrink */
+  align-items: center;
+  min-width: 0;
+}
+
+/* Website/Twitter row */
+.webtw-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  min-width: 0;
+}
+
+/* Token row */
+.token-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(160px, 1fr) minmax(100px, 160px) minmax(60px, 100px);
+  min-width: 0;
+}
+
+/* Let fields actually shrink and not force horizontal scroll */
+.basics-head label,
+.webtw-grid label,
+.token-grid label {
+  min-width: 0;
+}
+.basics-head input,
+.basics-head textarea,
+.webtw-grid input,
+.webtw-grid textarea,
+.token-grid input {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Stack on narrow screens */
+@media (max-width: 640px) {
+  .basics-head { grid-template-columns: 1fr; align-items: start; }
+  .token-grid  { grid-template-columns: 1fr; }
+}
+/* Make decimals stay tiny on all breakpoints */
+.token-grid .ticker-col {
+  justify-self: start;
+}
+.token-grid .ticker-input {
+  width: 140px;
+  max-width: 180px;
+}
+
+.token-grid .decimals-col {
+  justify-self: start;
+}
+.token-grid .decimals-input {
+  width: 72px;
+  min-width: 72px;
+  max-width: 72px;
+  text-align: center;
+  padding-left: 6px;
+  padding-right: 6px;
+}
+.tokenomics-grid-3 label {
+  display: grid;
+  gap: 6px;
+}
+.tokenomics-grid-3 label small {
+  display: block;
+  min-height: 18px;             /* tweak (18–24px) if you want tighter/looser */
+}
+
+.allowlist-toggle {
+  display: flex;
+  align-items: center;       /* center checkbox + text vertically */
+  gap: 8px;                  /* smaller gap between box and text */
+  padding: 8px 12px;         /* less padding around the whole pill */
+  background: #2a2d36;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 12px;
+  color: #fff;
+  text-align: left;
+  width: fit-content;        /* change to 100% if you want full-width */
+  user-select: none;
+  cursor: pointer;
+}
+
+.allowlist-toggle input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin: 0;                 /* no default browser offset */
+  accent-color: var(--fl-gold);
+}
+
+.allowlist-toggle__text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+}
+
+.allowlist-toggle__text > span { 
+  opacity: .85; 
+  font-weight: 600; 
 }

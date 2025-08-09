@@ -5,8 +5,39 @@ import { useAccount } from 'wagmi';
 
 import { supabase } from '../../lib/supabase';
 import { makeMerkle, isAddress } from '../../utils/merkle';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';// Always return a string (or undefined) so it matches the WizardData fields
+function stripCommasStr(v: unknown): string | undefined {
+  if (v === null || v === undefined) return undefined;
+  const s = String(v).replace(/,/g, '').trim();
+  return s === '' ? undefined : s;
+}
 
+function sanitizeWizardNumbers(w: WizardData): WizardData {
+  return {
+    ...w,
+    token: {
+      ...w.token,
+      totalSupply: stripCommasStr(w.token.totalSupply),
+    },
+    sale: {
+      // keep required literal fields intact
+      kind: w.sale?.kind ?? 'fair',
+      quote: (w.sale?.quote ?? 'WAPE') as 'WAPE',
+
+      // pass through simple fields
+      start: w.sale?.start,
+      end: w.sale?.end,
+      keepPct: w.sale?.keepPct,
+
+      // strip commas from numeric-string fields
+      softCap:        stripCommasStr(w.sale?.softCap),
+      hardCap:        stripCommasStr(w.sale?.hardCap),
+      saleTokensPool: stripCommasStr(w.sale?.saleTokensPool),
+      minPerWallet:   stripCommasStr(w.sale?.minPerWallet),
+      maxPerWallet:   stripCommasStr(w.sale?.maxPerWallet),
+    },
+  };
+}
 type Props = {
   value: WizardData;
   onBack: () => void;
@@ -56,7 +87,8 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
       });
 
       // INSERT new or UPDATE existing to "upcoming"
-      const row = await upsertLaunch(address, value, editingId, 'upcoming'); // <-- use editingId
+      const sanitized = sanitizeWizardNumbers(value);
+      const row = await upsertLaunch(address, sanitized, editingId, 'upcoming');
       console.log('[Review] launch row returned', { id: row?.id, typeofId: typeof row?.id });
 
       // If allowlist enabled: verify & upload
@@ -125,7 +157,8 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         return;
       }
       // UPDATE existing draft if editing, otherwise INSERT new draft
-      const row = await upsertLaunch(address, value, editingId);
+      const sanitized = sanitizeWizardNumbers(value);
+      const row = await upsertLaunch(address, sanitized, editingId);
       alert(`Saved draft! ID: ${row.id}`);
 
       // drafts → My Launches

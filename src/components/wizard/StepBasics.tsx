@@ -43,7 +43,6 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
   function openPicker() {
     fileRef.current?.click();
   }
-
   function onKeyOpen(e: React.KeyboardEvent<HTMLDivElement>) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
@@ -58,19 +57,13 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
   }
 
   return (
-    <div className="card" style={{ padding: 16, display: 'grid', gap: 16 }}>
+    <div className="card" style={{ padding: 16, display: 'grid', gap: 16, maxWidth: '100%' }}>
       <div className="h2">Basics</div>
 
-      <div
-        style={{
-          display: 'grid',
-          gap: 12,
-          gridTemplateColumns: '120px 1fr',
-          alignItems: 'center',
-        }}
-      >
-        <div style={{ display: 'grid', gap: 10, justifyItems: 'center' }}>
-          {/* Clickable logo tile */}
+      {/* Logo + fields (responsive grid via CSS) */}
+      <div className="basics-head">
+        {/* Left: logo block */}
+        <div style={{ display: 'grid', gap: 10, justifyItems: 'center', minWidth: 0 }}>
           <div
             role="button"
             tabIndex={0}
@@ -117,7 +110,6 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
             )}
           </div>
 
-          {/* Hidden input; visible button that looks like a button */}
           <input
             ref={fileRef}
             type="file"
@@ -129,17 +121,15 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
             type="button"
             className="button"
             onClick={openPicker}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid rgba(255,255,255,.12)',
-            }}
+            style={{ padding: '8px 12px', border: '1px solid rgba(255,255,255,.12)' }}
           >
             Upload Logo
           </button>
         </div>
 
-        <div style={{ display: 'grid', gap: 12 }}>
-          <label style={{ display: 'grid', gap: 6 }}>
+        {/* Right: text fields */}
+        <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
+          <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
             <div>Project Name</div>
             <input
               value={local.project.name}
@@ -154,17 +144,14 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
             />
           </label>
 
-          <label style={{ display: 'grid', gap: 6 }}>
+          <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
             <div>Short Description</div>
             <textarea
               value={local.project.description ?? ''}
               onChange={e =>
                 setLocal({
                   ...local,
-                  project: {
-                    ...local.project,
-                    description: e.target.value,
-                  },
+                  project: { ...local.project, description: e.target.value },
                 })
               }
               rows={3}
@@ -173,9 +160,10 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
             />
           </label>
 
-          <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
-            <label style={{ display: 'grid', gap: 6 }}>
-              <div>Website (https)</div>
+          {/* Website / Twitter — responsive 2-up via CSS */}
+          <div className="webtw-grid">
+            <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
+              <div>Website</div>
               <input
                 value={local.project.website ?? ''}
                 onChange={e =>
@@ -189,7 +177,7 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
               />
             </label>
 
-            <label style={{ display: 'grid', gap: 6 }}>
+            <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
               <div>Twitter</div>
               <input
                 value={local.project.twitter ?? ''}
@@ -209,20 +197,16 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
 
       <div className="h2" style={{ marginTop: 8 }}>Token</div>
 
-      <div
-  style={{
-    display: 'grid',
-    gap: 12,
-    /* Token name prefers >=160px; ticker prefers 100–160px; decimals prefers 60–100px */
-    gridTemplateColumns: 'minmax(160px, 1fr) minmax(100px, 160px) minmax(30px, 70px)',
-  }}
->
+      {/* Token row — responsive via CSS */}
+   {/* Token row — responsive via CSS */}
+<div className="token-grid">
   {/* Token Name */}
-  <label style={{ display: 'grid', gap: 6 }}>
+  <label className="name-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
     <div>Token Name</div>
     <input
+      type="text"
       value={local.token.name}
-      onChange={e =>
+      onChange={(e) =>
         setLocal({
           ...local,
           token: { ...local.token, name: e.target.value },
@@ -234,49 +218,48 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
   </label>
 
   {/* Ticker */}
-  <label style={{ display: 'grid', gap: 6 }}>
+  <label className="ticker-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
     <div>Ticker</div>
     <input
+      className="ticker-input"
+      type="text"
+      maxLength={9}
       value={local.token.symbol}
-      onChange={e =>
+      onChange={(e) =>
         setLocal({
           ...local,
-          token: {
-            ...local.token,
-            symbol: e.target.value.toUpperCase(),
-          },
+          token: { ...local.token, symbol: e.target.value.toUpperCase() },
         })
       }
       placeholder="FLCH"
       style={inputStyle}
-      maxLength={8}
     />
   </label>
 
- {/* Decimals */}
-<label style={{ display: 'grid', gap: 6 }}>
-  <div>Decimals</div>
-  <input
-    type="number"
-    min={0}
-    max={18}
-    value={local.token.decimals}
-    onChange={e =>
-      setLocal({
-        ...local,
-        token: {
-          ...local.token,
-          decimals: Math.max(0, Math.min(18, Number(e.target.value))),
-        },
-      })
-    }
-    style={{ ...inputStyle, textAlign: 'center' }}
-  />
-</label>
+  {/* Decimals */}
+  <label className="decimals-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
+    <div>Decimals</div>
+    <input
+      className="decimals-input"
+      type="number"
+      min={0}
+      max={18}
+      value={local.token.decimals}
+      onChange={(e) =>
+        setLocal({
+          ...local,
+          token: {
+            ...local.token,
+            decimals: Math.max(0, Math.min(18, Number(e.target.value))),
+          },
+        })
+      }
+      style={{ ...inputStyle, textAlign: 'center' }}
+    />
+  </label>
 </div>
 
-
-      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         <button
           className="button button-primary"
           onClick={commitAndNext}
