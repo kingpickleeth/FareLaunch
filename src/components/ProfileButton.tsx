@@ -157,8 +157,8 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
           <img
             src={avatar}
             alt=""
-            width={38}
-            height={38}
+            width={34}
+            height={34}
             style={{ borderRadius: '50%',
                 objectFit: 'cover' }}
           />
