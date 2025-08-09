@@ -1,4 +1,3 @@
-import { saveAs as saveFile } from 'file-saver';
 import type { WizardData } from '../../types/wizard';
 import { upsertLaunch } from '../../data/launches';
 import { useAccount } from 'wagmi';
@@ -61,11 +60,7 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
   const { address, isConnected } = useAccount();
   const navigate = useNavigate();
 
-  function download() {
-    const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
-    saveFile(blob, `farelaunch-config-${Date.now()}.json`);
-  }
-
+ 
   async function handleCreate() {
     try {
       if (!isConnected || !address) {
