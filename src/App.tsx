@@ -128,8 +128,6 @@ export default function App() {
             )}
           </div>
 
-          <NavLink to="/me" style={({ isActive }) => (isActive ? linkActive : linkIdle)}>My Launches</NavLink>
-
           <div style={{ marginLeft: 8 }}>
   <ProfileButton onConnect={openConnectModal} />
 </div>
