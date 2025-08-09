@@ -1,9 +1,10 @@
 // src/pages/SaleDetail.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getLaunch } from '../data/launches';
 import { salePhase, countdown } from '../utils/time';
 import AllowlistCheck from '../components/AllowlistCheck';
+import { supabase } from '../lib/supabase';
 
 type AnyRow = Record<string, any>;
 
@@ -12,28 +13,105 @@ export default function SaleDetail() {
   const [row, setRow] = useState<AnyRow | null>(null);
   const [err, setErr] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const [, setTick] = useState(0); // re-render every second for countdown
 
-  // ticker
+  // ticker (re-render every second)
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // fetch
+  // fetch the launch
   useEffect(() => {
     if (!id) return;
+    console.log('[SaleDetail] Fetching launch with id:', id);
     setLoading(true);
     getLaunch(id)
-      .then((r) => setRow(r))
-      .catch((e) => setErr(e?.message ?? String(e)))
+      .then((r) => {
+        console.log('[SaleDetail] Launch fetched:', r);
+        setRow(r);
+      })
+      .catch((e) => {
+        console.error('[SaleDetail] Error fetching launch:', e);
+        setErr(e?.message ?? String(e));
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
+ // Update Supabase status when computed phase differs from DB row.status
+const lastPhaseSentRef = useRef<string | null>(null);
+useEffect(() => {
+  if (!row?.id) {
+    console.log('[SaleDetail] No row.id, skipping status update');
+    return;
+  }
+
+  const newPhase = salePhase(Date.now(), row.start_at, row.end_at); // 'upcoming' | 'active' | 'ended' | 'tba'
+  console.log('[SaleDetail] Current phase calculation:', {
+    now: new Date().toISOString(),
+    start_at: row.start_at,
+    end_at: row.end_at,
+    newPhase,
+    dbPhase: row.status,
+    lastPhaseSent: lastPhaseSentRef.current,
+    rowId: row.id,
+  });
+
+  if (!newPhase || newPhase === 'tba') return;
+  if (newPhase === row.status) return;
+  if (newPhase === lastPhaseSentRef.current) return;
+
+  let cancelled = false;
+
+  (async () => {
+    // (Optional) log auth; it's fine if there's no session
+    const { data: userInfo, error: authErr } = await supabase.auth.getUser();
+    if (authErr) console.warn('[SaleDetail] auth.getUser error (expected if anon):', authErr.message);
+    console.log('[SaleDetail] Auth user for update:', userInfo?.user?.id ?? null);
+
+    // 1) Minimal UPDATE (no returning). This avoids RLS “returning” issues.
+    console.log('[SaleDetail] UPDATE (minimal) →', newPhase);
+    const { error: updErr } = await supabase
+      .from('launches')      // 🔁 make sure this is your table
+      .update({ status: newPhase })
+      .eq('id', row.id);     // 🔁 make sure 'id' is the correct PK column
+
+    if (updErr) {
+      console.error('[SaleDetail] UPDATE failed:', updErr);
+      return;
+    }
+    console.log('[SaleDetail] UPDATE sent successfully (no return body).');
+
+    // 2) Update local UI immediately so it reflects the new phase
+    lastPhaseSentRef.current = newPhase;
+    if (!cancelled) {
+      setRow(prev => (prev ? { ...prev, status: newPhase } : prev));
+    }
+
+    // 3) (Optional) Try to verify with a fresh SELECT; may still be blocked by RLS post-update
+    const { data: verify, error: verifyErr } = await supabase
+      .from('launches')
+      .select('id,status')
+      .eq('id', row.id)
+      .maybeSingle();
+
+    if (verifyErr) {
+      console.warn('[SaleDetail] Post-update SELECT error (likely RLS):', verifyErr.message);
+    } else {
+      console.log('[SaleDetail] Post-update SELECT:', verify);
+    }
+  })();
+
+  return () => { cancelled = true; };
+}, [row?.id, row?.start_at, row?.end_at, row?.status, tick]);
+
+
+  // ---- Early returns (keep AFTER all hooks) ----
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'tomato' }}>Error: {err}</div>;
   if (!row) return <div style={{ padding: 24 }}>Sale not found.</div>;
 
+  // Derived display values
   const start = row.start_at ? new Date(row.start_at) : null;
   const end = row.end_at ? new Date(row.end_at) : null;
 
@@ -112,9 +190,7 @@ export default function SaleDetail() {
       </div>
 
       {/* Allowlist (client demo) */}
-
-
-<AllowlistCheck saleId={row.id} root={row.allowlist_root} />
+      <AllowlistCheck saleId={row.id} root={row.allowlist_root} />
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8 }}>
