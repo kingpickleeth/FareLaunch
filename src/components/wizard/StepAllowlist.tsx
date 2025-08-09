@@ -111,7 +111,7 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
           type="checkbox"
           checked={enabled}
           onChange={(e) => setEnabled(e.target.checked)}
-          style={{ marginRight: 8 }}
+          style={{ marginRight: 8, color:'#ffffff' }}
         />
         Enable allowlist (private sale)
       </label>
