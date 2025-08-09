@@ -124,8 +124,16 @@ export default function Explore() {
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)' }}>
                 <StatusBadge s={r.status} />
                 <span style={{ opacity: .7 }}>
-                  {r.start_at ? new Date(r.start_at).toLocaleString() : 'TBA'}
-                </span>
+  {r.start_at
+    ? new Date(r.start_at).toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    : 'TBA'}
+</span>
+
               </div>
 
               <div style={{ opacity: .85, fontFamily: 'var(--font-data)' }}>

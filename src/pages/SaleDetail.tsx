@@ -158,8 +158,30 @@ useEffect(() => {
             {phase}
           </span>
           <span style={{ opacity: .85 }}>
-            Window: <b>{start?.toLocaleString() ?? 'TBA'}</b> → <b>{end?.toLocaleString() ?? 'TBA'}</b>
-          </span>
+  Presale Window:{' '}
+  <b>
+    {start
+      ? start.toLocaleString([], {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      : 'TBA'}
+  </b>{' '}
+  →{' '}
+  <b>
+    {end
+      ? end.toLocaleString([], {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      : 'TBA'}
+  </b>
+</span>
+
         </div>
 
         {timeToShow && (
