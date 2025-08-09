@@ -14,7 +14,7 @@ type Row = {
   hard_cap: string | null;
 };
 
-const STATUS_FILTERS = ['all','upcoming','active','ended','finalized','failed'] as const;
+const STATUS_FILTERS = ['all','upcoming','active','finalized','failed'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
 
 export default function Explore() {
