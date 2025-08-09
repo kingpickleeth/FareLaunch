@@ -92,12 +92,11 @@ useEffect(() => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-   <nav   ref={navRef}
-  style={{
-  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-  padding: '16px 24px', position: 'sticky', top: 0, background: 'rgba(15,17,21,.7)',
-  backdropFilter: 'blur(8px)', borderBottom: '1px solid rgba(255,255,255,.)', zIndex: 2000}}>
+<div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}> <nav ref={navRef}
+style={{
+display:'flex', justifyContent:'space-between', alignItems:'center',
+padding:'16px 24px', background:'rgba(15,17,21,.7)',
+backdropFilter:'blur(8px)', borderBottom:'1px solid rgba(255,255,255,.)', zIndex:2000}}>
   {/* Brand */}
   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
   <div
@@ -329,8 +328,8 @@ useEffect(() => {
     </div>
   </div>
 )}
-      <main style={{ padding: '24px', flex: 1, width: '100%', maxWidth: 1200, margin: '0 auto' }}>
-        <Outlet />
+   <main style={{ padding:'24px', flex:'1 1 auto', minHeight:0, overflowY:'auto',
+   width:'100%', maxWidth:1200, margin:'0 auto' }}><Outlet />
       </main>
 
       <footer style={{ padding: '24px', opacity: .7, fontSize: 12 }}>

@@ -237,3 +237,10 @@ html, body, #root { overflow-x: hidden; }
   min-width: 0;
   white-space: normal;
 }
+.sale-detail .sale-actions {
+  position: static !important;
+  background: transparent !important;
+  border-top: 0 !important;
+  backdrop-filter: none !important;
+  padding: 0 !important;
+}
