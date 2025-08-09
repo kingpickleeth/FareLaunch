@@ -322,8 +322,8 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
               className="button"
               href="/me"
               style={{
-                minWidth:140, textAlign:'center', color: '#FFB82E',
-                border: '1px solid rgba(255,255,255,.12)'
+                minWidth:140, textAlign:'center',
+                border: '1px solid rgba(255,255,255,.12)', color: '#1A1C23'
               }}
             >
               Dashboard
@@ -332,7 +332,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
               className="button"
               href="/launch"
               style={{
-                minWidth:140, textAlign:'center',color: '#FFB82E',
+                minWidth:140, textAlign:'center',color: '#1A1C23',
                 border: '1px solid rgba(255,255,255,.12)'
               }}
             >
