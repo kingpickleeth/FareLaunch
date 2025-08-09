@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import ProfileButton from './components/ProfileButton';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 
 const PUBLIC_ROUTES = new Set<string>(['/']);
 
@@ -22,6 +24,7 @@ export default function App() {
   const { isConnected } = useAccount();
   const { pathname } = useLocation();
   const isPublic = PUBLIC_ROUTES.has(pathname);
+  const { openConnectModal } = useConnectModal();
 
   // dropdown state
   const [toolsOpen, setToolsOpen] = useState(false);
@@ -63,7 +66,7 @@ export default function App() {
           <div style={{ fontFamily: 'var(--font-head)', fontWeight: 800, color: 'var(--fl-gold)', fontSize: 22 }}>
             Farelaunch
           </div>
-          <span style={{ fontSize: 12, opacity: .7 }}>Camelot · ApeChain</span>
+          <span style={{ fontSize: 12, opacity: .7 }}> on ApeChain // Camelot</span>
         </div>
 
         {/* Nav */}
@@ -128,8 +131,8 @@ export default function App() {
           <NavLink to="/me" style={({ isActive }) => (isActive ? linkActive : linkIdle)}>My Launches</NavLink>
 
           <div style={{ marginLeft: 8 }}>
-            <ConnectButton chainStatus="icon" showBalance={false} accountStatus="address" />
-          </div>
+  <ProfileButton onConnect={openConnectModal} />
+</div>
         </div>
       </nav>
 
