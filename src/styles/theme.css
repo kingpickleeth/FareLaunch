@@ -21,9 +21,11 @@
     background: var(--fl-bg);
     color: var(--fl-text);
     font-family: var(--font-body);
-    overflow-x: hidden;
+    overflow: hidden;
   }
-  
+  #root > div,                /* your React app root wrapper */
+  .app-shell { min-height: 0; }
+
   a { color: inherit; text-decoration: none; }
   * { box-sizing: border-box; }
   
@@ -66,6 +68,7 @@ input[type="time"] {
   box-sizing: border-box;
 }
 
+nav, footer { flex: 0 0 auto; }
 
 .buttonfilter {
   display:inline-flex; align-items:center; justify-content:center;
@@ -74,7 +77,13 @@ input[type="time"] {
   transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
   background-color: var(--fl-gold);
 }
-
+main {
+  flex: 1 1 auto;
+  min-height: 0;           /* 👈 necessary in many browsers */
+  overflow-y: auto;        /* 👈 the one scrollbar */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
 /* === SaleDetail responsive helpers === */
 .sale-detail { max-width: 100%; }
 

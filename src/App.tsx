@@ -92,11 +92,13 @@ useEffect(() => {
   }
 
   return (
-<div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}> <nav ref={navRef}
+<div className="app-shell" style={{ height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}> 
+  
+<nav ref={navRef}
 style={{
 display:'flex', justifyContent:'space-between', alignItems:'center',
 padding:'16px 24px', background:'rgba(15,17,21,.7)',
-backdropFilter:'blur(8px)', borderBottom:'1px solid rgba(255,255,255,.)', zIndex:2000}}>
+backdropFilter:'blur(8px)', borderBottom:'1px solid var( --fl-gold)', zIndex:2000}}>
   {/* Brand */}
   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
   <div
