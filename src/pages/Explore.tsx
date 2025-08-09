@@ -43,7 +43,7 @@ export default function Explore() {
   }, [rows, q, status]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
-  if (err) return <div style={{ padding: 24, color: 'tomato' }}>Error: {err}</div>;
+  if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -55,52 +55,57 @@ export default function Explore() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           style={{
-            background: '#101216',
-            border: '1px solid rgba(255,255,255,.08)',
-            color: 'var(--fl-white)',
+            background: 'var(--input-bg, var(--fl-surface))',
+            border: '1px solid var(--input-border, var(--border))',
+            color: 'var(--text)',
             borderRadius: 12,
             padding: '8px 12px',
-            minWidth: 260
+            minWidth: 260,
+            boxShadow: 'var(--input-shadow, none)',
+            outline: 'none',
           }}
         />
       </div>
 
       {/* Status filters */}
-    {/* Status filters */}
-<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-  {STATUS_FILTERS.map((opt) => {
-    const active = status === opt;
-    return (
-      <button
-        key={opt}
-        onClick={() => setStatus(opt)}
-        className="buttonfilter"
-        style={{
-          padding: '6px 12px',
-          borderRadius: 999,
-          background: active ? 'var(--fl-purple)' : 'transparent',  // white when active
-          color: active ? '#ffffff' : 'var(--fl-purple)',               // black text on active
-          border: '1px solid var(--fl-purple)',                      // always visible border
-          fontWeight: 600,
-          textTransform: 'capitalize',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          if (!active) (e.currentTarget.style.background = 'rgba(255,255,255,0.1)');
-        }}
-        onMouseLeave={(e) => {
-          if (!active) (e.currentTarget.style.background = 'transparent');
-        }}
-      >
-        {opt}
-      </button>
-    );
-  })}
-</div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {STATUS_FILTERS.map((opt) => {
+          const active = status === opt;
+          return (
+            <button
+              key={opt}
+              onClick={() => setStatus(opt)}
+              className="buttonfilter"
+              style={{
+                padding: '6px 12px',
+                borderRadius: 999,
+                background: active
+                  ? 'var(--chip-active-bg, var(--fl-purple))'
+                  : 'var(--chip-bg, transparent)',
+                color: active
+                  ? 'var(--chip-active-fg, #ffffff)'
+                  : 'var(--chip-fg, var(--fl-purple))',
+                border: '1px solid var(--chip-border, var(--fl-purple))',
+                fontWeight: 600,
+                textTransform: 'capitalize',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={(e) => {
+                if (!active) e.currentTarget.style.background = 'var(--chip-hover-bg, rgba(0,0,0,.08))';
+              }}
+              onMouseLeave={(e) => {
+                if (!active) e.currentTarget.style.background = 'var(--chip-bg, transparent)';
+              }}
+            >
+              {opt}
+            </button>
+          );
+        })}
+      </div>
 
       {filtered.length === 0 ? (
-        <div style={{ opacity: .75 }}>No launches match your filters.</div>
+        <div style={{ color: 'var(--muted)' }}>No launches match your filters.</div>
       ) : (
         <div style={{
           display: 'grid',
@@ -112,31 +117,40 @@ export default function Explore() {
               key={r.id}
               to={`/sale/${r.id}`}
               className="card"
-              style={{ padding: 12, textDecoration: 'none', color: 'inherit', display: 'grid', gap: 8 }}
+              style={{
+                padding: 12,
+                textDecoration: 'none',
+                color: 'inherit',
+                display: 'grid',
+                gap: 8,
+                background: 'var(--card-bg, var(--fl-surface))',
+                border: '1px solid var(--card-border, var(--border))',
+                borderRadius: 'var(--radius)',
+                boxShadow: 'var(--shadow)'
+              }}
             >
               <div style={{ fontWeight: 800, color: 'var(--fl-gold)' }}>
                 {r.name ?? 'Untitled'}{' '}
-                <span style={{ opacity: .7 }}>
+                <span style={{ color: 'var(--muted)' }}>
                   ({r.token_symbol ?? '—'})
                 </span>
               </div>
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)' }}>
                 <StatusBadge s={r.status} />
-                <span style={{ opacity: .7 }}>
-  {r.start_at
-    ? new Date(r.start_at).toLocaleString([], {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      })
-    : 'TBA'}
-</span>
-
+                <span style={{ color: 'var(--muted)' }}>
+                  {r.start_at
+                    ? new Date(r.start_at).toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })
+                    : 'TBA'}
+                </span>
               </div>
 
-              <div style={{ opacity: .85, fontFamily: 'var(--font-data)' }}>
+              <div style={{ color: 'var(--muted)', fontFamily: 'var(--font-data)' }}>
                 Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
               </div>
             </Link>
@@ -148,17 +162,56 @@ export default function Explore() {
 }
 
 function StatusBadge({ s }: { s: Row['status'] }) {
+  // Theme-driven semantic colors with safe fallbacks
   const styles: Record<string, React.CSSProperties> = {
-    active:   { background: 'rgba(46,204,113,.15)', color: '#2ecc71' },
-    upcoming: { background: 'rgba(52,152,219,.15)', color: '#3498db' },
-    ended:    { background: 'rgba(127,140,141,.15)', color: '#95a5a6' },
-    failed:   { background: 'rgba(231,76,60,.15)',  color: '#e74c3c' },
-    finalized:{ background: 'rgba(155,89,182,.15)', color: '#9b59b6' },
-    created:  { background: 'rgba(241,196,15,.15)', color: '#f1c40f' },
-    draft:    { background: 'rgba(241,196,15,.15)', color: '#f1c40f' },
+    active: {
+      background: 'var(--badge-success-bg, rgba(46,204,113,.15))',
+      color: 'var(--success, #2ecc71)',
+      border: '1px solid var(--badge-success-border, rgba(46,204,113,.35))'
+    },
+    upcoming: {
+      background: 'var(--badge-info-bg, rgba(52,152,219,.15))',
+      color: 'var(--info, #3498db)',
+      border: '1px solid var(--badge-info-border, rgba(52,152,219,.35))'
+    },
+    ended: {
+      background: 'var(--badge-muted-bg, rgba(127,140,141,.15))',
+      color: 'var(--muted-fg, #95a5a6)',
+      border: '1px solid var(--badge-muted-border, rgba(127,140,141,.35))'
+    },
+    failed: {
+      background: 'var(--badge-danger-bg, rgba(231,76,60,.15))',
+      color: 'var(--fl-danger, #e74c3c)',
+      border: '1px solid var(--badge-danger-border, rgba(231,76,60,.35))'
+    },
+    finalized: {
+      background: 'var(--badge-purple-bg, rgba(155,89,182,.15))',
+      color: 'var(--fl-purple, #9b59b6)',
+      border: '1px solid var(--badge-purple-border, rgba(155,89,182,.35))'
+    },
+    created: {
+      background: 'var(--badge-warning-bg, rgba(241,196,15,.15))',
+      color: 'var(--warning, #f1c40f)',
+      border: '1px solid var(--badge-warning-border, rgba(241,196,15,.35))'
+    },
+    draft: {
+      background: 'var(--badge-warning-bg, rgba(241,196,15,.15))',
+      color: 'var(--warning, #f1c40f)',
+      border: '1px solid var(--badge-warning-border, rgba(241,196,15,.35))'
+    },
   };
   return (
-    <span className="badge" style={{ ...(styles[s] || {}), padding: '2px 8px', borderRadius: 999, textTransform:'capitalize' }}>
+    <span
+      className="badge"
+      style={{
+        ...(styles[s] || {}),
+        padding: '2px 8px',
+        borderRadius: 999,
+        textTransform:'capitalize',
+        fontWeight: 700,
+        fontFamily: 'var(--font-data)'
+      }}
+    >
       {s}
     </span>
   );

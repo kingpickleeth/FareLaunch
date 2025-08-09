@@ -1,4 +1,35 @@
-:root {
+/* ===========================================================================
+   1) THEME TOKENS
+   ========================================================================== */
+   :root {
+    /* Brand + palette (dark defaults) */
+    --fl-gold: #FFB82E;
+    --fl-purple: #366fda;
+    --fl-aqua: #2EE8A3;
+    --fl-bg: #0F1115;
+    --fl-surface: #1A1C23;
+    --fl-text: #FFFFFF;
+    --fl-danger: #FF4F4F;
+    --fl-white: #FFFFFF;
+    --nav-bg: rgba(15,17,21,.7);
+    --scrim: rgba(0,0,0,.7);
+  
+    /* Global radii/shadows/typography */
+    --radius: 14px;
+    --shadow: 0 4px 12px rgba(0,0,0,0.25);
+    --font-head: "Baloo 2", system-ui, sans-serif;
+    --font-body: "Nunito Sans", system-ui, sans-serif;
+    --font-data: "Manrope", system-ui, sans-serif;
+  
+    /* Aliases + defaults (work for dark until overridden) */
+    --text: var(--fl-text);
+    --border: rgba(255,255,255,.12);
+    --btn-bg: rgba(255,255,255,.06);
+    --link: var(--text);
+  }
+  
+  :root[data-theme="dark"] {
+    /* Palette */
     --fl-gold: #FFB82E;
     --fl-purple: #366fda;
     --fl-aqua: #2EE8A3;
@@ -8,14 +39,129 @@
     --fl-danger: #FF4F4F;
     --fl-white: #FFFFFF;
   
-    --radius: 14px;
-    --shadow: 0 4px 12px rgba(0,0,0,0.25);
+    /* UI surfaces */
+    --nav-bg: rgba(15,17,21,.7);
+    --scrim: rgba(0,0,0,.7);
   
-    --font-head: "Baloo 2", system-ui, sans-serif;
-    --font-body: "Nunito Sans", system-ui, sans-serif;
-    --font-data: "Manrope", system-ui, sans-serif;
+    /* Tables */
+    --table-header-bg: rgba(255,255,255,0.04);
+    --table-row-bg: transparent;
+    --table-row-hover-bg: rgba(255,255,255,0.03);
+    --table-border: var(--border);
+  
+    /* Hooks used by components */
+    --menu-panel-bg: var(--fl-surface);
+    --panel-border: var(--fl-border, var(--border));
+    --item-active-bg: rgba(255,255,255,.08);
+    --muted: rgba(255,255,255,.75);
+    --link-active-bg: rgba(255,255,255,.08);
+  
+    /* Form + card tokens */
+    --input-bg: var(--fl-surface);
+    --input-border: var(--border);
+    --input-shadow: none;
+    --card-bg: var(--fl-surface);
+    --card-border: var(--border);
+  
+    /* Chips */
+    --chip-bg: transparent;
+    --chip-hover-bg: rgba(255,255,255,.08);
+    --chip-fg: var(--fl-purple);
+    --chip-border: var(--fl-purple);
+    --chip-active-bg: var(--fl-purple);
+    --chip-active-fg: #fff;
+  
+    /* Status semantics */
+    --success: #2ecc71;
+    --info: #3498db;
+    --warning: #f1c40f;
+    --badge-success-bg: rgba(46,204,113,.15);
+    --badge-success-border: rgba(46,204,113,.35);
+    --badge-info-bg: rgba(52,152,219,.15);
+    --badge-info-border: rgba(52,152,219,.35);
+    --badge-warning-bg: rgba(241,196,15,.15);
+    --badge-warning-border: rgba(241,196,15,.35);
+    --badge-muted-bg: rgba(127,140,141,.15);
+    --badge-muted-border: rgba(127,140,141,.35);
+    --badge-danger-bg: rgba(231,76,60,.15);
+    --badge-danger-border: rgba(231,76,60,.35);
+    --badge-purple-bg: rgba(155,89,182,.15);
+    --badge-purple-border: rgba(155,89,182,.35);
+    --focus-ring: 0 0 0 2px color-mix(in srgb, var(--fl-purple) 30%, transparent);
+
   }
   
+  :root[data-theme="light"] {
+    /* Brand tweaks for contrast */
+    --fl-gold:   #FFB82E;
+    --fl-purple: #2A5CCF;
+    --fl-aqua:   #1FBD88;
+    --fl-danger: #D93030;
+  
+    /* Surfaces & text */
+    --fl-bg:      #F7F8FA;
+    --fl-surface: #FFFFFF;
+    --fl-text:    #1B1F27;
+    --fl-white:   #FFFFFF;
+    --fl-border:  #E6E8EE;
+    --fl-muted:   rgba(0,0,0,0.65);
+  
+    /* Aliases used by components */
+    --text: var(--fl-text);
+    --muted: rgba(0,0,0,.65);
+    --border: var(--fl-border, rgba(0,0,0,.10));
+    --btn-bg: rgba(0,0,0,.04);
+    --link: var(--text);
+    --link-active-bg: rgba(0,0,0,.06);
+  
+    /* UI surfaces */
+    --nav-bg: rgba(255,255,255,.78);
+    --scrim: rgba(0,0,0,.40);
+  
+    /* Form + card tokens */
+    --input-bg: var(--fl-surface);
+    --input-border: var(--border);
+    --input-shadow: none;
+    --card-bg: var(--fl-surface);
+    --card-border: var(--border);
+  
+    /* Chips */
+    --chip-bg: transparent;
+    --chip-hover-bg: rgba(0,0,0,.06);
+    --chip-fg: var(--fl-purple);
+    --chip-border: var(--fl-purple);
+    --chip-active-bg: var(--fl-purple);
+    --chip-active-fg: #fff;
+  
+    /* Tables */
+    --table-header-bg: rgba(0,0,0,0.04);
+    --table-row-bg: transparent;
+    --table-row-hover-bg: rgba(0,0,0,0.03);
+    --table-border: var(--border);
+  
+    /* Status semantics */
+    --success: #2ecc71;
+    --info: #3498db;
+    --warning: #f1c40f;
+    --badge-success-bg: rgba(46,204,113,.15);
+    --badge-success-border: rgba(46,204,113,.35);
+    --badge-info-bg: rgba(52,152,219,.15);
+    --badge-info-border: rgba(52,152,219,.35);
+    --badge-warning-bg: rgba(241,196,15,.15);
+    --badge-warning-border: rgba(241,196,15,.35);
+    --badge-muted-bg: rgba(127,140,141,.15);
+    --badge-muted-border: rgba(127,140,141,.35);
+    --badge-danger-bg: rgba(231,76,60,.15);
+    --badge-danger-border: rgba(231,76,60,.35);
+    --badge-purple-bg: rgba(155,89,182,.15);
+    --badge-purple-border: rgba(155,89,182,.35);
+    --focus-ring: 0 0 0 2px color-mix(in srgb, var(--fl-purple) 35%, transparent);
+
+  }
+  
+  /* ===========================================================================
+     2) BASE / RESET
+     ========================================================================== */
   html, body, #root {
     height: 100%;
     background: var(--fl-bg);
@@ -23,534 +169,293 @@
     font-family: var(--font-body);
     overflow: hidden;
   }
-  #root > div,                /* your React app root wrapper */
-  .app-shell { min-height: 0; }
-
-  a { color: inherit; text-decoration: none; }
-  * { box-sizing: border-box; }
+  #root > div, .app-shell { min-height: 0; }
   
+  *, *::before, *::after { box-sizing: border-box; }
+  
+  a { color: inherit; text-decoration: none; }
+  
+  nav, footer { flex: 0 0 auto; }
+  
+  /* One scrollbar layout */
+  main {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Text utilities */
+  .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
+  
+  /* Headings */
+  .h1 { font-family: var(--font-head); font-weight: 800; font-size: 42px; color: var(--fl-gold); }
+  .h2 { font-family: var(--font-head); font-weight: 700; font-size: 28px; color: var(--fl-gold); }
+  
+  /* ===========================================================================
+     3) COMPONENTS
+     ========================================================================== */
   .button {
     display:inline-flex; align-items:center; justify-content:center;
     border-radius: var(--radius);
     padding: 12px 16px; font-weight: 600; cursor: pointer; border: none;
     transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
     background-color: var(--fl-gold);
-    color: #1A1C23;
+    color: #1A1C23; /* note: brand choice on gold */
   }
   .button:active { transform: translateY(1px); }
   .button-primary { background: var(--fl-gold); color: #111; }
   .button-secondary { background: var(--fl-purple); color: var(--fl-white); }
   .button-danger { background: var(--fl-danger); color: var(--fl-white); }
   
+  .buttonfilter {
+    display:inline-flex; align-items:center; justify-content:center;
+    border-radius: var(--radius);
+    padding: 12px 16px; font-weight: 600; cursor: pointer; border: none;
+    transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
+    background-color: var(--fl-gold);
+  }
+  
   .card {
     background: var(--fl-surface);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
+  
   .badge { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
   .badge-active { background: var(--fl-aqua); color: #0b1120; }
   .badge-upcoming { background: var(--fl-gold); color: #111; }
   .badge-failed { background: var(--fl-danger); color: var(--fl-white); }
   
-  .h1 { font-family: var(--font-head); font-weight: 800; font-size: 42px; color: var(--fl-gold); }
-  .h2 { font-family: var(--font-head); font-weight: 700; font-size: 28px; color: var(--fl-gold); }
-  
+  /* Form inputs (shared sizes) */
   input[type="datetime-local"],
-input[type="date"],
-input[type="time"] {
-  height: 44px;
-  box-sizing: border-box;
+  input[type="date"],
+  input[type="time"] {
+    height: 44px;
+    box-sizing: border-box;
+  }
+/* Range inputs themed */
+input[type="range"] {
+  width: 100%;
+  background: transparent;
 }
-input[type="datetime-local"],
-input[type="date"],
-input[type="time"] {
-  height: 44px;
-  box-sizing: border-box;
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--fl-purple), var(--fl-gold));
 }
+input[type="range"]::-moz-range-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(90deg, var(--fl-purple), var(--fl-gold));
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--fl-white); border: 2px solid var(--fl-purple);
+  margin-top: -6px; /* centers on 6px track */
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--fl-white); border: 2px solid var(--fl-purple);
+  box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+  input, textarea { transition: box-shadow .15s ease, border-color .15s ease, opacity .15s ease; }
 
-nav, footer { flex: 0 0 auto; }
+  input:focus, textarea:focus { border-color: var(--fl-purple); box-shadow: var(--focus-ring); }
+  input:disabled, textarea:disabled { cursor: not-allowed; background: var(--card-bg); }
+  .button[style*="--chip-"] { transition: background .15s ease, color .15s ease, border-color .15s ease; }
 
-.buttonfilter {
-  display:inline-flex; align-items:center; justify-content:center;
-  border-radius: var(--radius);
-  padding: 12px 16px; font-weight: 600; cursor: pointer; border: none;
-  transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
-  background-color: var(--fl-gold);
-}
-main {
-  flex: 1 1 auto;
-  min-height: 0;           /* 👈 necessary in many browsers */
-  overflow-y: auto;        /* 👈 the one scrollbar */
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-/* === SaleDetail responsive helpers === */
-.sale-detail { max-width: 100%; }
-
-/* Header: stack on small, row on larger */
-.sale-header {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap; /* allows clean wrap on narrow screens */
-}
-.sale-logo {
-  width: 56px; height: 56px; border-radius: 12px; object-fit: cover;
-  background: #2a2d36;
-}
-.sale-logo.placeholder { background: #2a2d36; }
-.sale-title { min-width: 0; }
-.sale-creator { opacity: .75; font-size: 12px; }
-
-/* Meta row: wrap gracefully */
-.meta-line {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.meta-text { opacity: .85; }
-
-/* Compact timer on small screens */
-.meta-timer { font-size: 14px; opacity: .95; }
-
-/* Metrics: 2 columns on mobile, 4 on md+ */
-.meta-grid {
-  display: grid;
-  gap: 8px 12px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  font-family: var(--font-data);
-}
-@media (min-width: 720px) {
-  .meta-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-
-/* Progress bar */
-.progress-outer {
-  height: 8px;
-  border-radius: 999px;
-  background: #2a2d36;
-  overflow: hidden;
-}
-.progress-inner {
-  height: 100%;
-  background: var(--fl-purple);
-}
-
-/* Actions: sticky at bottom on phones, inline on md+ */
-.sale-actions {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  position: sticky;
-  bottom: 0;
-  padding: 10px 12px;
-  background: color-mix(in srgb, var(--fl-bg) 92%, black 8%); /* subtle opacity */
-  border-top: 1px solid rgba(255,255,255,.06);
-  backdrop-filter: blur(4px);
-  z-index: 5;
-}
-@media (min-width: 720px) {
+  /* ===========================================================================
+     4) SALE DETAIL + GENERAL LAYOUT HELPERS
+     ========================================================================== */
+  .sale-detail { max-width: 100%; }
+  
+  /* Header: stack on small, row on larger */
+  .sale-header { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .sale-logo { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; background: #2a2d36; }
+  .sale-logo.placeholder { background: #2a2d36; }
+  .sale-title { min-width: 0; }
+  .sale-creator { opacity: .75; font-size: 12px; }
+  
+  /* Meta row */
+  .meta-line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .meta-text { opacity: .85; }
+  .meta-timer { font-size: 14px; opacity: .95; }
+  
+  /* Metrics grid */
+  .meta-grid { display: grid; gap: 8px 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); font-family: var(--font-data); }
+  @media (min-width: 720px) { .meta-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  
+  /* Progress bar */
+  .progress-outer { height: 8px; border-radius: 999px; background: #2a2d36; overflow: hidden; }
+  .progress-inner { height: 100%; background: var(--fl-purple); }
+  
+  /* Sticky actions (mobile) */
   .sale-actions {
-    position: static;
-    padding: 0;
-    background: transparent;
-    border-top: 0;
-    backdrop-filter: none;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    position: sticky; bottom: 0; padding: 10px 12px; width: 100%; box-sizing: border-box;
+    background: color-mix(in srgb, var(--fl-bg) 92%, black 8%);
+    border-top: 1px solid rgba(255,255,255,.06);
+    backdrop-filter: blur(4px);
+    z-index: 5;
   }
-}
-
-/* Long strings/URLs don’t explode layouts */
-.break-anywhere {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-/* --- SaleDetail: prevent horizontal overflow on tiny screens --- */
-.sale-detail,
-.sale-detail .card,
-.sale-header,
-.meta-line {
-  min-width: 0;               /* allow children to shrink */
-}
-
-.sale-detail * { box-sizing: border-box; }
-
-.sale-detail img,
-.sale-detail video {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Long strings/urls/addresses */
-.break-anywhere {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-/* Inputs inside Allowlist/links never exceed viewport */
-.sale-detail input,
-.sale-detail textarea,
-.sale-detail a {
-  max-width: 100%;
-}
-
-/* Actions bar: never creates extra width */
-.sale-actions {
-  width: 100%;
-  box-sizing: border-box;
-  flex-wrap: wrap;
-}
-.sale-actions .button {
-  min-width: 0;               /* let buttons shrink */
-  white-space: normal;        /* allow wrapping */
-  flex: 1 1 auto;             /* share space nicely */
-}
-
-/* Optional: last resort to kill stray 1–2px overflow from shadows */
-html, body, #root { overflow-x: hidden; }
-/* --- Allowlist: keep within viewport on tiny screens --- */
-.allowlist-wrap,
-.allowlist-wrap * {
-  min-width: 0; /* allow shrink in flex/grid contexts */
-  box-sizing: border-box;
-}
-
-/* Make any text inputs shrink and not force horizontal scroll */
-.allowlist-wrap input[type="text"],
-.allowlist-wrap input[type="search"],
-.allowlist-wrap textarea {
-  width: 100%;
-  max-width: 100%;
-}
-
-/* Style + wrap long hashes (root, addresses) safely */
-.allowlist-wrap .hash,
-.allowlist-wrap .merkle-root,
-.allowlist-wrap code,
-.allowlist-wrap .mono {
-  display: block;
-  font-family: var(--font-data, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
-  background: #101216;
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 8px;
-  padding: 6px 8px;
-  overflow-wrap: anywhere;  /* wrap at any point */
-  word-break: break-all;    /* fallback for older browsers */
-  max-width: 100%;
-}
-
-
-/* If the allowlist has buttons inline, let them wrap nicely */
-.allowlist-wrap .button {
-  min-width: 0;
-  white-space: normal;
-}
-.sale-detail .sale-actions {
-  position: static !important;
-  background: transparent !important;
-  border-top: 0 !important;
-  backdrop-filter: none !important;
-  padding: 0 !important;
-}
-/* src/styles/launch-wizard.css */
-.launch-wizard .card {
-  flex-wrap: wrap;
-}
-
-@media (max-width: 768px) {
-  .launch-wizard {
-    padding: 0 8px;
+  .sale-actions .button { min-width: 0; white-space: normal; flex: 1 1 auto; }
+  @media (min-width: 720px) {
+    .sale-actions { position: static; padding: 0; background: transparent; border-top: 0; backdrop-filter: none; }
   }
-
-  .launch-wizard .card {
-    flex-direction: column;
-    align-items: flex-start;
+  
+  /* Prevent horizontal overflow on tiny screens */
+  .sale-detail, .sale-detail .card, .sale-header, .meta-line { min-width: 0; }
+  .sale-detail * { box-sizing: border-box; }
+  .sale-detail img, .sale-detail video { max-width: 100%; height: auto; }
+  
+  /* Inputs inside Allowlist/links never exceed viewport */
+  .sale-detail input, .sale-detail textarea, .sale-detail a { max-width: 100%; }
+  
+  /* Optional: last resort to kill stray 1–2px overflow from shadows */
+  html, body, #root { overflow-x: hidden; }
+  
+  /* Allowlist */
+  .allowlist-wrap, .allowlist-wrap * { min-width: 0; box-sizing: border-box; }
+  .allowlist-wrap input[type="text"],
+  .allowlist-wrap input[type="search"],
+  .allowlist-wrap textarea { width: 100%; max-width: 100%; }
+  .allowlist-wrap .hash,
+  .allowlist-wrap .merkle-root,
+  .allowlist-wrap code,
+  .allowlist-wrap .mono {
+    display: block; font-family: var(--font-data, ui-monospace, SFMono-Regular, Menlo, monospace);
+    font-size: 12px; background: #101216; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; padding: 6px 8px;
+    overflow-wrap: anywhere; word-break: break-all; max-width: 100%;
   }
-
-  /* Tables and multi-column grids collapse */
-  .launch-wizard table,
-  .launch-wizard .grid {
-    display: block;
-    overflow-x: auto; /* scroll instead of breaking layout */
-    white-space: nowrap;
+  .allowlist-wrap .button { min-width: 0; white-space: normal; }
+  
+  /* Force SaleDetail action bar inline in contexts where needed */
+  .sale-detail .sale-actions { position: static !important; background: transparent !important; border-top: 0 !important; backdrop-filter: none !important; padding: 0 !important; }
+  
+  /* Toggle/pill */
+  .allowlist-toggle {
+    display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+    background: var(--fl-purple); border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+    color: #fff; text-align: left; width: fit-content; user-select: none; cursor: pointer;
   }
-
-  /* Inputs go full width */
-  .launch-wizard input,
-  .launch-wizard select,
-  .launch-wizard textarea {
-    width: 100% !important;
-    max-width: 100% !important;
+  .allowlist-toggle input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--fl-gold); }
+  .allowlist-toggle__text { display: flex; flex-direction: column; line-height: 1.1; }
+  .allowlist-toggle__text > span { opacity: .85; font-weight: 600; }
+  
+  /* ===========================================================================
+     5) LAUNCH WIZARD (RESPONSIVE)
+     ========================================================================== */
+  .launch-wizard .card { flex-wrap: wrap; }
+  @media (max-width: 768px) {
+    .launch-wizard { padding: 0 8px; }
+    .launch-wizard .card { flex-direction: column; align-items: flex-start; }
+    .launch-wizard table, .launch-wizard .grid { display: block; overflow-x: auto; white-space: nowrap; }
+    .launch-wizard input, .launch-wizard select, .launch-wizard textarea { width: 100% !important; max-width: 100% !important; }
+    .launch-wizard .step-buttons { flex-direction: column; gap: 8px; }
   }
-
-  /* Any step navigation buttons stack on small screens */
-  .launch-wizard .step-buttons {
-    flex-direction: column;
-    gap: 8px;
+  
+  /* ===========================================================================
+     6) TOKENOMICS GRIDS
+     ========================================================================== */
+  .tokenomics-grid-3 { display: grid; gap: 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+  .tokenomics-grid-2 { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(200px, 1fr)); }
+  .tokenomics-grid-3 > *, .tokenomics-grid-2 > * { min-width: 0; }
+  @media (max-width: 720px) { .tokenomics-grid-3, .tokenomics-grid-2 { grid-template-columns: 1fr; } }
+  
+  /* Inputs fill their cell */
+  .tokenomics-grid-3 input, .tokenomics-grid-3 select, .tokenomics-grid-3 textarea,
+  .tokenomics-grid-2 input, .tokenomics-grid-2 select, .tokenomics-grid-2 textarea { width: 100%; max-width: 100%; }
+  
+  /* Basics + website/twitter + token rows */
+  .basics-head { display: grid; gap: 12px; grid-template-columns: minmax(96px, 120px) minmax(0, 1fr); align-items: center; min-width: 0; }
+  .webtw-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); min-width: 0; }
+  .token-grid { display: grid; gap: 12px; grid-template-columns: minmax(160px, 1fr) minmax(100px, 160px) minmax(60px, 100px); min-width: 0; }
+  .basics-head label, .webtw-grid label, .token-grid label { min-width: 0; }
+  .basics-head input, .basics-head textarea, .webtw-grid input, .webtw-grid textarea, .token-grid input { width: 100%; max-width: 100%; }
+  
+  /* Stack on narrow */
+  @media (max-width: 640px) {
+    .basics-head { grid-template-columns: 1fr; align-items: start; }
+    .token-grid  { grid-template-columns: 1fr; }
   }
-}
-/* Tokenomics responsive grids */
-.tokenomics-grid-3 {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;           /* <-- was end; make inputs line up */
-}
-.tokenomics-grid-2 {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(2, minmax(200px, 1fr));
-}
-.tokenomics-grid-3 > *, .tokenomics-grid-2 > * { min-width: 0; }
-
-@media (max-width: 720px) {
-  .tokenomics-grid-3,
-  .tokenomics-grid-2 {
-    grid-template-columns: 1fr; /* stack on narrow screens */
+  
+  /* Tiny helpers */
+  .token-grid .ticker-col { justify-self: start; }
+  .token-grid .ticker-input { width: 140px; max-width: 180px; }
+  .token-grid .decimals-col { justify-self: start; }
+  .token-grid .decimals-input { width: 72px; min-width: 72px; max-width: 72px; text-align: center; padding-left: 6px; padding-right: 6px; }
+  .tokenomics-grid-3 label { display: grid; gap: 6px; }
+  .tokenomics-grid-3 label small { display: block; min-height: 18px; }
+  
+  /* ===========================================================================
+     7) LAUNCH LIST (MY LAUNCHES)
+     ========================================================================== */
+  .launch-header { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 120px; gap: 0; border-bottom: 1px solid rgba(255,255,255,.06); padding: 10px 12px; font-size: 12px; opacity: .8; }
+  .launch-header .center { display:flex; justify-content:center; }
+  
+  .launch-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 120px; gap: 0; padding: 12px; border-bottom: 1px solid rgba(255,255,255,.06); align-items: center; }
+  .launch-row:hover { background: var(--table-row-hover-bg); }
+  .launch-row .cell-actions { display: flex; gap: 8px; justify-content: center; }
+  .launch-row .cell-label { display: none; }
+  
+  /* Long names */
+  .cell-project { min-width: 0; }
+  .cell-project > div:first-child { min-width: 0; }
+  
+  /* Mobile card layout */
+  @media (max-width: 720px) {
+    .launch-header { display: none; }
+    .launch-row { grid-template-columns: 1fr; gap: 8px; padding: 12px; }
+    .launch-row .cell { display: flex; align-items: baseline; gap: 6px; }
+    .launch-row .cell-label { display: inline-block; min-width: 64px; font-size: 12px; opacity: .7; }
+    .launch-row .cell-actions { justify-content: flex-start; gap: 8px; flex-wrap: wrap; }
+    .launch-row .cell-actions .button { flex: 0 0 auto; min-width: 96px; }
+    .launch-row { background: rgba(255,255,255,.02); border-radius: 12px; margin: 8px 8px; }
   }
-}
-
-/* Make any inputs inside grids fill the cell */
-.tokenomics-grid-3 input,
-.tokenomics-grid-3 select,
-.tokenomics-grid-3 textarea,
-.tokenomics-grid-2 input,
-.tokenomics-grid-2 select,
-.tokenomics-grid-2 textarea {
-  width: 100%;
-  max-width: 100%;
-}
-
-@media (max-width: 875px) {
-  .navsubtitle {
-    display: none !important;
-  }
-}
-/* Basics top grid */
-.basics-head {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(96px, 120px) minmax(0, 1fr); /* right side can shrink */
-  align-items: center;
-  min-width: 0;
-}
-
-/* Website/Twitter row */
-.webtw-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  min-width: 0;
-}
-
-/* Token row */
-.token-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: minmax(160px, 1fr) minmax(100px, 160px) minmax(60px, 100px);
-  min-width: 0;
-}
-
-/* Let fields actually shrink and not force horizontal scroll */
-.basics-head label,
-.webtw-grid label,
-.token-grid label {
-  min-width: 0;
-}
-.basics-head input,
-.basics-head textarea,
-.webtw-grid input,
-.webtw-grid textarea,
-.token-grid input {
-  width: 100%;
-  max-width: 100%;
-}
-
-/* Stack on narrow screens */
-@media (max-width: 640px) {
-  .basics-head { grid-template-columns: 1fr; align-items: start; }
-  .token-grid  { grid-template-columns: 1fr; }
-}
-/* Make decimals stay tiny on all breakpoints */
-.token-grid .ticker-col {
-  justify-self: start;
-}
-.token-grid .ticker-input {
-  width: 140px;
-  max-width: 180px;
-}
-
-.token-grid .decimals-col {
-  justify-self: start;
-}
-.token-grid .decimals-input {
-  width: 72px;
-  min-width: 72px;
-  max-width: 72px;
-  text-align: center;
-  padding-left: 6px;
-  padding-right: 6px;
-}
-.tokenomics-grid-3 label {
-  display: grid;
-  gap: 6px;
-}
-.tokenomics-grid-3 label small {
-  display: block;
-  min-height: 18px;             /* tweak (18–24px) if you want tighter/looser */
-}
-
-.allowlist-toggle {
-  display: flex;
-  align-items: center;       /* center checkbox + text vertically */
-  gap: 8px;                  /* smaller gap between box and text */
-  padding: 8px 12px;         /* less padding around the whole pill */
-  background: #2a2d36;
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 12px;
-  color: #fff;
-  text-align: left;
-  width: fit-content;        /* change to 100% if you want full-width */
-  user-select: none;
-  cursor: pointer;
-}
-
-.allowlist-toggle input[type="checkbox"] {
-  width: 20px;
-  height: 20px;
-  margin: 0;                 /* no default browser offset */
-  accent-color: var(--fl-gold);
-}
-
-.allowlist-toggle__text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-
-.allowlist-toggle__text > span { 
-  opacity: .85; 
-  font-weight: 600; 
-}
-
-/* Actions row */
+  
+  /* Accents inside list */
+  .cell-project > div:first-child { color: #FFB82E; }
+  .cell-project > div:first-child span { color: #F4E285; }
+  
+  /* ===========================================================================
+     8) NAV MISC
+     ========================================================================== */
+  @media (max-width: 875px) { .navsubtitle { display: none !important; } }
+  
+  /* Desktop layout: Back on the left, Save/Create on the far right */
 .review-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;           /* allow wrapping on small screens */
+  justify-content: flex-start;   /* start, we’ll push the right group with margin-left:auto */
+  flex-wrap: nowrap;             /* no wrap on desktop */
 }
 
-/* Back stays compact */
-.review-actions .button-back {
-  flex: 0 0 auto;            /* never stretch */
-  min-width: unset;
-  padding-inline: 14px;
-}
-
-/* Right-side buttons */
 .review-actions-right {
+  margin-left: auto;             /* pushes group to the right */
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
 }
 
-/* Consistent button height */
-.review-actions .button {
-  min-height: 44px;
-  white-space: nowrap;
-  line-height: 1;
-}
-
-/* Mobile: Back remains small; others wrap to next line and expand evenly */
+/* Keep your existing mobile behavior */
 @media (max-width: 640px) {
   .review-actions {
-    justify-content: flex-start;
+    flex-wrap: wrap;
   }
   .review-actions-right {
     width: 100%;
+    margin-left: 0;
   }
   .review-actions-right .button {
-    flex: 1 1 150px;         /* grow to fill row nicely */
+    flex: 1 1 150px;
   }
 }
-/* Desktop table layout */
-.launch-header {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 120px;
-  gap: 0;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  padding: 10px 12px;
-  font-size: 12px;
-  opacity: .8;
-}
-.launch-header .center { display:flex; justify-content:center; }
 
-.launch-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr 120px;
-  gap: 0;
-  padding: 12px;
-  border-bottom: 1px solid rgba(255,255,255,.06);
-  align-items: center;
-}
-.launch-row .cell-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-.launch-row .cell-label { display: none; }
-
-/* Make long names behave */
-.cell-project { min-width: 0; }
-.cell-project > div:first-child { min-width: 0; }
-
-/* Mobile: stack rows as cards */
-@media (max-width: 720px) {
-  .launch-header { display: none; }
-
-  .launch-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    padding: 12px;
-  }
-
-  .launch-row .cell {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-  }
-
-  .launch-row .cell-label {
-    display: inline-block;
-    min-width: 64px;
-    font-size: 12px;
-    opacity: .7;
-  }
-
-  .launch-row .cell-actions {
-    justify-content: flex-start;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-
-  .launch-row .cell-actions .button {
-    flex: 0 0 auto;
-    min-width: 96px;          /* nice tap targets */
-  }
-
-  /* Give each row a subtle card feel */
-  .launch-row {
-    background: rgba(255,255,255,.02);
-    border-radius: 12px;
-    margin: 8px 8px;
-  }
-}
-.cell-project > div:first-child {
-  color: #FFB82E;
-}
-.cell-project > div:first-child span {
-  color: #F4E285;
+/* Make sure Back never stretches */
+.review-actions .button-back {
+  flex: 0 0 auto;
+  min-width: unset;
+  padding-inline: 14px;
 }

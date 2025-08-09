@@ -40,14 +40,9 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
     reader.readAsDataURL(file);
   }
 
-  function openPicker() {
-    fileRef.current?.click();
-  }
+  function openPicker() { fileRef.current?.click(); }
   function onKeyOpen(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      openPicker();
-    }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPicker(); }
   }
 
   function commitAndNext() {
@@ -60,7 +55,7 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
     <div className="card" style={{ padding: 16, display: 'grid', gap: 16, maxWidth: '100%' }}>
       <div className="h2">Basics</div>
 
-      {/* Logo + fields (responsive grid via CSS) */}
+      {/* Logo + fields */}
       <div className="basics-head">
         {/* Left: logo block */}
         <div style={{ display: 'grid', gap: 10, justifyItems: 'center', minWidth: 0 }}>
@@ -74,8 +69,8 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
               width: 96,
               height: 96,
               borderRadius: 16,
-              background: '#101216',
-              border: '1px solid rgba(255,255,255,.12)',
+              background: 'var(--input-bg)',
+              border: '1px solid var(--input-border)',
               overflow: 'hidden',
               display: 'grid',
               placeItems: 'center',
@@ -97,7 +92,8 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
                     right: 6,
                     padding: '2px 6px',
                     borderRadius: 8,
-                    background: 'rgba(0,0,0,.5)',
+                    background: 'var(--scrim)',
+                    color: 'var(--fl-white)',
                     fontSize: 10,
                     opacity: 0.9,
                   }}
@@ -106,7 +102,7 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
                 </div>
               </>
             ) : (
-              <span style={{ opacity: 0.6, fontSize: 12 }}>Click to upload</span>
+              <span style={{ color: 'var(--muted)', fontSize: 12 }}>Click to upload</span>
             )}
           </div>
 
@@ -121,7 +117,7 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
             type="button"
             className="button"
             onClick={openPicker}
-            style={{ padding: '8px 12px', border: '1px solid rgba(255,255,255,.12)' }}
+            style={{ padding: '8px 12px', background: 'var(--btn-bg)', border: '1px solid var(--border)', color: 'var(--text)' }}
           >
             Upload Logo
           </button>
@@ -160,7 +156,7 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
             />
           </label>
 
-          {/* Website / Twitter — responsive 2-up via CSS */}
+          {/* Website / Twitter */}
           <div className="webtw-grid">
             <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
               <div>Website</div>
@@ -197,67 +193,63 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
 
       <div className="h2" style={{ marginTop: 8 }}>Token</div>
 
-      {/* Token row — responsive via CSS */}
-   {/* Token row — responsive via CSS */}
-<div className="token-grid">
-  {/* Token Name */}
-  <label className="name-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-    <div>Token Name</div>
-    <input
-      type="text"
-      value={local.token.name}
-      onChange={(e) =>
-        setLocal({
-          ...local,
-          token: { ...local.token, name: e.target.value },
-        })
-      }
-      placeholder="Farelaunch Token"
-      style={inputStyle}
-    />
-  </label>
+      {/* Token row */}
+      <div className="token-grid">
+        <label className="name-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
+          <div>Token Name</div>
+          <input
+            type="text"
+            value={local.token.name}
+            onChange={(e) =>
+              setLocal({
+                ...local,
+                token: { ...local.token, name: e.target.value },
+              })
+            }
+            placeholder="Farelaunch Token"
+            style={inputStyle}
+          />
+        </label>
 
-  {/* Ticker */}
-  <label className="ticker-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-    <div>Ticker</div>
-    <input
-      className="ticker-input"
-      type="text"
-      maxLength={9}
-      value={local.token.symbol}
-      onChange={(e) =>
-        setLocal({
-          ...local,
-          token: { ...local.token, symbol: e.target.value.toUpperCase() },
-        })
-      }
-      placeholder="FLCH"
-      style={inputStyle}
-    />
-  </label>
+        <label className="ticker-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
+          <div>Ticker</div>
+          <input
+            className="ticker-input"
+            type="text"
+            maxLength={9}
+            value={local.token.symbol}
+            onChange={(e) =>
+              setLocal({
+                ...local,
+                token: { ...local.token, symbol: e.target.value.toUpperCase() },
+              })
+            }
+            placeholder="FLCH"
+            style={inputStyle}
+          />
+        </label>
 
-  {/* Decimals */}
-  <label className="decimals-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-    <div>Decimals</div>
-    <input
-      className="decimals-input"
-      type="number"
-      min={0}
-      max={18}
-      value={local.token.decimals}
-      onChange={(e) =>
-        setLocal({
-          ...local,
-          token: {
-            ...local.token,
-            decimals: Math.max(0, Math.min(18, Number(e.target.value))),
-          },
-        })
-      }
-      style={{ ...inputStyle, textAlign: 'center' }}
-    />
-  </label>
-</div>
+        <label className="decimals-col" style={{ display: 'grid', gap: 6, minWidth: 0 }}>
+          <div>Decimals</div>
+          <input
+            className="decimals-input"
+            type="number"
+            min={0}
+            max={18}
+            value={local.token.decimals}
+            onChange={(e) =>
+              setLocal({
+                ...local,
+                token: {
+                  ...local.token,
+                  decimals: Math.max(0, Math.min(18, Number(e.target.value))),
+                },
+              })
+            }
+            style={{ ...inputStyle, textAlign: 'center' }}
+          />
+        </label>
+      </div>
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
         <button
@@ -274,9 +266,9 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
 }
 
 const inputStyle: React.CSSProperties = {
-  background: '#101216',
-  border: '1px solid rgba(255,255,255,.08)',
-  color: 'var(--fl-white)',
+  background: 'var(--input-bg)',
+  border: '1px solid var(--input-border)',
+  color: 'var(--text)',
   borderRadius: 12,
   padding: '10px 12px',
   outline: 'none',

@@ -74,7 +74,7 @@ export default function AllowlistUploader({ onResult }: Props) {
           )}`}
           download="allowlist_template.csv"
           className="badge"
-          style={{ background: '#2a2d36' }}
+          style={{ background: 'var(--fl-purple)', color: '#ffffff' }}
         >
           Download template
         </a>
@@ -101,7 +101,7 @@ export default function AllowlistUploader({ onResult }: Props) {
             <div>Merkle Root:</div>
             <code
               style={{
-                background: '#101216',
+                background: 'var(--fl-surface)',
                 padding: 8,
                 borderRadius: 8,
                 wordBreak: 'break-all',

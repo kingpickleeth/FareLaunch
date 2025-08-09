@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 import { supabase } from '../lib/supabase';
+
 const DEFAULT_AVATAR = 'https://dengdefense.xyz/taxi.svg';
 
 function short(addr?: string) { return addr ? `${addr.slice(0,6)}…${addr.slice(-4)}` : ''; }
@@ -16,10 +17,7 @@ async function getCreator(wallet: string) {
   return data;
 }
 async function upsertCreator(payload: { wallet: string; display_name?: string | null; avatar_url?: string | null }) {
-  const defaultAvatar = 'https://dengdefense.xyz/taxi.svg';
-  if (!payload.avatar_url) {
-    payload.avatar_url = defaultAvatar;
-  }
+  if (!payload.avatar_url) payload.avatar_url = DEFAULT_AVATAR;
   const { data, error } = await supabase
     .from('creators')
     .upsert(payload, { onConflict: 'wallet' })
@@ -45,18 +43,11 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
       setForm({ display_name: '', avatar_url: '' });
       return;
     }
-  
     let cancelled = false;
     (async () => {
       try {
-        // 1) Try to load
         let c = await getCreator(address);
-  
-        // 2) If none, create immediately with defaults
-        if (!c) {
-          c = await upsertCreator({ wallet: address });
-        }
-  
+        if (!c) c = await upsertCreator({ wallet: address });
         if (!cancelled) {
           setCreator(c);
           setForm({
@@ -68,9 +59,8 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
         console.error(e);
       }
     })();
-  
     return () => { cancelled = true; };
-  }, [address, isConnected]);  
+  }, [address, isConnected]);
 
   if (!isConnected) {
     return (
@@ -79,6 +69,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
       </button>
     );
   }
+
   function disconnectWallet() {
     try {
       disconnect();
@@ -89,7 +80,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
       console.error(e);
     }
   }
-  
+
   const title = (creator?.display_name ?? form.display_name ?? '').trim() || short(address);
   const avatar = form.avatar_url || creator?.avatar_url || DEFAULT_AVATAR;
   const fullAddr = address || '';
@@ -141,7 +132,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
 
   return (
     <div style={{ position: 'relative' }}>
-      {/* Navbar button: avatar left, name right (both vertically centered) */}
+      {/* Navbar button */}
       <button
         className="button"
         onClick={() => setOpen(v => !v)}
@@ -150,8 +141,10 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
           alignItems: 'center',
           gap: 8,
           padding: '4px 10px',
-          height: '36px'
+          height: 36
         }}
+        aria-expanded={open}
+        aria-haspopup="menu"
       >
         {avatar ? (
           <img
@@ -159,8 +152,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
             alt=""
             width={32}
             height={32}
-            style={{ borderRadius: '14px',
-                objectFit: 'cover' }}
+            style={{ borderRadius: '14px', objectFit: 'cover' }}
           />
         ) : (
           <div
@@ -168,19 +160,35 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
               width: 38,
               height: 38,
               borderRadius: '50%',
-              background: '#2a2d36'
+              background: 'var(--input-bg)'
             }}
           />
         )}
-        <span style={{ fontWeight: 600, fontSize: '1rem', display:'flex', alignItems:'center' }}>{title}</span>
+        <span style={{ fontWeight: 600, fontSize: '1rem', display:'flex', alignItems:'center', color: '#0F1115' }}>
+          {title}
+        </span>
       </button>
 
       {open && (
-        <div className="card" style={{
-          position:'absolute', right:0, marginTop:8, width:360, padding:16, display:'grid', gap:14,
-          background:'#141720', borderRadius:12, boxShadow:'0 6px 24px rgba(0,0,0,.35)', zIndex:1000
-        }}>
-          {/* Top: avatar (always editable) */}
+        <div
+          className="card"
+          role="menu"
+          style={{
+            position:'absolute',
+            right:0,
+            marginTop:8,
+            width:360,
+            padding:16,
+            display:'grid',
+            gap:14,
+            background:'var(--menu-panel-bg, var(--fl-surface))',
+            border: '1px solid var(--panel-border, var(--border))',
+            borderRadius:'var(--radius)',
+            boxShadow:'var(--shadow)',
+            zIndex:1000
+          }}
+        >
+          {/* Top: avatar (editable) */}
           <div style={{ display:'grid', justifyItems:'center', gap:10 }}>
             <div
               onClick={() => fileInputRef.current?.click()}
@@ -191,7 +199,8 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
                 borderRadius: '50%',
                 position: 'relative',
                 cursor: 'pointer',
-                background: avatar ? 'transparent' : 'rgba(255,255,255,.08)',
+                background: avatar ? 'transparent' : 'var(--input-bg)',
+                border: '1px solid var(--border)',
                 display: 'grid',
                 placeItems: 'center',
                 overflow: 'hidden'
@@ -208,20 +217,25 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
                   />
                   <div
                     style={{
-                      position:'absolute', inset:0, borderRadius:'50%',
-                      background:'rgba(0,0,0,.35)', display:'grid', placeItems:'center',
-                      opacity:0, transition:'opacity .15s'
+                      position:'absolute',
+                      inset:0,
+                      borderRadius:'50%',
+                      background:'var(--scrim)',
+                      display:'grid',
+                      placeItems:'center',
+                      opacity:0,
+                      transition:'opacity .15s'
                     }}
                     className="avatar-hover-mask"
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                       <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" stroke="white" />
                       <path d="M20.71 7.04a1.003 1.003 0 0 0 0-1.42l-2.34-2.34a1.003 1.003 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.84-1.82z" stroke="white"/>
                     </svg>
                   </div>
                 </>
               ) : (
-                <div style={{ color:'rgba(255,255,255,.6)', fontSize:12 }}>
+                <div style={{ color:'var(--muted)', fontSize:12 }}>
                   Add photo
                 </div>
               )}
@@ -236,14 +250,16 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
               onChange={(e)=> e.target.files?.[0] && onAvatarPick(e.target.files[0])}
             />
 
-            {/* Username row: title + Change/Save */}
+            {/* Username row */}
             {!editingName ? (
               <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                <div style={{ fontWeight:700, fontSize:20, textAlign:'center', color:'var(--fl-gold)' }}>{title}</div>
+                <div style={{ fontWeight:700, fontSize:20, textAlign:'center', color:'var(--fl-gold)' }}>
+                  {title}
+                </div>
                 <button
                   className="button"
                   onClick={() => setEditingName(true)}
-                  style={{ padding:'2px 8px', fontSize:12, backgroundColor:'var(--fl-purple)' }}
+                  style={{ padding:'2px 8px', fontSize:12, background:'var(--btn-bg)', border:'1px solid var(--border)', color:'var(--text)' }}
                 >
                   Change Name
                 </button>
@@ -255,7 +271,15 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
                   placeholder="Display name"
                   value={form.display_name}
                   onChange={e=>setForm({ ...form, display_name: e.target.value })}
-                  style={{ background:'#101216', color:'white', fontSize:'1.1rem', padding:'8px 10px', borderRadius: 8, border:'1px solid rgba(255,255,255,.08)' }}
+                  style={{
+                    background:'var(--input-bg)',
+                    color:'var(--text)',
+                    fontSize:'1.1rem',
+                    padding:'8px 10px',
+                    borderRadius: 8,
+                    border:'1px solid var(--input-border)',
+                    outline: 'none',
+                  }}
                 />
                 <button
                   className="button button-primary"
@@ -268,62 +292,63 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
               </div>
             )}
 
-            {/* Wallet line with copy (click text or icon) */}
+            {/* Wallet + actions */}
             {fullAddr && (
-  <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-    <span
-      onClick={() => copy(fullAddr)}
-      style={{
-        fontFamily:'var(--font-data)',
-        fontSize:12,
-        opacity:.8,
-        color:'white',
-        cursor:'pointer',
-        userSelect:'none'
-      }}
-      title="Click to copy"
-    >
-      {short(fullAddr)}
-    </span>
+              <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                <span
+                  onClick={() => copy(fullAddr)}
+                  style={{
+                    fontFamily:'var(--font-data)',
+                    fontSize:12,
+                    color:'var(--muted)',
+                    cursor:'pointer',
+                    userSelect:'none'
+                  }}
+                  title="Click to copy"
+                >
+                  {short(fullAddr)}
+                </span>
 
-    {/* Copy button */}
-    <button
-      className="button"
-      onClick={() => copy(fullAddr)}
-      style={{ padding:'2px 6px', fontSize:11 }}
-      title="Copy address"
-    >
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-        <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor"/>
-        <rect x="5" y="5" width="10" height="10" rx="2" stroke="currentColor" opacity=".8"/>
-      </svg>
-    </button>
+                <button
+                  className="button"
+                  onClick={() => copy(fullAddr)}
+                  style={{ padding:'2px 6px', fontSize:11, background:'var(--btn-bg)', border:'1px solid var(--border)', color:'var(--text)' }}
+                  title="Copy address"
+                  aria-label="Copy address"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <rect x="9" y="9" width="10" height="10" rx="2" stroke="currentColor"/>
+                    <rect x="5" y="5" width="10" height="10" rx="2" stroke="currentColor" opacity=".8"/>
+                  </svg>
+                </button>
 
-    {/* Disconnect button */}
-    <button
-      className="button"
-      onClick={disconnectWallet}
-      style={{ padding:'2px 6px', fontSize:11 }}
-      title="Disconnect wallet"
-    >
-      {/* power icon */}
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M12 3v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-        <path d="M6.2 6.2a7 7 0 1 0 11.6 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-      </svg>
-    </button>
-  </div>
-)}
+                <button
+                  className="button"
+                  onClick={disconnectWallet}
+                  style={{ padding:'2px 6px', fontSize:11, background:'var(--btn-bg)', border:'1px solid var(--border)', color:'var(--text)' }}
+                  title="Disconnect wallet"
+                  aria-label="Disconnect wallet"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M12 3v8" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                    <path d="M6.2 6.2a7 7 0 1 0 11.6 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            )}
           </div>
 
-          {/* Action links — centered, side-by-side with outline */}
+          {/* Action links */}
           <div style={{ display:'flex', gap:10, justifyContent:'center' }}>
             <a
               className="button"
               href="/me"
               style={{
-                minWidth:140, textAlign:'center',
-                border: '1px solid rgba(255,255,255,.12)', color: '#1A1C23'
+                minWidth:140,
+                textAlign:'center',
+                background:'var(--btn-bg)',
+                border:'1px solid var(--border)',
+                color:'var(--text)'
               }}
             >
               Dashboard
@@ -332,16 +357,19 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
               className="button"
               href="/launch"
               style={{
-                minWidth:140, textAlign:'center',color: '#1A1C23',
-                border: '1px solid rgba(255,255,255,.12)'
+                minWidth:140,
+                textAlign:'center',
+                background:'var(--btn-bg)',
+                border:'1px solid var(--border)',
+                color:'var(--text)'
               }}
             >
               Create launch
             </a>
           </div>
 
-          {/* Joined date moved below buttons */}
-          <div style={{ textAlign:'center', opacity:.75, fontSize:12, color:'white' }}>
+          {/* Joined date */}
+          <div style={{ textAlign:'center', fontSize:12, color:'var(--muted)' }}>
             {creator?.created_at ? `Joined: ${new Date(creator.created_at).toLocaleDateString()}` : '—'}
           </div>
         </div>

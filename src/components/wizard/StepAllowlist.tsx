@@ -39,7 +39,6 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
 
   // parse helper for paste mode
   function parsePasted(text: string) {
-    // split by newline OR comma
     const raw = text
       .split(/[\n,]+/g)
       .map(s => s.trim())
@@ -84,15 +83,6 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
   }, [enabled, root, count]);
 
   function commitAndNext() {
-    console.log('[StepAllowlist][commit] about to save', {
-      enabled,
-      root,
-      count,
-      addressesLen: addresses.length,
-      sample: addresses.slice(0, 3),
-      mode,
-    });
-
     onChange({
       ...value,
       allowlist: enabled
@@ -105,37 +95,49 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
   return (
     <div className="card" style={{ padding: 16, display: 'grid', gap: 16 }}>
       <div className="h2">Allowlist</div>
+
+      {/* Enable toggle (already themed in your CSS) */}
       <label className="allowlist-toggle">
-  <input
-    type="checkbox"
-    checked={enabled}
-    onChange={(e) => setEnabled(e.target.checked)}
-  />
-  <span className="allowlist-toggle__text">
-    <b>Enable allowlist</b>
-    <span>(private sale)</span>
-  </span>
-</label>
+        <input
+          type="checkbox"
+          checked={enabled}
+          onChange={(e) => setEnabled(e.target.checked)}
+        />
+        <span className="allowlist-toggle__text">
+          <b>Enable allowlist</b>
+          <span>(private sale)</span>
+        </span>
+      </label>
 
       {!enabled ? (
-        <div style={{ opacity: .8 }}>
+        <div style={{ color: 'var(--muted)' }}>
           Leave disabled for an open sale. You can turn it on later before launch if needed.
         </div>
       ) : (
-        <div className="card" style={{ background:'#141720', padding:12, borderRadius:12, display:'grid', gap:12 }}>
-          {/* Mode toggle */}
-          <div style={{ display:'flex', gap:8 }}>
+        <div
+          className="card"
+          style={{
+            background: 'var(--card-bg)',
+            border: '1px solid var(--card-border)',
+            padding: 12,
+            borderRadius: 12,
+            display: 'grid',
+            gap: 12
+          }}
+        >
+          {/* Mode toggle — styled like your chips */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <button
               type="button"
               className="button"
-              onClick={()=>setMode('upload')}
+              onClick={() => setMode('upload')}
               style={{
-                borderRadius:999,
-                padding:'6px 12px',
-                border:'1px solid rgba(255,255,255,.18)',
-                background: mode==='upload' ? 'var(--fl-white)' : 'transparent',
-                color: mode==='upload' ? '#000' : 'var(--fl-white)',
-                fontWeight:700
+                borderRadius: 999,
+                padding: '6px 12px',
+                background: mode === 'upload' ? 'var(--chip-active-bg)' : 'var(--chip-bg)',
+                color: mode === 'upload' ? 'var(--chip-active-fg)' : 'var(--chip-fg)',
+                border: `1px solid var(--chip-border)`,
+                fontWeight: 700
               }}
             >
               Upload CSV
@@ -143,14 +145,14 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
             <button
               type="button"
               className="button"
-              onClick={()=>setMode('paste')}
+              onClick={() => setMode('paste')}
               style={{
-                borderRadius:999,
-                padding:'6px 12px',
-                border:'1px solid rgba(255,255,255,.18)',
-                background: mode==='paste' ? 'var(--fl-white)' : 'transparent',
-                color: mode==='paste' ? '#000' : 'var(--fl-white)',
-                fontWeight:700
+                borderRadius: 999,
+                padding: '6px 12px',
+                background: mode === 'paste' ? 'var(--chip-active-bg)' : 'var(--chip-bg)',
+                color: mode === 'paste' ? 'var(--chip-active-fg)' : 'var(--chip-fg)',
+                border: `1px solid var(--chip-border)`,
+                fontWeight: 700
               }}
             >
               Paste addresses
@@ -163,46 +165,51 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
                 setRoot(root);
                 setCount(count);
                 setAddresses(addresses);
-                // clear paste state if coming from paste → upload
                 setPasteText('');
                 setInvalidCount(0);
               }}
             />
           ) : (
-            <div style={{ display:'grid', gap:8 }}>
-              <div style={{ fontSize:12, opacity:.85 }}>
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
                 Paste addresses separated by commas or new lines. We’ll validate, de-dupe, lowercase, and build the Merkle root.
               </div>
+
               <textarea
                 value={pasteText}
-                onChange={(e)=>setPasteText(e.target.value)}
+                onChange={(e) => setPasteText(e.target.value)}
                 placeholder={`0x1111...\n0x2222...\n0x3333...`}
                 rows={8}
                 style={{
-                  background:'#101216',
-                  border:'1px solid rgba(255,255,255,.08)',
-                  color:'var(--fl-white)',
-                  borderRadius:12,
-                  padding:'10px 12px',
-                  fontFamily:'var(--font-data)',
-                  resize:'vertical',
-                  minHeight:120
+                  background: 'var(--input-bg)',
+                  border: '1px solid var(--input-border)',
+                  color: 'var(--text)',
+                  borderRadius: 12,
+                  padding: '10px 12px',
+                  fontFamily: 'var(--font-data)',
+                  resize: 'vertical',
+                  minHeight: 120,
+                  outline: 'none'
                 }}
               />
-              <div style={{ display:'flex', gap:16, flexWrap:'wrap', fontFamily:'var(--font-data)', opacity:.9 }}>
-                <span>Valid: <b style={{ color:'var(--fl-aqua)' }}>{count}</b></span>
-                <span>Invalid: <b style={{ color:'var(--fl-danger)' }}>{invalidCount}</b></span>
+
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
+                <span>Valid: <b style={{ color: 'var(--fl-aqua)' }}>{count}</b></span>
+                <span>Invalid: <b style={{ color: 'var(--fl-danger)' }}>{invalidCount}</b></span>
               </div>
+
               {root && (
-                <div style={{ display:'grid', gap:6 }}>
+                <div style={{ display: 'grid', gap: 6 }}>
                   <div>Merkle Root:</div>
                   <code
                     style={{
-                      background:'#0f1115',
-                      padding:8,
-                      borderRadius:8,
-                      wordBreak:'break-all',
-                      opacity:.9
+                      background: 'var(--input-bg)',
+                      border: '1px solid var(--input-border)',
+                      color: 'var(--text)',
+                      padding: 8,
+                      borderRadius: 8,
+                      wordBreak: 'break-all',
+                      opacity: .95
                     }}
                   >
                     {root}
@@ -215,21 +222,33 @@ export default function StepAllowlist({ value, onChange, onNext, onBack }: Props
       )}
 
       {/* Summary */}
-      <div className="card" style={{ background: '#141720', padding: 12, borderRadius: 12 }}>
+      <div
+        className="card"
+        style={{
+          background: 'var(--card-bg)',
+          border: '1px solid var(--card-border)',
+          padding: 12,
+          borderRadius: 12
+        }}
+      >
         <div style={{ fontWeight: 700, marginBottom: 6 }}>Summary</div>
-        <div style={{ display:'flex', gap:18, flexWrap:'wrap', fontFamily:'var(--font-data)' }}>
+        <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
           <div>Allowlist: <b>{enabled ? 'Enabled' : 'Disabled'}</b></div>
           {enabled && (
             <>
               <div>Addresses: <b>{count}</b></div>
-              <div>Root: <code style={{ opacity:.8 }}>
-                {root ? `${root.slice(0,10)}…${root.slice(-6)}` : '-'}
-              </code></div>
+              <div>
+                Root:{' '}
+                <code style={{ color: 'var(--muted)' }}>
+                  {root ? `${root.slice(0,10)}…${root.slice(-6)}` : '-'}
+                </code>
+              </div>
             </>
           )}
         </div>
       </div>
 
+      {/* Nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <button className="button" onClick={onBack}>← Back</button>
         <button

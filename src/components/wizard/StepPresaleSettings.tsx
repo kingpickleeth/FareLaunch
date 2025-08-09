@@ -114,7 +114,11 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
           {/* Presale Currency */}
           <label style={{ display: 'grid', gap: 6 }}>
             <div>Presale Currency</div>
-            <input value={quote} readOnly style={{ ...inputStyle, height: 44 }} />
+            <input
+              value={quote}
+              readOnly
+              style={{ ...inputStyle, height: 44, background: 'var(--input-bg)', color: 'var(--text)' }}
+            />
             <small style={{ visibility: 'hidden' }}>placeholder</small>
           </label>
 
@@ -140,7 +144,9 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
               }}
               style={{ ...inputStyle, height: 44 }}
             />
-            <small style={{ opacity: .7 }}>Must start within 60 days; not in the past.</small>
+            <small style={{ color: 'var(--muted)' }}>
+              Must start within 60 days; not in the past.
+            </small>
           </label>
 
           {/* End */}
@@ -154,10 +160,10 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
               onFocus={(e) => (e.currentTarget as any).showPicker?.()}
               onClick={(e) => (e.currentTarget as any).showPicker?.()}
               onChange={(e) => setEnd(e.target.value)}
-              style={{ ...inputStyle, height: 44 }}
+              style={{ ...inputStyle, height: 44, opacity: start ? 1 : 0.7 }}
               disabled={!start}
             />
-            <small style={{ opacity: .7 }}>
+            <small style={{ color: 'var(--muted)' }}>
               End within 14 days of start, and within 60 days from today.
             </small>
           </label>
@@ -170,7 +176,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 
         <div className="tokenomics-grid-3">
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Soft Cap ({'WAPE'})</div>
+            <div>Soft Cap ({quote})</div>
             <input
               value={softCap}
               onChange={(e) => setSoftCap(e.target.value)}
@@ -182,7 +188,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
           </label>
 
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Hard Cap ({'WAPE'}) <span style={{ opacity:.6 }}>(optional)</span></div>
+            <div>Hard Cap ({quote}) <span style={{ color: 'var(--muted)' }}>(optional)</span></div>
             <input
               value={hardCap}
               onChange={(e) => setHardCap(e.target.value)}
@@ -198,7 +204,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 
         <div className="tokenomics-grid-2">
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Per-Wallet Min ({'WAPE'})</div>
+            <div>Per-Wallet Min ({quote})</div>
             <input
               value={minPerWallet}
               onChange={(e) => setMinPerWallet(e.target.value)}
@@ -209,7 +215,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
             />
           </label>
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Per-Wallet Max ({'WAPE'})</div>
+            <div>Per-Wallet Max ({quote})</div>
             <input
               value={maxPerWallet}
               onChange={(e) => setMaxPerWallet(e.target.value)}
@@ -239,9 +245,9 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 }
 
 const inputStyle: React.CSSProperties = {
-  background: '#101216',
-  border: '1px solid rgba(255,255,255,.08)',
-  color: 'var(--fl-white)',
+  background: 'var(--input-bg)',
+  border: '1px solid var(--input-border)',
+  color: 'var(--text)',
   borderRadius: 12,
   padding: '10px 12px',
   outline: 'none',

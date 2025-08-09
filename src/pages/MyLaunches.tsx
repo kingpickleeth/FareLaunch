@@ -43,63 +43,112 @@ export default function MyLaunches() {
     return (
       <div className="card" style={{ padding: 16 }}>
         <div className="h2">My Launches</div>
-        <div style={{ opacity:.8, marginTop:8 }}>Connect your wallet to view your drafts and launches.</div>
+        <div style={{ color: 'var(--muted)', marginTop: 8 }}>
+          Connect your wallet to view your drafts and launches.
+        </div>
       </div>
     );
   }
 
-  if (err) return <div style={{ color:'tomato', padding:16 }}>Error: {err}</div>;
-  if (!rows) return <div style={{ padding:16 }}>Loading…</div>;
+  if (err) return <div style={{ color: 'var(--fl-danger)', padding: 16 }}>Error: {err}</div>;
+  if (!rows) return <div style={{ padding: 16 }}>Loading…</div>;
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <div className="h2">My Launches</div>
-  
+
       <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-        <button className="button button-secondary" onClick={() => nav('/launch')}>+ New Launch</button>
+        <button className="button button-secondary" onClick={() => nav('/launch')}>
+          + New Launch
+        </button>
       </div>
-  
+
       {rows.length === 0 ? (
-        <div className="card" style={{ padding: 16, opacity: .85 }}>
+        <div className="card" style={{ padding: 16, color: 'var(--muted)' }}>
           You have no launches yet. Click “New Launch” to start.
         </div>
       ) : (
-        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          {/* Header (hidden on mobile) */}
-          <div className="launch-header">
+        <div
+          className="card"
+          style={{
+            padding: 0,
+            overflow: 'hidden',
+            background: 'var(--card-bg, var(--fl-surface))',
+            border: '1px solid var(--card-border, var(--border))',
+            borderRadius: 'var(--radius)',
+            boxShadow: 'var(--shadow)'
+          }}
+        >
+          {/* Header (hidden on mobile in your CSS) */}
+          <div
+            className="launch-header"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+              gap: 8,
+              padding: '10px 12px',
+              background: 'var(--table-header-bg, transparent)',
+              borderBottom: '1px solid var(--table-border, var(--border))',
+              color: 'var(--muted)',
+              fontWeight: 700
+            }}
+          >
             <div>Project</div>
             <div>Status</div>
             <div>Start</div>
             <div>End</div>
             <div className="center">Actions</div>
           </div>
-  
+
           {rows.map(r => (
-            <div key={r.id} className="launch-row">
+            <div
+              key={r.id}
+              className="launch-row"
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+                gap: 8,
+                padding: '10px 12px',
+                background: 'var(--table-row-bg, transparent)',
+                borderBottom: '1px solid var(--table-border, var(--border))'
+              }}
+            >
               <div className="cell cell-project">
-                <div style={{ fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {r.name || 'Untitled'} <span style={{ opacity: .7 }}>({r.token_symbol || '—'})</span>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: 'var(--fl-gold)'
+                  }}
+                >
+                  {r.name || 'Untitled'}{' '}
+                  <span style={{ color: 'var(--muted)', fontWeight: 600 }}>
+                    ({r.token_symbol || '—'})
+                  </span>
                 </div>
-                <div style={{ opacity: .6, fontSize: 12 }}>
+                <div style={{ color: 'var(--muted)', fontSize: 12 }}>
                   Updated: {formatNoSeconds(r.updated_at)}
                 </div>
               </div>
-  
-              <div className="cell cell-status">
-                <span className="cell-label">Status</span>
-                <span style={{ textTransform: 'capitalize' }}>{r.status}</span>
+
+              <div className="cell cell-status" style={{ color: 'var(--text)' }}>
+                <span className="cell-label" style={{ color: 'var(--muted)' }}>Status</span>
+                <span style={{ textTransform: 'capitalize', fontWeight: 700 }}>{r.status}</span>
               </div>
-  
-              <div className="cell">
-                <span className="cell-label">Start</span>
+
+              <div className="cell" style={{ color: 'var(--text)' }}>
+                <span className="cell-label" style={{ color: 'var(--muted)' }}>Start</span>
                 {formatNoSeconds(r.start_at)}
               </div>
-  
-              <div className="cell">
-                <span className="cell-label">End</span>
+
+              <div className="cell" style={{ color: 'var(--text)' }}>
+                <span className="cell-label" style={{ color: 'var(--muted)' }}>End</span>
                 {formatNoSeconds(r.end_at)}
               </div>
-  
-              <div className="cell cell-actions">
+
+              <div className="cell cell-actions" style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
                 <Link className="button" to={`/sale/${r.id}`}>View</Link>
                 {r.status === 'draft' && (
                   <Link className="button" to={`/launch?id=${r.id}`}>Edit</Link>
@@ -110,5 +159,5 @@ export default function MyLaunches() {
         </div>
       )}
     </div>
-  );  
+  );
 }
