@@ -43,7 +43,7 @@ export default function Tools() {
             }}
           >
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <div style={{ fontWeight: 800, fontSize: 18 }}>Create Launch</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color:'#366fda' }}>Create Launch</div>
               <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden>
                 <path fill="currentColor" d="M5 12h14M13 5l7 7-7 7" />
               </svg>
@@ -90,7 +90,7 @@ export default function Tools() {
             }}
           >
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-              <div style={{ fontWeight: 800, fontSize: 18 }}>Lock LP</div>
+              <div style={{ fontWeight: 800, fontSize: 18, color:'#366fda' }}>Lock LP</div>
               <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden>
                 <path fill="currentColor" d="M12 1a5 5 0 00-5 5v3H6a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2v-8a2 2 0 00-2-2h-1V6a5 5 0 00-5-5zm-3 8V6a3 3 0 016 0v3H9z" />
               </svg>
