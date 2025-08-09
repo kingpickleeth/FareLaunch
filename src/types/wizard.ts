@@ -45,9 +45,10 @@ export interface WizardData {
     // future: pauseable?: boolean;
   };
   lp?: {
-    percentToLP: number;   // 40..80 typical, default 60
-    lockDays: 30 | 90 | 180 | 365;
-    slippageBps?: number;  // e.g., 50 = 0.5%
+    percentToLP?: number;       // % of raise → LP (existing)
+    lockDays?: 30 | 90 | 180 | 365;
+    slippageBps?: number;
+    tokenPercentToLP?: number;  // ⬅️ NEW: % of total supply → LP
   };
   fees?: {
     raisePct: number;      // 5 (platform fee on raise, %)

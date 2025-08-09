@@ -3,11 +3,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import StepBasics from '../components/wizard/StepBasics';
 import StepTokenomics from '../components/wizard/StepTokenomics';
+import StepAllowlist from '../components/wizard/StepAllowlist';
+import StepReview from '../components/wizard/StepReview';
+import StepPresaleSettings from '../components/wizard/StepPresaleSettings'; // ⬅️ NEW
 import { defaultWizard } from '../types/wizard';
 import type { WizardData } from '../types/wizard';
-import StepAllowlist from '../components/wizard/StepAllowlist';
-import StepLPFees from '../components/wizard/StepLPFees';
-import StepReview from '../components/wizard/StepReview';
 import { getLaunch } from '../data/launches';
 
 function makeFresh(): WizardData {
@@ -63,14 +63,15 @@ function rowToWizard(row: any): WizardData {
   };
 }
 
-const STORAGE_KEY = 'farelaunch_wizard_v1';
+// ⬅️ bump to v2 so old local drafts don’t conflict
+const STORAGE_KEY = 'farelaunch_wizard_v2';
 
 export default function LaunchWizard() {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<WizardData>(makeFresh());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [hydrateKey, setHydrateKey] = useState(0); // ⬅️ forces steps to remount after hydration
+  const [hydrateKey, setHydrateKey] = useState(0); // forces steps to remount after hydration
   const [search] = useSearchParams();
 
   useEffect(() => {
@@ -80,7 +81,7 @@ export default function LaunchWizard() {
       setEditingId(null);
       setData(makeFresh());
       setStep(0);
-      setHydrateKey((k) => k + 1); // remount steps with fresh state
+      setHydrateKey((k) => k + 1);
       return;
     }
 
@@ -90,7 +91,7 @@ export default function LaunchWizard() {
       .then((row) => {
         setEditingId(row.id);
         setData(rowToWizard(row));
-        setStep(0);                 // optional: always start at step 0 when editing
+        setStep(0);                  // optional: always start at step 0 when editing
         setHydrateKey((k) => k + 1); // remount steps so local useState picks up new props
       })
       .catch((e) => {
@@ -104,12 +105,13 @@ export default function LaunchWizard() {
       .finally(() => setLoading(false));
   }, [search]);
 
+  // ⬅️ New order (LP/Fees removed as a separate step)
   const steps = useMemo(
     () => [
       { key: 'basics', label: 'Basics' },
+      { key: 'presale', label: 'Presale Settings' },
       { key: 'tokenomics', label: 'Tokenomics' },
       { key: 'allowlist', label: 'Allowlist' },
-      { key: 'lpfees', label: 'LP & Fees' },
       { key: 'review', label: 'Review' },
     ],
     []
@@ -136,7 +138,7 @@ export default function LaunchWizard() {
         padding: '0 12px',
       }}
       className="launch-wizard"
-    >  
+    >
       <div className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div className="h2">{editingId ? 'Edit Launch' : 'Create Launch'}</div>
         <div style={{ fontFamily: 'var(--font-data)' }}>
@@ -146,7 +148,7 @@ export default function LaunchWizard() {
 
       {step === 0 && (
         <StepBasics
-          key={`basics-${hydrateKey}`}   // ⬅️ remount when data changes
+          key={`basics-${hydrateKey}`}
           value={data}
           onChange={setData}
           onNext={() => setStep(1)}
@@ -154,8 +156,8 @@ export default function LaunchWizard() {
       )}
 
       {step === 1 && (
-        <StepTokenomics
-          key={`tok-${hydrateKey}`}
+        <StepPresaleSettings
+          key={`presale-${hydrateKey}`}
           value={data}
           onChange={setData}
           onNext={() => setStep(2)}
@@ -164,8 +166,8 @@ export default function LaunchWizard() {
       )}
 
       {step === 2 && (
-        <StepAllowlist
-          key={`allow-${hydrateKey}`}
+        <StepTokenomics
+          key={`tok-${hydrateKey}`}
           value={data}
           onChange={setData}
           onNext={() => setStep(3)}
@@ -174,8 +176,8 @@ export default function LaunchWizard() {
       )}
 
       {step === 3 && (
-        <StepLPFees
-          key={`lp-${hydrateKey}`}
+        <StepAllowlist
+          key={`allow-${hydrateKey}`}
           value={data}
           onChange={setData}
           onNext={() => setStep(4)}
@@ -187,7 +189,7 @@ export default function LaunchWizard() {
         <StepReview
           key={`rev-${hydrateKey}`}
           value={data}
-          editingId={editingId ?? undefined} // pass ID so StepReview updates same row
+          editingId={editingId ?? undefined}
           onBack={() => setStep(3)}
           onFinish={resetWizard}
         />

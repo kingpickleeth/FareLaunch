@@ -9,304 +9,279 @@ type Props = {
 };
 
 export default function StepTokenomics({ value, onChange, onNext, onBack }: Props) {
-  const quote = 'WAPE' as const;
-
   // ---------- helpers ----------
   function toNum(s: unknown): number {
     if (s === null || s === undefined) return NaN;
-    const str = String(s).replace(/,/g, '').trim(); // handles numbers/strings/null
+    const str = String(s).replace(/,/g, '').trim();
     if (!str) return NaN;
     const n = Number(str);
     return Number.isFinite(n) ? n : NaN;
   }
-
   function toStr(v: unknown): string {
     if (v === null || v === undefined) return '';
     return String(v);
   }
-// Pretty-print numbers with commas
-function formatNumberDisplay(v: unknown): string {
-  const n = toNum(v);
-  return Number.isFinite(n) ? n.toLocaleString() : toStr(v);
-}
+  function formatNumberDisplay(v: unknown): string {
+    const n = toNum(v);
+    return Number.isFinite(n) ? n.toLocaleString() : toStr(v);
+  }
+  function formatNumberInputStr(v: string): string {
+    const n = toNum(v);
+    return Number.isFinite(n) ? n.toLocaleString() : v;
+  }
 
-// Same, but keeps the input as a string and only formats if valid
-function formatNumberInputStr(v: string): string {
-  const n = toNum(v);
-  return Number.isFinite(n) ? n.toLocaleString() : v;
-}
-
-  // ---------- Supply ----------
+  // ---------- Inputs ----------
+  // 1) Total Supply
   const [supply, setSupply] = useState<string>(toStr(value.token.totalSupply));
 
-  // ---------- Keep % ----------
+  // 2) % of TOKENS to LP (new)
+  const [tokenPctToLP, setTokenPctToLP] = useState<number>(
+    Number.isFinite((value.lp as any)?.tokenPercentToLP)
+      ? Number((value.lp as any).tokenPercentToLP)
+      : 60
+  );
+
+  // 3) % of RAISE to LP (moved from LP/Fees)
+  const [raisePctToLP, setRaisePctToLP] = useState<number>(
+    Number.isFinite(value.lp?.percentToLP) ? Number(value.lp!.percentToLP) : 60
+  );
+
+  // 4) Lock time
+  const [lockDays, setLockDays] = useState<30 | 90 | 180 | 365>(value.lp?.lockDays ?? 90);
+
+  // 5) % Remaining tokens to keep (self)
   const [keepPct, setKeepPct] = useState<number>(
     Number.isFinite(value.sale?.keepPct as any) ? Number(value.sale!.keepPct) : 15
   );
-  // ---------- Schedule ----------
-  const [start, setStart] = useState<string>(toStr(value.sale?.start));
-  const [end, setEnd] = useState<string>(toStr(value.sale?.end));
+// ---------- Derived ----------
+const totalSupply = toNum(supply);
 
-  function fmtLocal(date: Date) {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const y = date.getFullYear();
-    const m = pad(date.getMonth() + 1);
-    const d = pad(date.getDate());
-    const hh = pad(date.getHours());
-    const mm = pad(date.getMinutes());
-    return `${y}-${m}-${d}T${hh}:${mm}`;
-  }
+// LP tokens (percent of TOTAL supply)
+const lpTokens = Number.isFinite(totalSupply)
+  ? Math.floor((totalSupply * tokenPctToLP) / 100)
+  : NaN;
 
-  const now = new Date();
-  const maxFuture = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000); // +60 days
+// Remaining after pulling LP tokens
+const remainingAfterLP = Number.isFinite(totalSupply)
+  ? Math.max(0, totalSupply - lpTokens)
+  : NaN;
 
-  const minStart = fmtLocal(now);
-  const maxStart = fmtLocal(maxFuture);
+// Keep % applies to the remainder (not total supply)
+const keep = Number.isFinite(keepPct) ? Math.max(0, Math.min(100, keepPct)) : 0;
+const keptTokens = Number.isFinite(remainingAfterLP)
+  ? Math.floor((remainingAfterLP * keep) / 100)
+  : NaN;
 
-  const minEndDate = useMemo(() => {
-    if (!start) return minStart;
-    const s = new Date(start);
-    return fmtLocal(new Date(s.getTime() + 60 * 1000));
-  }, [start]);
+// Tokens for sale = remainder - kept
+const tokensForSale = Number.isFinite(remainingAfterLP) && Number.isFinite(keptTokens)
+  ? Math.max(0, remainingAfterLP - keptTokens)
+  : NaN;
 
-  const maxEndDate = useMemo(() => {
-    const limit60 = maxFuture;
-    if (!start) return fmtLocal(limit60);
-    const s = new Date(start);
-    const limit14 = new Date(s.getTime() + 14 * 24 * 60 * 60 * 1000);
-    const max = limit14.getTime() < limit60.getTime() ? limit14 : limit60;
-    return fmtLocal(max);
-  }, [start]);
+// Helpful percents relative to TOTAL supply
+const keptPctOfTotal = Number.isFinite(totalSupply) && totalSupply > 0 && Number.isFinite(keptTokens)
+  ? (keptTokens / totalSupply) * 100
+  : NaN;
 
-  // ---------- Caps ----------
-  const [softCap, setSoftCap] = useState<string>(toStr(value.sale?.softCap));
-  const [hardCap, setHardCap] = useState<string>(toStr(value.sale?.hardCap));
+const salePctOfTotal = Number.isFinite(totalSupply) && totalSupply > 0 && Number.isFinite(tokensForSale)
+  ? (tokensForSale / totalSupply) * 100
+  : NaN;
 
-  // ---------- Per-wallet caps ----------
-  const [minPerWallet, setMinPerWallet] = useState<string>(toStr(value.sale?.minPerWallet));
-  const [maxPerWallet, setMaxPerWallet] = useState<string>(toStr(value.sale?.maxPerWallet));
+// For labels like "$TICKER"
+const ticker = value.token.symbol ? `$${value.token.symbol}` : 'tokens';
 
-  // ---------- Derived ----------
-  const totalSupply = toNum(supply);
-  const keep = Number.isFinite(keepPct) ? Math.max(0, Math.min(100, keepPct)) : 0;
+// Keep your arrow calc for the slider display
+const tokensToLP = lpTokens; // for the slider arrow display
+// ✅ Validation (after the derived values)
+const valid = useMemo(() => {
+  if (!Number.isFinite(totalSupply) || totalSupply <= 0) return false;
 
-  const salePct = 100 - keep;
-  const tokensForSale = Number.isFinite(totalSupply)
-    ? Math.floor((totalSupply * salePct) / 100)
-    : NaN;
+  // LP tokens sanity (0–totalSupply)
+  if (!Number.isFinite(lpTokens) || lpTokens < 0 || lpTokens > totalSupply) return false;
 
-  const valid = useMemo(() => {
-    // supply
-    if (!Number.isFinite(totalSupply) || totalSupply <= 0) return false;
+  // keep% (0–100, applied to remainder)
+  if (!Number.isFinite(keep) || keep < 0 || keep > 100) return false;
 
-    // schedule
-    if (!start || !end) return false;
-    const t0 = Date.parse(start); const t1 = Date.parse(end);
-    if (!Number.isFinite(t0) || !Number.isFinite(t1) || t0 >= t1) return false;
+  // % knobs
+  if (!Number.isFinite(tokenPctToLP) || tokenPctToLP < 0 || tokenPctToLP > 100) return false;
+  if (!Number.isFinite(raisePctToLP) || raisePctToLP < 40 || raisePctToLP > 80) return false;
 
-    // caps
-    const sc = toNum(softCap);
-    if (!Number.isFinite(sc) || sc <= 0) return false;
+  // lockDays must be one of the allowed values
+  if (![30, 90, 180, 365].includes(lockDays)) return false;
 
-    const hc = toNum(hardCap);
-    if (hardCap && (!Number.isFinite(hc) || hc <= sc)) return false;
+  // must leave >0 tokens to sell
+  if (!Number.isFinite(tokensForSale) || tokensForSale <= 0) return false;
 
-    // tokens for sale > 0
-    if (!Number.isFinite(tokensForSale) || tokensForSale <= 0) return false;
-
-    return true;
-  }, [totalSupply, start, end, softCap, hardCap, tokensForSale]);
+  return true;
+}, [totalSupply, lpTokens, keep, tokenPctToLP, raisePctToLP, lockDays, tokensForSale]);
+const creatorRaisePct = 100 - raisePctToLP;
 
   function commitAndNext() {
     if (!valid) return;
+  
     onChange({
       ...value,
-      token: { ...value.token, totalSupply: supply }, // keep as string in wizard; DB layer can coerce
+      token: { ...value.token, totalSupply: supply }, // keep as string; DB layer can coerce
       sale: {
+        // keep quote/kind explicit to satisfy the WizardData type
+        quote: (value.sale?.quote ?? 'WAPE') as 'WAPE',
+        kind: value.sale?.kind ?? 'fair',
+        // update fields this step owns
         ...value.sale,
-        quote,
-        start,
-        end,
         keepPct: keep,
         saleTokensPool: Number.isFinite(tokensForSale) ? String(tokensForSale) : undefined,
-        softCap,                                  // keep as string in wizard
-        hardCap: hardCap || undefined,
-        minPerWallet: minPerWallet || undefined,
-        maxPerWallet: maxPerWallet || undefined,
+      },
+      lp: {
+        percentToLP: raisePctToLP,
+        lockDays,
+        slippageBps: value.lp?.slippageBps ?? 50,
+        tokenPercentToLP: tokenPctToLP,
       },
     });
+  
     onNext();
   }
+  
 
   return (
     <div className="card" style={{ padding: 16, display: 'grid', gap: 20 }}>
       <div className="h2">Tokenomics</div>
 
-      {/* Supply */}
+      {/* 1) Supply */}
       <section style={{ display: 'grid', gap: 12 }}>
         <label style={{ display: 'grid', gap: 6 }}>
           <div>Total Supply</div>
           <input
-  value={supply}
-  onChange={(e) => setSupply(e.target.value)}
-  onBlur={(e) => setSupply(formatNumberInputStr(e.target.value))}
-  placeholder="1000000000"
-  style={inputStyle}
-  inputMode="decimal"
-/>
+            value={supply}
+            onChange={(e) => setSupply(e.target.value)}
+            onBlur={(e) => setSupply(formatNumberInputStr(e.target.value))}
+            placeholder="1,000,000,000"
+            style={inputStyle}
+            inputMode="decimal"
+          />
           <small style={{ opacity: .7 }}>Fixed supply (v1). Decimals: {value.token.decimals}</small>
         </label>
-
-        <div style={{ display: 'grid', gap: 6, maxWidth: 'min(360px, 100%)' }}>
-  <div>Percent to keep (not sold)</div>
-  <input
-  type="text"
-  inputMode="numeric"
-  pattern="[0-9]*"
-  value={Number.isFinite(keepPct) ? String(keep) : ''}
-  onChange={(e) => {
-    const digits = e.target.value.replace(/[^\d]/g, '');
-    const n = digits === '' ? NaN : Number(digits);
-    setKeepPct(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
-  }}
-  style={inputStyle}
-/>
-  <small style={{ opacity: .7 }}>
-    {salePct}% of supply goes to the fair launch sale and Liquidity Pool. Default 0% keep → entire supply sold.
-  </small>
-</div>
       </section>
 
-      {/* Schedule */}
+      {/* 2) % of TOKENS to LP */}
       <section style={{ display: 'grid', gap: 12 }}>
-  <div className="tokenomics-grid-3">
-    {/* Presale Currency */}
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div>Presale Currency</div>
-      <input value={quote} readOnly style={{ ...inputStyle, height: 44 }} />
-      <small style={{ visibility: 'hidden' }}>placeholder</small>
-    </label>
+        <div className="h2" style={{ fontSize: 20 }}>% of Tokens → LP</div>
+        <label style={{ display: 'grid', gap: 6, maxWidth: 360 }}>
+          <div>What % of total token supply do you want paired into the LP?</div>
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={tokenPctToLP}
+            onChange={(e) => setTokenPctToLP(Number(e.target.value))}
+          />
+     <div style={{ fontFamily: 'var(--font-data)', display: 'flex', gap: 8, alignItems: 'center' }}>
+  <span>{tokenPctToLP}%</span>
+  {Number.isFinite(tokensToLP) && (
+    <span style={{ opacity: 0.9 }}>
+      &nbsp;→&nbsp; <b> {tokensToLP.toLocaleString()}</b> ${value.token.symbol || 'tokens'}
+    </span>
+  )}
+</div>
 
-    {/* Start */}
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div>Start (local)</div>
-      <input
-        type="datetime-local"
-        value={start}
-        min={minStart}
-        max={maxStart}
-        onFocus={(e) => (e.currentTarget as any).showPicker?.()}
-        onClick={(e) => (e.currentTarget as any).showPicker?.()}
-        onChange={(e) => {
-          const val = e.target.value;
-          setStart(val);
-          if (end) {
-            const sMs = new Date(val).getTime();
-            const eMs = new Date(end).getTime();
-            const maxEndMs = new Date(maxEndDate).getTime();
-            if (!Number.isFinite(eMs) || eMs <= sMs || eMs > maxEndMs) setEnd('');
-          }
-        }}
-        style={{ ...inputStyle, height: 44 }}
-      />
-      <small style={{ opacity: .7 }}>Must start within 60 days; not in the past.</small>
-    </label>
+        </label>
+      </section>
 
-    {/* End */}
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div>End (local)</div>
-      <input
-        type="datetime-local"
-        value={end}
-        min={minEndDate}
-        max={maxEndDate}
-        onFocus={(e) => (e.currentTarget as any).showPicker?.()}
-        onClick={(e) => (e.currentTarget as any).showPicker?.()}
-        onChange={(e) => setEnd(e.target.value)}
-        style={{ ...inputStyle, height: 44 }}
-        disabled={!start}
-      />
-      <small style={{ opacity: .7 }}>
-        End within 14 days of start, and within 60 days from today.
-      </small>
-    </label>
-  </div>
-</section>
-
-      {/* Caps */}
+      {/* 3) % of RAISE to LP */}
       <section style={{ display: 'grid', gap: 12 }}>
-  <div className="h2" style={{ fontSize: 20 }}>Presale Caps</div>
+        <div className="h2" style={{ fontSize: 20 }}>% of Raise → LP</div>
+        <label style={{ display: 'grid', gap: 6, maxWidth: 360 }}>
+          <div>What % of total raise do you want paired into the LP?</div>
+          <input
+            type="range"
+            min={40}
+            max={80}
+            step={5}
+            value={raisePctToLP}
+            onChange={(e) => setRaisePctToLP(Number(e.target.value))}
+          />
+          <div style={{ fontFamily: 'var(--font-data)' }}>{raisePctToLP}% of the raised $WAPE</div>
+        </label>
+      </section>
 
-  <div className="tokenomics-grid-3">
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div>Soft Cap ({quote})</div>
-      <input
-  value={softCap}
-  onChange={(e) => setSoftCap(e.target.value)}
-  onBlur={(e) => setSoftCap(formatNumberInputStr(e.target.value))}
-  placeholder="100"
-  style={inputStyle}
-  inputMode="decimal"
-/>
-    </label>
+      {/* 4) Lock time */}
+      <section style={{ display: 'grid', gap: 12 }}>
+        <div className="h2" style={{ fontSize: 20 }}>Liquidity Lock</div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {[30, 90, 180, 365].map((d) => (
+            <button
+              key={d}
+              type="button"
+              className="button"
+              onClick={() => setLockDays(d as 30 | 90 | 180 | 365)}
+              style={{ background: lockDays === d ? 'var(--fl-purple)' : '#2a2d36', color: '#fff' }}
+            >
+              Lock {d}d
+            </button>
+          ))}
+        </div>
+      </section>
 
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div>Hard Cap ({quote}) <span style={{ opacity:.6 }}>(optional)</span></div>
-      <input
-  value={hardCap}
-  onChange={(e) => setHardCap(e.target.value)}
-  onBlur={(e) => setHardCap(formatNumberInputStr(e.target.value))}
-  placeholder="(none)"
-  style={inputStyle}
-  inputMode="decimal"
-/>
-    </label>
-
-    {/* You can leave the 3rd column empty or add something later */}
-    <div />
-  </div>
-
-  <div className="tokenomics-grid-2">
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div>Per-Wallet Min ({quote})</div>
-      <input
-  value={minPerWallet}
-  onChange={(e) => setMinPerWallet(e.target.value)}
-  onBlur={(e) => setMinPerWallet(formatNumberInputStr(e.target.value))}
-  placeholder="0.2"
-  style={inputStyle}
-  inputMode="decimal"
-/>
-    </label>
-    <label style={{ display: 'grid', gap: 6 }}>
-      <div>Per-Wallet Max ({quote})</div>
-      <input
-  value={maxPerWallet}
-  onChange={(e) => setMaxPerWallet(e.target.value)}
-  onBlur={(e) => setMaxPerWallet(formatNumberInputStr(e.target.value))}
-  placeholder="5"
-  style={inputStyle}
-  inputMode="decimal"
-/>
-    </label>
-  </div>
-</section>
-
-      {/* Summary */}
-      <section className="card" style={{ background: '#141720', padding: 12, borderRadius: 12, display: 'grid', gap: 6 }}>
+      {/* 5) % Remaining (Keep) */}
+      <section style={{ display: 'grid', gap: 12, maxWidth: 'min(360px, 100%)' }}>
+        <div>% of remaining tokens to hold:</div>
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={Number.isFinite(keepPct) ? String(keep) : ''}
+          onChange={(e) => {
+            const digits = e.target.value.replace(/[^\d]/g, '');
+            const n = digits === '' ? NaN : Number(digits);
+            const clamped = Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0;
+            setKeepPct(clamped);
+          }}
+          style={inputStyle}
+        />
+    <small style={{ opacity: .7 }}>
+  Applies to the remainder <i>after</i> LP tokens. Default 0% keep → entire remainder goes to sale.
+    </small>
+      </section>
+      <section
+  className="card"
+  style={{ background: '#141720', padding: 12, borderRadius: 12, display: 'grid', gap: 6 }}
+>
   <div style={{ fontWeight: 700 }}>Summary:</div>
+
   {!Number.isFinite(totalSupply) ? (
-    <div style={{ opacity: .7 }}>Enter a valid total supply to see estimates.</div>
+    <div style={{ opacity: 0.7 }}>Enter a valid total supply to see estimates.</div>
   ) : (
     <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
-      <div>Total Supply: <b>{formatNumberDisplay(supply) || '-'}</b></div>
-      <div>Kept by creator: <b>{keep}%</b></div>
-      <div>Sale Allocation: <b>{salePct}%</b></div>
-      <div>Tokens for Sale: <b>{Number.isFinite(tokensForSale) ? formatNumberDisplay(tokensForSale) : '-'}</b></div>
-      <div>Price: <b>Determined at end</b> (pro-rata)</div>
+      <div>Total Supply: <b>{formatNumberDisplay(supply)}</b></div>
+
+      <div>LP Funding: <b>{raisePctToLP}% of Raise</b> / <b>
+  {Number.isFinite(lpTokens) ? lpTokens.toLocaleString() : '-'}
+</b> {ticker}</div>
+<div>
+  Creator Proceeds: <b>
+    {Number.isFinite(creatorRaisePct) ? `${creatorRaisePct}% of Raise` : '-'}
+  </b> <span style={{ opacity:.8 }}>
+    (minus fees)
+  </span>
+  {' '} & {' '}
+  <b>{Number.isFinite(keptTokens) ? keptTokens.toLocaleString() : '-'}</b> {ticker}
+  <span style={{ opacity:.8 }}>
+    {' '}({Number.isFinite(keptPctOfTotal) ? keptPctOfTotal.toFixed(2) : '-'}% of total supply)
+  </span>
+</div>
+
+      <div>Tokens for Sale: <b>
+        {Number.isFinite(tokensForSale) ? tokensForSale.toLocaleString() : '-'} {ticker}
+      </b>
+        <span style={{ opacity: 0.8 }}>
+          {' '}({Number.isFinite(salePctOfTotal) ? salePctOfTotal.toFixed(2) : '-'}% of total supply)
+        </span>
+      </div>
+      <div>Lock Duration: <b>{lockDays} days</b></div>
     </div>
   )}
 </section>
+
       {/* Nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <button className="button" onClick={onBack}>← Back</button>

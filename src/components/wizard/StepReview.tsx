@@ -168,7 +168,66 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
   }
 
   const totalSupply = value.token.totalSupply ?? '-';
-  const salePool = value.sale?.saleTokensPool ?? '-';
+  function toNum(v: unknown): number {
+    if (v === null || v === undefined) return NaN;
+    const n = Number(String(v).replace(/,/g, '').trim());
+    return Number.isFinite(n) ? n : NaN;
+  }
+  
+  function formatDateTimeMMDDYYYY(s?: string): string {
+    if (!s) return '-';
+    const d = new Date(s);
+    if (!Number.isFinite(d.getTime())) return s; // fall back if it's not a valid date
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const mm = pad(d.getMonth() + 1);
+    const dd = pad(d.getDate());
+    const yyyy = d.getFullYear();
+    let h = d.getHours();
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    if (h === 0) h = 12;
+    const mins = pad(d.getMinutes());
+    return `${mm}/${dd}/${yyyy} at ${h}:${mins} ${ampm}`;
+  }
+  
+  function formatAmtWithQuote(v: unknown, quote?: string): string {
+    const n = toNum(v);
+    if (!Number.isFinite(n)) return '-';
+    return `${n.toLocaleString()} ${quote ?? ''}`.trim();
+  }
+  
+  // --- Derived (mirror Tokenomics math) ---
+  const totalSupplyNum = toNum(value.token.totalSupply);
+  const tokenPctToLP   = typeof value.lp?.tokenPercentToLP === 'number' ? value.lp.tokenPercentToLP : 0;
+  const raisePctToLP   = typeof value.lp?.percentToLP === 'number' ? value.lp.percentToLP : 60;
+  const keepPctRem     = typeof value.sale?.keepPct === 'number' ? value.sale.keepPct : 0;
+  
+  const lpTokens = Number.isFinite(totalSupplyNum) ? Math.floor((totalSupplyNum * tokenPctToLP) / 100) : NaN;
+  const remainingAfterLP = Number.isFinite(totalSupplyNum) ? Math.max(0, totalSupplyNum - lpTokens) : NaN;
+  const keptTokens = Number.isFinite(remainingAfterLP) ? Math.floor((remainingAfterLP * keepPctRem) / 100) : NaN;
+  const tokensForSale = Number.isFinite(remainingAfterLP) && Number.isFinite(keptTokens)
+    ? Math.max(0, remainingAfterLP - keptTokens)
+    : NaN;
+  
+  const keptPctOfTotal = Number.isFinite(totalSupplyNum) && totalSupplyNum > 0 && Number.isFinite(keptTokens)
+    ? (keptTokens / totalSupplyNum) * 100
+    : NaN;
+  const salePctOfTotal = Number.isFinite(totalSupplyNum) && totalSupplyNum > 0 && Number.isFinite(tokensForSale)
+    ? (tokensForSale / totalSupplyNum) * 100
+    : NaN;
+  
+  const creatorRaisePct = 100 - raisePctToLP;
+  const raiseFeePct = typeof value.fees?.raisePct === 'number' ? value.fees.raisePct : 5;
+  
+  // Supply fee is expressed as a % value like 0.05 (i.e., 0.05%)
+  const supplyFeePct = typeof value.fees?.supplyPct === 'number' ? value.fees.supplyPct : 0.05;
+  const platformSupplyFeeTokens = Number.isFinite(totalSupplyNum)
+    ? Math.floor(totalSupplyNum * (supplyFeePct / 100))
+    : NaN;
+  
+  const ticker = value.token.symbol ? `$${value.token.symbol}` : 'tokens';
+  
+  
   return (
     <form onSubmit={(e) => e.preventDefault()}>
       {/* NEW centered container */}
@@ -190,17 +249,30 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
             <div>Total Supply: <b className="break-anywhere">{totalSupply}</b></div>
           </div>
   
-          <div className="card" style={{ background: '#141720', padding: 12, borderRadius: 12, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>Fair Launch</div>
-            <div>Quote: <b>{value.sale?.quote}</b></div>
-            <div>Start: <b className="break-anywhere">{value.sale?.start || '-'}</b></div>
-            <div>End: <b className="break-anywhere">{value.sale?.end || '-'}</b></div>
-            <div>Soft Cap: <b className="break-anywhere">{value.sale?.softCap || '-'}</b></div>
-            <div>Hard Cap: <b className="break-anywhere">{value.sale?.hardCap || '(none)'}</b></div>
-            <div>Keep %: <b>{value.sale?.keepPct ?? 0}%</b></div>
-            <div>Tokens for Sale: <b className="break-anywhere">{salePool}</b></div>
-            <div>Per-wallet min/max: <b className="break-anywhere">{value.sale?.minPerWallet || '-'}</b> / <b className="break-anywhere">{value.sale?.maxPerWallet || '-'}</b></div>
-          </div>
+          <div>Currency Pair: <b>{value.sale?.quote}</b></div>
+
+<div>Presale Start: <b className="break-anywhere">
+  {formatDateTimeMMDDYYYY(value.sale?.start)}
+</b></div>
+
+<div>Presale End: <b className="break-anywhere">
+  {formatDateTimeMMDDYYYY(value.sale?.end)}
+</b></div>
+
+<div>Soft Cap: <b className="break-anywhere">
+  {formatAmtWithQuote(value.sale?.softCap, value.sale?.quote)}
+</b></div>
+
+<div>Hard Cap: <b className="break-anywhere">
+  {value.sale?.hardCap ? formatAmtWithQuote(value.sale?.hardCap, value.sale?.quote) : '(none)'}
+</b></div>
+
+<div>Per-wallet min/max: <b className="break-anywhere">
+  {formatAmtWithQuote(value.sale?.minPerWallet, value.sale?.quote)}
+</b> / <b className="break-anywhere">
+  {formatAmtWithQuote(value.sale?.maxPerWallet, value.sale?.quote)}
+</b></div>
+
   
           <div className="card" style={{ background: '#141720', padding: 12, borderRadius: 12, minWidth: 0 }}>
             <div style={{ fontWeight: 700, marginBottom: 6 }}>Allowlist</div>
@@ -216,16 +288,39 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
               </>
             )}
           </div>
-  
-          <div className="card" style={{ background: '#141720', padding: 12, borderRadius: 12, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, marginBottom: 6 }}>LP & Fees</div>
-            <div>% to LP: <b>{value.lp?.percentToLP ?? 60}%</b></div>
-            <div>Lock: <b>{value.lp?.lockDays} days</b></div>
-            <div>Slippage: <b>{(value.lp?.slippageBps ?? 50) / 100}%</b></div>
-            <div>Platform fee (raise): <b>{(value.fees?.raisePct ?? 5)}%</b></div>
-            <div>Platform fee (supply): <b>{(value.fees?.supplyPct ?? 0.05)}%</b></div>
-          </div>
-  
+  {/* LP & Fees */}
+{/* LP & Fees */}
+<div className="card" style={{ background: '#141720', padding: 12, borderRadius: 12, minWidth: 0 }}>
+  <div style={{ fontWeight: 700, marginBottom: 6 }}>LP & Fees</div>
+
+  <div>To LP Funding: <b>
+    {Number.isFinite(raisePctToLP) ? `${raisePctToLP}% of Raise` : '-'}
+  </b> / <b>
+    {Number.isFinite(lpTokens) ? lpTokens.toLocaleString() : '-'}
+  </b> {ticker}</div>
+
+  <div>Creator Profits: <b>
+    {Number.isFinite(creatorRaisePct) ? `${creatorRaisePct}% of Raise` : '-'}
+  </b> <span style={{ opacity:.8 }}>(minus platform fee {raiseFeePct}%)</span>
+    {' '} & <b>
+      {Number.isFinite(keptTokens) ? keptTokens.toLocaleString() : '-'}
+    </b> {ticker}
+    <span style={{ opacity:.8 }}>
+      {' '}({Number.isFinite(keptPctOfTotal) ? keptPctOfTotal.toFixed(2) : '-'}% of total supply)
+    </span>
+  </div>
+
+  <div>Lock: <b>{value.lp?.lockDays ? `${value.lp.lockDays} days` : '-'}</b></div>
+  <div>Platform fee (raise): <b>{typeof value.fees?.raisePct === 'number' ? `${value.fees.raisePct}%` : '-'}</b></div>
+  <div>Platform fee (supply): <b>
+  {Number.isFinite(platformSupplyFeeTokens) ? platformSupplyFeeTokens.toLocaleString() : '-'} {ticker}
+</b>
+  <span style={{ opacity:.8 }}>
+    {' '}({supplyFeePct}%)
+  </span>
+</div>
+</div>
+
           <div className="review-actions">
   <button type="button" className="button button-back" onClick={onBack}>← Back</button>
 
