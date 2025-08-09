@@ -99,21 +99,37 @@ style={{
 display:'flex', justifyContent:'space-between', alignItems:'center',
 padding:'16px 24px', background:'rgba(15,17,21,.7)',
 backdropFilter:'blur(8px)', borderBottom:'1px solid var( --fl-gold)', zIndex:2000}}>
-  {/* Brand */}
-  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+ {/* Brand */}
+<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+  <img
+    src="https://dengdefense.xyz/taxi.svg"
+    alt="FareLaunch logo"
+    width={46}
+    height={46}
+    style={{
+      display: 'block',
+      borderRadius: 8,         // optional: matches your rounded vibe
+      objectFit: 'contain',
+    }}
+  />
+
   <div
-  style={{
-    fontFamily: 'var(--font-head)',
-    fontWeight: 800,
-    color: 'var(--fl-gold)',
-    fontSize: isMobile ? 30 : 30,  // 📈 bigger on mobile
-  }}
->
-  FareLaunch
+    style={{
+      fontFamily: 'var(--font-head)',
+      fontWeight: 800,
+      color: 'var(--fl-gold)',
+      fontSize: isMobile ? 30 : 30,
+      lineHeight: 1,
+    }}
+  >
+    FareLaunch
+  </div>
+
+  <span className="navsubtitle" style={{ fontSize: 12, opacity: .7 }}>
+    {' '}on ApeChain // Camelot
+  </span>
 </div>
 
-    <span style={{ fontSize: 12, opacity: .7 }}> on ApeChain // Camelot</span>
-  </div>
 
   {/* Right side */}
   {!isMobile ? (
