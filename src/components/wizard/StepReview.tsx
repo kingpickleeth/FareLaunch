@@ -3,17 +3,16 @@ import type { WizardData } from '../../types/wizard';
 import { upsertLaunch } from '../../data/launches';
 import { useAccount } from 'wagmi';
 
-// ⬇️ added
 import { supabase } from '../../lib/supabase';
 import { makeMerkle, isAddress } from '../../utils/merkle';
+import { useNavigate } from 'react-router-dom';
 
 type Props = {
   value: WizardData;
   onBack: () => void;
-  onFinish?: () => void; // later: deploy
+  onFinish?: () => void; // optional
 };
 
-// helper (chunked upsert)
 async function upsertAllowlistBatched(saleId: string, addrs: string[]) {
   if (!supabase) throw new Error('Supabase not configured');
   const CHUNK = 1000;
@@ -27,12 +26,13 @@ async function upsertAllowlistBatched(saleId: string, addrs: string[]) {
 }
 
 export default function StepReview({ value, onBack, onFinish }: Props) {
+  const { address, isConnected } = useAccount();
+  const navigate = useNavigate();
+
   function download() {
     const blob = new Blob([JSON.stringify(value, null, 2)], { type: 'application/json' });
     saveFile(blob, `farelaunch-config-${Date.now()}.json`);
   }
-
-  const { address, isConnected } = useAccount();
 
   async function handleCreate() {
     try {
@@ -45,7 +45,6 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
         return;
       }
 
-      // Snapshot
       const rawAddrs = ((value.allowlist as any)?.addresses ?? []) as string[];
       console.log('[Review] allowlist snapshot', {
         enabled: value.allowlist?.enabled,
@@ -55,11 +54,10 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
         sample: rawAddrs.slice(0, 3),
       });
 
-      // Create/promote the launch
+      // insert/promote to upcoming
       const row = await upsertLaunch(address, value, undefined, 'upcoming');
       console.log('[Review] launch row returned', { id: row?.id, typeofId: typeof row?.id });
 
-      // If allowlist enabled: normalize, verify, upload
       if (value.allowlist?.enabled) {
         const normalized = Array.from(
           new Set(
@@ -68,13 +66,10 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
               .filter((a): a is string => !!a && isAddress(a))
           )
         );
-
         if (normalized.length === 0) {
           alert('Allowlist is enabled but contains 0 valid addresses.');
           return;
         }
-
-        // Recompute the root to ensure consistency
         const { root: recomputed } = makeMerkle(normalized);
         if (!value.allowlist.root || recomputed !== value.allowlist.root) {
           console.warn('[Review] Merkle mismatch', { wizard: value.allowlist.root, recomputed });
@@ -82,10 +77,8 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
           return;
         }
 
-        // Upload allowlist rows
         await upsertAllowlistBatched(row.id, normalized);
 
-        // Patch launch with root & count if missing/stale
         if (row.allowlist_root !== value.allowlist.root || row.allowlist_count !== normalized.length) {
           const { error: patchErr } = await supabase
             .from('launches')
@@ -99,6 +92,8 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
       }
 
       alert(`Launch created! ID: ${row.id}`);
+      // 👉 go to the sale you just created
+      navigate(`/sale/${row.id}`, { replace: true });
       onFinish?.();
     } catch (e: any) {
       console.error(e);
@@ -107,12 +102,19 @@ export default function StepReview({ value, onBack, onFinish }: Props) {
   }
 
   async function handleSaveDraft() {
-    if (!isConnected || !address) {
-      alert('Connect your wallet first.');
-      return;
+    try {
+      if (!isConnected || !address) {
+        alert('Connect your wallet first.');
+        return;
+      }
+      const row = await upsertLaunch(address, value);
+      alert(`Saved draft! ID: ${row.id}`);
+      // drafts → My Launches
+      navigate('/me', { replace: true });
+    } catch (e: any) {
+      console.error(e);
+      alert(`Failed to save draft: ${e?.message || e}`);
     }
-    const row = await upsertLaunch(address, value); // drafts: we do NOT upload allowlist rows
-    alert(`Saved draft! ID: ${row.id}`);
   }
 
   const totalSupply = value.token.totalSupply ?? '-';
