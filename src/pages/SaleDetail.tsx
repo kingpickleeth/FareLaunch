@@ -158,7 +158,7 @@ export default function SaleDetail() {
 
       {/* Allowlist (client demo) */}
       <div className="allowlist-wrap">
-      <AllowlistCheck saleId={row.id} root={row.allowlist_root} />
+      <AllowlistCheck key={row.id} saleId={row.id} root={row.allowlist_root} />
       </div>
 
       {/* Actions */}
