@@ -78,9 +78,9 @@ export default function Explore() {
         style={{
           padding: '6px 12px',
           borderRadius: 999,
-          background: active ? 'var(--fl-white)' : 'transparent',  // white when active
-          color: active ? '#000' : 'var(--fl-white)',               // black text on active
-          border: '1px solid var(--fl-white)',                      // always visible border
+          background: active ? 'var(--fl-purple)' : 'transparent',  // white when active
+          color: active ? '#ffffff' : 'var(--fl-purple)',               // black text on active
+          border: '1px solid var(--fl-purple)',                      // always visible border
           fontWeight: 600,
           textTransform: 'capitalize',
           cursor: 'pointer',
