@@ -214,7 +214,7 @@ export default function ProfileButton({ onConnect }: { onConnect?: () => void })
                 <button
                   className="button"
                   onClick={() => setEditingName(true)}
-                  style={{ padding:'2px 8px', fontSize:12 }}
+                  style={{ padding:'2px 8px', fontSize:12, backgroundColor:'#366fda' }}
                 >
                   Change
                 </button>

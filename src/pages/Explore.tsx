@@ -74,7 +74,7 @@ export default function Explore() {
       <button
         key={opt}
         onClick={() => setStatus(opt)}
-        className="button"
+        className="buttonfilter"
         style={{
           padding: '6px 12px',
           borderRadius: 999,

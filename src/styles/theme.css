@@ -1,6 +1,6 @@
 :root {
     --fl-gold: #FFB82E;
-    --fl-purple: #7A5CFF;
+    --fl-purple: #366fda;
     --fl-aqua: #2EE8A3;
     --fl-bg: #0F1115;
     --fl-surface: #1A1C23;
@@ -31,6 +31,8 @@
     border-radius: var(--radius);
     padding: 12px 16px; font-weight: 600; cursor: pointer; border: none;
     transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
+    background-color: #FFB82E;
+    color: #1A1C23 !important;
   }
   .button:active { transform: translateY(1px); }
   .button-primary { background: var(--fl-gold); color: #111; }
@@ -47,8 +49,8 @@
   .badge-upcoming { background: var(--fl-gold); color: #111; }
   .badge-failed { background: var(--fl-danger); color: var(--fl-white); }
   
-  .h1 { font-family: var(--font-head); font-weight: 800; font-size: 42px; color: var(--fl-white); }
-  .h2 { font-family: var(--font-head); font-weight: 700; font-size: 28px; color: var(--fl-white); }
+  .h1 { font-family: var(--font-head); font-weight: 800; font-size: 42px; color: var(--fl-gold); }
+  .h2 { font-family: var(--font-head); font-weight: 700; font-size: 28px; color: var(--fl-gold); }
   
   input[type="datetime-local"],
 input[type="date"],
@@ -61,4 +63,13 @@ input[type="date"],
 input[type="time"] {
   height: 44px;
   box-sizing: border-box;
+}
+
+
+.buttonfilter {
+  display:inline-flex; align-items:center; justify-content:center;
+  border-radius: var(--radius);
+  padding: 12px 16px; font-weight: 600; cursor: pointer; border: none;
+  transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
+  background-color: #FFB82E;
 }
