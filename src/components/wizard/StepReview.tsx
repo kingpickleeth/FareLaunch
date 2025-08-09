@@ -205,15 +205,9 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
   const lpTokens = Number.isFinite(totalSupplyNum) ? Math.floor((totalSupplyNum * tokenPctToLP) / 100) : NaN;
   const remainingAfterLP = Number.isFinite(totalSupplyNum) ? Math.max(0, totalSupplyNum - lpTokens) : NaN;
   const keptTokens = Number.isFinite(remainingAfterLP) ? Math.floor((remainingAfterLP * keepPctRem) / 100) : NaN;
-  const tokensForSale = Number.isFinite(remainingAfterLP) && Number.isFinite(keptTokens)
-    ? Math.max(0, remainingAfterLP - keptTokens)
-    : NaN;
-  
+ 
   const keptPctOfTotal = Number.isFinite(totalSupplyNum) && totalSupplyNum > 0 && Number.isFinite(keptTokens)
     ? (keptTokens / totalSupplyNum) * 100
-    : NaN;
-  const salePctOfTotal = Number.isFinite(totalSupplyNum) && totalSupplyNum > 0 && Number.isFinite(tokensForSale)
-    ? (tokensForSale / totalSupplyNum) * 100
     : NaN;
   
   const creatorRaisePct = 100 - raisePctToLP;
