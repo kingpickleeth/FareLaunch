@@ -209,61 +209,72 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
 
       <div className="h2" style={{ marginTop: 8 }}>Token</div>
 
-      <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 180px 120px' }}>
-        <label style={{ display: 'grid', gap: 6 }}>
-          <div>Token Name</div>
-          <input
-            value={local.token.name}
-            onChange={e =>
-              setLocal({
-                ...local,
-                token: { ...local.token, name: e.target.value },
-              })
-            }
-            placeholder="Farelaunch Token"
-            style={inputStyle}
-          />
-        </label>
+      <div
+  style={{
+    display: 'grid',
+    gap: 12,
+    /* Token name prefers >=160px; ticker prefers 100–160px; decimals prefers 60–100px */
+    gridTemplateColumns: 'minmax(160px, 1fr) minmax(100px, 160px) minmax(30px, 70px)',
+  }}
+>
+  {/* Token Name */}
+  <label style={{ display: 'grid', gap: 6 }}>
+    <div>Token Name</div>
+    <input
+      value={local.token.name}
+      onChange={e =>
+        setLocal({
+          ...local,
+          token: { ...local.token, name: e.target.value },
+        })
+      }
+      placeholder="Farelaunch Token"
+      style={inputStyle}
+    />
+  </label>
 
-        <label style={{ display: 'grid', gap: 6 }}>
-          <div>Ticker</div>
-          <input
-            value={local.token.symbol}
-            onChange={e =>
-              setLocal({
-                ...local,
-                token: {
-                  ...local.token,
-                  symbol: e.target.value.toUpperCase(),
-                },
-              })
-            }
-            placeholder="FLCH"
-            style={inputStyle}
-            maxLength={8}
-          />
-        </label>
+  {/* Ticker */}
+  <label style={{ display: 'grid', gap: 6 }}>
+    <div>Ticker</div>
+    <input
+      value={local.token.symbol}
+      onChange={e =>
+        setLocal({
+          ...local,
+          token: {
+            ...local.token,
+            symbol: e.target.value.toUpperCase(),
+          },
+        })
+      }
+      placeholder="FLCH"
+      style={inputStyle}
+      maxLength={8}
+    />
+  </label>
 
-        <label style={{ display: 'grid', gap: 6 }}>
-          <div>Decimals</div>
-          <input
-            type="number"
-            min={0}
-            max={18}
-            value={local.token.decimals}
-            onChange={e =>
-              setLocal({
-                ...local,
-                token: {
-                  ...local.token,
-                  decimals: Math.max(0, Math.min(18, Number(e.target.value))),
-                },
-              })
-            }
-            style={inputStyle}
-          />
-        </label>
-      </div>
+ {/* Decimals */}
+<label style={{ display: 'grid', gap: 6 }}>
+  <div>Decimals</div>
+  <input
+    type="number"
+    min={0}
+    max={18}
+    value={local.token.decimals}
+    onChange={e =>
+      setLocal({
+        ...local,
+        token: {
+          ...local.token,
+          decimals: Math.max(0, Math.min(18, Number(e.target.value))),
+        },
+      })
+    }
+    style={{ ...inputStyle, textAlign: 'center' }}
+  />
+</label>
+</div>
+
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'flex-end' }}>
         <button

@@ -128,7 +128,15 @@ export default function LaunchWizard() {
   }
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
+    <div
+      style={{
+        display: 'grid',
+        gap: 16,
+        maxWidth: '100%',
+        padding: '0 12px',
+      }}
+      className="launch-wizard"
+    >  
       <div className="card" style={{ padding: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div className="h2">{editingId ? 'Edit Launch' : 'Create Launch'}</div>
         <div style={{ fontFamily: 'var(--font-data)' }}>

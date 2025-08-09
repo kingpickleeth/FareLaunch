@@ -24,13 +24,25 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
     if (v === null || v === undefined) return '';
     return String(v);
   }
+// Pretty-print numbers with commas
+function formatNumberDisplay(v: unknown): string {
+  const n = toNum(v);
+  return Number.isFinite(n) ? n.toLocaleString() : toStr(v);
+}
+
+// Same, but keeps the input as a string and only formats if valid
+function formatNumberInputStr(v: string): string {
+  const n = toNum(v);
+  return Number.isFinite(n) ? n.toLocaleString() : v;
+}
 
   // ---------- Supply ----------
   const [supply, setSupply] = useState<string>(toStr(value.token.totalSupply));
 
   // ---------- Keep % ----------
-  const [keepPct, setKeepPct] = useState<number>(Number.isFinite(value.sale?.keepPct as any) ? Number(value.sale!.keepPct) : 0);
-
+  const [keepPct, setKeepPct] = useState<number>(
+    Number.isFinite(value.sale?.keepPct as any) ? Number(value.sale!.keepPct) : 15
+  );
   // ---------- Schedule ----------
   const [start, setStart] = useState<string>(toStr(value.sale?.start));
   const [end, setEnd] = useState<string>(toStr(value.sale?.end));
@@ -128,171 +140,173 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
 
   return (
     <div className="card" style={{ padding: 16, display: 'grid', gap: 20 }}>
-      <div className="h2">Tokenomics & Fair Launch</div>
+      <div className="h2">Tokenomics</div>
 
       {/* Supply */}
       <section style={{ display: 'grid', gap: 12 }}>
         <label style={{ display: 'grid', gap: 6 }}>
           <div>Total Supply</div>
           <input
-            value={supply}
-            onChange={(e) => setSupply(e.target.value)}
-            placeholder="1000000000"
-            style={inputStyle}
-            inputMode="decimal"
-          />
+  value={supply}
+  onChange={(e) => setSupply(e.target.value)}
+  onBlur={(e) => setSupply(formatNumberInputStr(e.target.value))}
+  placeholder="1000000000"
+  style={inputStyle}
+  inputMode="decimal"
+/>
           <small style={{ opacity: .7 }}>Fixed supply (v1). Decimals: {value.token.decimals}</small>
         </label>
 
-        <div style={{ display: 'grid', gap: 6, maxWidth: 320 }}>
-          <div>Percent to keep (not sold)</div>
-          <input
-            type="number"
-            min={0}
-            max={100}
-            value={keep}
-            onChange={(e) => setKeepPct(Number(e.target.value))}
-            style={inputStyle}
-          />
-          <small style={{ opacity: .7 }}>
-            {salePct}% of supply goes to the fair launch sale and Liquidity Pool. Default 0% keep → entire supply sold.
-          </small>
-        </div>
+        <div style={{ display: 'grid', gap: 6, maxWidth: 'min(360px, 100%)' }}>
+  <div>Percent to keep (not sold)</div>
+  <input
+  type="text"
+  inputMode="numeric"
+  pattern="[0-9]*"
+  value={Number.isFinite(keepPct) ? String(keep) : ''}
+  onChange={(e) => {
+    const digits = e.target.value.replace(/[^\d]/g, '');
+    const n = digits === '' ? NaN : Number(digits);
+    setKeepPct(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
+  }}
+  style={inputStyle}
+/>
+  <small style={{ opacity: .7 }}>
+    {salePct}% of supply goes to the fair launch sale and Liquidity Pool. Default 0% keep → entire supply sold.
+  </small>
+</div>
       </section>
 
       {/* Schedule */}
       <section style={{ display: 'grid', gap: 12 }}>
-        <div
-          style={{
-            display: 'grid',
-            gap: 12,
-            gridTemplateColumns: '1fr 1fr 1fr',
-            alignItems: 'end',
-          }}
-        >
-          {/* Presale Currency */}
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Presale Currency</div>
-            <input value={quote} readOnly style={{ ...inputStyle, height: 44 }} />
-            <small style={{ visibility: 'hidden' }}>placeholder</small>
-          </label>
+  <div className="tokenomics-grid-3">
+    {/* Presale Currency */}
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Presale Currency</div>
+      <input value={quote} readOnly style={{ ...inputStyle, height: 44 }} />
+      <small style={{ visibility: 'hidden' }}>placeholder</small>
+    </label>
 
-          {/* Start */}
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Start (local)</div>
-            <input
-              type="datetime-local"
-              value={start}
-              min={minStart}
-              max={maxStart}
-              onFocus={(e) => (e.currentTarget as any).showPicker?.()}
-              onClick={(e) => (e.currentTarget as any).showPicker?.()}
-              onChange={(e) => {
-                const val = e.target.value;
-                setStart(val);
-                if (end) {
-                  const sMs = new Date(val).getTime();
-                  const eMs = new Date(end).getTime();
-                  const maxEndMs = new Date(maxEndDate).getTime();
-                  if (!Number.isFinite(eMs) || eMs <= sMs || eMs > maxEndMs) setEnd('');
-                }
-              }}
-              style={{ ...inputStyle, height: 44 }}
-            />
-            <small style={{ opacity: .7 }}>Must start within 60 days; not in the past.</small>
-          </label>
+    {/* Start */}
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Start (local)</div>
+      <input
+        type="datetime-local"
+        value={start}
+        min={minStart}
+        max={maxStart}
+        onFocus={(e) => (e.currentTarget as any).showPicker?.()}
+        onClick={(e) => (e.currentTarget as any).showPicker?.()}
+        onChange={(e) => {
+          const val = e.target.value;
+          setStart(val);
+          if (end) {
+            const sMs = new Date(val).getTime();
+            const eMs = new Date(end).getTime();
+            const maxEndMs = new Date(maxEndDate).getTime();
+            if (!Number.isFinite(eMs) || eMs <= sMs || eMs > maxEndMs) setEnd('');
+          }
+        }}
+        style={{ ...inputStyle, height: 44 }}
+      />
+      <small style={{ opacity: .7 }}>Must start within 60 days; not in the past.</small>
+    </label>
 
-          {/* End */}
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>End (local)</div>
-            <input
-              type="datetime-local"
-              value={end}
-              min={minEndDate}
-              max={maxEndDate}
-              onFocus={(e) => (e.currentTarget as any).showPicker?.()}
-              onClick={(e) => (e.currentTarget as any).showPicker?.()}
-              onChange={(e) => setEnd(e.target.value)}
-              style={{ ...inputStyle, height: 44 }}
-              disabled={!start}
-            />
-            <small style={{ opacity: .7 }}>
-              End within 14 days of start, and within 60 days from today.
-            </small>
-          </label>
-        </div>
-      </section>
+    {/* End */}
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>End (local)</div>
+      <input
+        type="datetime-local"
+        value={end}
+        min={minEndDate}
+        max={maxEndDate}
+        onFocus={(e) => (e.currentTarget as any).showPicker?.()}
+        onClick={(e) => (e.currentTarget as any).showPicker?.()}
+        onChange={(e) => setEnd(e.target.value)}
+        style={{ ...inputStyle, height: 44 }}
+        disabled={!start}
+      />
+      <small style={{ opacity: .7 }}>
+        End within 14 days of start, and within 60 days from today.
+      </small>
+    </label>
+  </div>
+</section>
 
       {/* Caps */}
       <section style={{ display: 'grid', gap: 12 }}>
-        <div className="h2" style={{ fontSize: 20 }}>Caps</div>
+  <div className="h2" style={{ fontSize: 20 }}>Presale Caps</div>
 
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr 1fr' }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Soft Cap ({quote})</div>
-            <input
-              value={softCap}
-              onChange={(e) => setSoftCap(e.target.value)}
-              placeholder="100"
-              style={inputStyle}
-              inputMode="decimal"
-            />
-          </label>
+  <div className="tokenomics-grid-3">
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Soft Cap ({quote})</div>
+      <input
+  value={softCap}
+  onChange={(e) => setSoftCap(e.target.value)}
+  onBlur={(e) => setSoftCap(formatNumberInputStr(e.target.value))}
+  placeholder="100"
+  style={inputStyle}
+  inputMode="decimal"
+/>
+    </label>
 
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Hard Cap ({quote}) <span style={{ opacity:.6 }}>(optional)</span></div>
-            <input
-              value={hardCap}
-              onChange={(e) => setHardCap(e.target.value)}
-              placeholder="(none)"
-              style={inputStyle}
-              inputMode="decimal"
-            />
-          </label>
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Hard Cap ({quote}) <span style={{ opacity:.6 }}>(optional)</span></div>
+      <input
+  value={hardCap}
+  onChange={(e) => setHardCap(e.target.value)}
+  onBlur={(e) => setHardCap(formatNumberInputStr(e.target.value))}
+  placeholder="(none)"
+  style={inputStyle}
+  inputMode="decimal"
+/>
+    </label>
 
-          <div />
-        </div>
+    {/* You can leave the 3rd column empty or add something later */}
+    <div />
+  </div>
 
-        <div style={{ display: 'grid', gap: 12, gridTemplateColumns: '1fr 1fr' }}>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Per-Wallet Min ({quote})</div>
-            <input
-              value={minPerWallet}
-              onChange={(e) => setMinPerWallet(e.target.value)}
-              placeholder="0.2"
-              style={inputStyle}
-              inputMode="decimal"
-            />
-          </label>
-          <label style={{ display: 'grid', gap: 6 }}>
-            <div>Per-Wallet Max ({quote})</div>
-            <input
-              value={maxPerWallet}
-              onChange={(e) => setMaxPerWallet(e.target.value)}
-              placeholder="5"
-              style={inputStyle}
-              inputMode="decimal"
-            />
-          </label>
-        </div>
-      </section>
+  <div className="tokenomics-grid-2">
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Per-Wallet Min ({quote})</div>
+      <input
+  value={minPerWallet}
+  onChange={(e) => setMinPerWallet(e.target.value)}
+  onBlur={(e) => setMinPerWallet(formatNumberInputStr(e.target.value))}
+  placeholder="0.2"
+  style={inputStyle}
+  inputMode="decimal"
+/>
+    </label>
+    <label style={{ display: 'grid', gap: 6 }}>
+      <div>Per-Wallet Max ({quote})</div>
+      <input
+  value={maxPerWallet}
+  onChange={(e) => setMaxPerWallet(e.target.value)}
+  onBlur={(e) => setMaxPerWallet(formatNumberInputStr(e.target.value))}
+  placeholder="5"
+  style={inputStyle}
+  inputMode="decimal"
+/>
+    </label>
+  </div>
+</section>
 
       {/* Summary */}
       <section className="card" style={{ background: '#141720', padding: 12, borderRadius: 12, display: 'grid', gap: 6 }}>
-        <div style={{ fontWeight: 700 }}>Summary (preview)</div>
-        {!Number.isFinite(totalSupply) ? (
-          <div style={{ opacity: .7 }}>Enter a valid total supply to see estimates.</div>
-        ) : (
-          <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
-            <div>Total Supply: <b>{supply || '-'}</b></div>
-            <div>Kept by creator: <b>{keep}%</b></div>
-            <div>Sale Allocation: <b>{salePct}%</b></div>
-            <div>Tokens for Sale: <b>{Number.isFinite(tokensForSale) ? tokensForSale.toString() : '-'}</b></div>
-            <div>Price: <b>Determined at end</b> (pro-rata)</div>
-          </div>
-        )}
-      </section>
-
+  <div style={{ fontWeight: 700 }}>Summary:</div>
+  {!Number.isFinite(totalSupply) ? (
+    <div style={{ opacity: .7 }}>Enter a valid total supply to see estimates.</div>
+  ) : (
+    <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
+      <div>Total Supply: <b>{formatNumberDisplay(supply) || '-'}</b></div>
+      <div>Kept by creator: <b>{keep}%</b></div>
+      <div>Sale Allocation: <b>{salePct}%</b></div>
+      <div>Tokens for Sale: <b>{Number.isFinite(tokensForSale) ? formatNumberDisplay(tokensForSale) : '-'}</b></div>
+      <div>Price: <b>Determined at end</b> (pro-rata)</div>
+    </div>
+  )}
+</section>
       {/* Nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
         <button className="button" onClick={onBack}>← Back</button>

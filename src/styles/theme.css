@@ -253,3 +253,74 @@ html, body, #root { overflow-x: hidden; }
   backdrop-filter: none !important;
   padding: 0 !important;
 }
+/* src/styles/launch-wizard.css */
+.launch-wizard .card {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .launch-wizard {
+    padding: 0 8px;
+  }
+
+  .launch-wizard .card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  /* Tables and multi-column grids collapse */
+  .launch-wizard table,
+  .launch-wizard .grid {
+    display: block;
+    overflow-x: auto; /* scroll instead of breaking layout */
+    white-space: nowrap;
+  }
+
+  /* Inputs go full width */
+  .launch-wizard input,
+  .launch-wizard select,
+  .launch-wizard textarea {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* Any step navigation buttons stack on small screens */
+  .launch-wizard .step-buttons {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+/* Tokenomics responsive grids */
+.tokenomics-grid-3 {
+  display: grid;
+  gap: 12px;
+  grid-template-columns:
+    minmax(220px, 1fr)
+    minmax(200px, 1fr)
+    minmax(200px, 1fr);
+  align-items: end;
+}
+.tokenomics-grid-2 {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+}
+.tokenomics-grid-3 > *, .tokenomics-grid-2 > * { min-width: 0; }
+
+@media (max-width: 720px) {
+  .tokenomics-grid-3,
+  .tokenomics-grid-2 {
+    grid-template-columns: 1fr; /* stack on narrow screens */
+  }
+}
+
+/* Make any inputs inside grids fill the cell */
+.tokenomics-grid-3 input,
+.tokenomics-grid-3 select,
+.tokenomics-grid-3 textarea,
+.tokenomics-grid-2 input,
+.tokenomics-grid-2 select,
+.tokenomics-grid-2 textarea {
+  width: 100%;
+  max-width: 100%;
+}
