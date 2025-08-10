@@ -29,7 +29,7 @@ export default function SimulatorPage() {
   const bp = useBreakpoint();
 
   // --- responsive ---
-const [isMobile, setIsMobile] = useState<boolean>(() =>
+const [, setIsMobile] = useState<boolean>(() =>
     typeof window !== 'undefined'
       ? window.matchMedia('(max-width: 768px)').matches
       : false
@@ -56,7 +56,6 @@ const [isMobile, setIsMobile] = useState<boolean>(() =>
   };  
   
   // KPI grid: 2 cols on mobile, 4 on desktop
-  const kpiCols = bp.xl ? 4 : bp.md ? 3 : bp.sm ? 2 : 1;
   const kpiGridStyle: React.CSSProperties = {
     display: 'grid',
     // packs 4 on wide screens, 2–3 on tablets, 1 on small, automatically
@@ -566,11 +565,6 @@ const inputStyle: React.CSSProperties = {
   color: 'var(--text)',
   outline: 'none',
 };
-const kpiRowStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, minmax(160px, 1fr))',
-  gap: 10,
-};
 
 function clampInt(s: string, min: number, max: number) {
   const n = Math.max(min, Math.min(max, Math.floor(Number(s) || 0)));
@@ -587,7 +581,13 @@ function fmt(n: number) {
   const digits = abs >= 1 ? 4 : 6;
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
-function Badge({ tone }: { tone: 'error' | 'warn' | 'info' }) {
+function Badge({
+    tone,
+    label,
+  }: {
+    tone: 'error' | 'warn' | 'info';
+    label?: string; // optional override
+  }) {
     const bg =
       tone === 'error' ? 'rgba(255,80,80,.15)' :
       tone === 'warn'  ? 'rgba(255,200,0,.15)' :
@@ -596,24 +596,33 @@ function Badge({ tone }: { tone: 'error' | 'warn' | 'info' }) {
       tone === 'error' ? '#ff5050' :
       tone === 'warn'  ? '#e6b800' :
                          '#66aaff';
+  
+    // Default labels (pluralized)
+    const defaultLabel =
+      tone === 'error' ? 'Errors' :
+      tone === 'warn'  ? 'Warnings' :
+                         'Info';
+  
     return (
-      <span style={{
-        display: 'inline-block',
-        padding: '2px 8px',
-        borderRadius: 999,
-        fontSize: 12,
-        fontWeight: 800,
-        background: bg,
-        color: fg,
-        border: `1px solid ${fg}33`,
-        marginRight: 6,
-        textTransform: 'uppercase',
-        letterSpacing: .3
-      }}>
-        {tone}
+      <span
+        style={{
+          display: 'inline-block',
+          padding: '2px 8px',
+          borderRadius: 999,
+          fontSize: 12,
+          fontWeight: 800,
+          background: bg,
+          color: fg,
+          border: `1px solid ${fg}33`,
+          marginRight: 6,
+          textTransform: 'uppercase',
+          letterSpacing: .3
+        }}
+      >
+        {label ?? defaultLabel}
       </span>
     );
-  }
+  }  
   function ScoreChip({ score, tone }: { score: number; tone: 'bad' | 'ok' | 'good' }) {
     const bg =
       tone === 'good' ? 'rgba(0,208,132,.15)' :
