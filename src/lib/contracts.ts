@@ -89,5 +89,12 @@ export const presalePoolAbi = [
       { type:'function', name:'hardCap', stateMutability:'view', inputs:[], outputs:[{type:'uint256'}] },
       { type:'function', name:'totalRaised', stateMutability:'view', inputs:[], outputs:[{type:'uint256'}] },
     { type:'function', name:'merkleRoot', stateMutability:'view', inputs:[], outputs:[{type:'bytes32'}] },
+    { type:'function', name:'presaleRate', stateMutability:'view', inputs:[], outputs:[{type:'uint256'}] },
+    { type:'function', name:'listingRate', stateMutability:'view', inputs:[], outputs:[{type:'uint256'}] },
+    { type:'function', name:'lpPctBps', stateMutability:'view', inputs:[], outputs:[{type:'uint16'}] },
+    { type:'function', name:'platformFeeBps', stateMutability:'view', inputs:[], outputs:[{type:'uint16'}] },
+    { type:'function', name:'tokenFeeBps', stateMutability:'view', inputs:[], outputs:[{type:'uint16'}] },
+    { type:'function', name:'lpLockDuration', stateMutability:'view', inputs:[], outputs:[{type:'uint64'}] },
+    { type:'function', name:'payoutDelay', stateMutability:'view', inputs:[], outputs:[{type:'uint64'}] },
   ] as const satisfies Abi;
   

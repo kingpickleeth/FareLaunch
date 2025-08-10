@@ -23,48 +23,95 @@ export default function SaleDetail() {
   const [allowlisted, setAllowlisted] = useState<boolean>(true); // default true if allowlist disabled
   const publicClient = usePublicClient();
   const [checkingAllowlist, setCheckingAllowlist] = useState<boolean>(false);
-  const [chain, setChain] = useState<{
-    softCap?: bigint;
-    hardCap?: bigint;
-    raised?: bigint;
-    userContrib?: bigint;
-  }>({});
-  useEffect(() => {
-    if (!publicClient || !row?.pool_address) return;
-    let cancelled = false;
-  
-    const fetchChain = async () => {
-      try {
-        const pool = row.pool_address as `0x${string}`;
-  
-        const [softCap, hardCap, raised, userContrib] = await Promise.all([
-          publicClient.readContract({
-            address: pool, abi: presalePoolAbi, functionName: 'softCap',
-          }) as Promise<bigint>,
-          publicClient.readContract({
-            address: pool, abi: presalePoolAbi, functionName: 'hardCap',
-          }) as Promise<bigint>,
-          publicClient.readContract({
-            address: pool, abi: presalePoolAbi, functionName: 'totalRaised',
-          }) as Promise<bigint>,
-          address
-            ? (publicClient.readContract({
-                address: pool, abi: presalePoolAbi, functionName: 'contributed', args: [address],
-              }) as Promise<bigint>)
-            : Promise.resolve(0n),
-        ]);
-  
-        if (!cancelled) setChain({ softCap, hardCap, raised, userContrib });
-      } catch (e) {
-        console.error('chain fetch failed', e);
+// state
+const [chain, setChain] = useState<{
+  softCap?: bigint;
+  hardCap?: bigint;
+  raised?: bigint;
+  userContrib?: bigint;
+  presaleRate?: bigint;
+  listingRate?: bigint;
+  lpPctBps?: number;
+  platformFeeBps?: number;
+  tokenFeeBps?: number;
+  lpLockDuration?: bigint; // seconds
+  payoutDelay?: bigint;    // seconds
+}>({});
+useEffect(() => {
+  if (!publicClient || !row?.pool_address) return;
+  let cancelled = false;
+
+  const pool = row.pool_address as `0x${string}`;
+
+  // Small helpers for cleaner typing
+  const u256 = (fn: any) =>
+    publicClient.readContract({ address: pool, abi: presalePoolAbi, functionName: fn }) as Promise<bigint>;
+  const u16 = (fn: any) =>
+    publicClient.readContract({ address: pool, abi: presalePoolAbi, functionName: fn }) as Promise<number>;
+
+  const fetchChain = async () => {
+    try {
+      const [
+        softCap,
+        hardCap,
+        raised,
+        presaleRate,
+        listingRate,
+        lpPctBps,
+        platformFeeBps,
+        tokenFeeBps,
+        lpLockDuration,
+        payoutDelay,
+        userContrib,
+      ] = await Promise.all([
+        u256('softCap'),
+        u256('hardCap'),
+        u256('totalRaised'),
+        u256('presaleRate'),
+        u256('listingRate'),
+        u16('lpPctBps'),
+        u16('platformFeeBps'),
+        u16('tokenFeeBps'),
+        u256('lpLockDuration'),
+        u256('payoutDelay'),
+        address
+          ? (publicClient.readContract({
+              address: pool,
+              abi: presalePoolAbi,
+              functionName: 'contributed',
+              args: [address],
+            }) as Promise<bigint>)
+          : Promise.resolve(0n),
+      ]);
+
+      if (!cancelled) {
+        setChain({
+          softCap,
+          hardCap,
+          raised,
+          userContrib,
+          presaleRate,
+          listingRate,
+          lpPctBps,          // number
+          platformFeeBps,    // number
+          tokenFeeBps,       // number
+          lpLockDuration,    // bigint (seconds)
+          payoutDelay,       // bigint (seconds)
+        });
       }
-    };
-  
-    fetchChain();
-    const iv = setInterval(fetchChain, 3000);
-    return () => { cancelled = true; clearInterval(iv); };
-  }, [publicClient, row?.pool_address, address]);
-  
+    } catch (e) {
+      console.error('chain fetch failed', e);
+    }
+  };
+
+  fetchChain();
+  const iv = setInterval(fetchChain, 3000);
+  return () => {
+    cancelled = true;
+    clearInterval(iv);
+  };
+}, [publicClient, row?.pool_address, address]);
+
   useEffect(() => {
     // If no allowlist for this sale, everyone can buy
     if (!row?.id || !row.allowlist_enabled) { setAllowlisted(true); return; }
@@ -257,14 +304,10 @@ const badgeStyle: React.CSSProperties = (() => {
 
 
   // LP / flow fields (support a few possible DB column names)
-  const tokenPctToLP = Number(
-    row.token_percent_to_lp ?? row.lp_token_percent_to_lp ?? row.tokenPercentToLP ?? NaN
-  );
   const raisePctToLP = Number(
     row.percent_to_lp ?? row.lp_percent_to_lp ?? row.raise_percent_to_lp ?? NaN
   );
   const lockDays: number | undefined = row.lock_days ?? row.lockDays ?? undefined;
-  const keepPct = Number(row.keep_pct ?? row.keepPct ?? NaN);
   const saleTokensPool = row.sale_tokens_pool ?? row.saleTokensPool ?? undefined;
 
   return (
@@ -332,19 +375,37 @@ const badgeStyle: React.CSSProperties = (() => {
         </div>
       </div>
 
-      {/* Tokenomics / LP summary (reflects the new flow) */}
-      <div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>Tokenomics / LP</div>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
-          <div>% Tokens → LP: <b>{Number.isFinite(tokenPctToLP) ? `${tokenPctToLP}%` : '—'}</b></div>
-          <div>% Raise → LP: <b>{Number.isFinite(raisePctToLP) ? `${raisePctToLP}%` : '—'}</b></div>
-          <div>Lock: <b>{lockDays ? `${lockDays} days` : '—'}</b></div>
-          <div>Keep % of remainder: <b>{Number.isFinite(keepPct) ? `${keepPct}%` : '—'}</b></div>
-          <div>Tokens for Sale: <b className="break-anywhere">
-            {saleTokensPool ? formatNumber(Number(saleTokensPool)) : '—'}
-          </b></div>
-        </div>
-      </div>
+    {/* Tokenomics / LP (on-chain) */}
+<div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
+  <div style={{ fontWeight: 700, marginBottom: 4 }}>Tokenomics / LP</div>
+  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
+    <div>
+      % of Raise funding LP:&nbsp;
+      <b>
+        {typeof chain.lpPctBps === 'number'
+          ? `${(chain.lpPctBps / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
+          : (Number.isFinite(raisePctToLP) ? `${raisePctToLP}%` : '—')}
+      </b>
+    </div>
+
+    <div>
+      LP Lock:&nbsp;
+      <b>
+        {chain.lpLockDuration !== undefined
+          ? `${Math.round(Number(chain.lpLockDuration) / 86400)} days`
+          : (lockDays ? `${lockDays} days` : '—')}
+      </b>
+    </div>
+
+    {/* Keep the original “Tokens for Sale” if you still want to reflect the plan from DB */}
+    <div>
+      Tokens for Sale:&nbsp;
+      <b className="break-anywhere">
+        {saleTokensPool ? formatNumber(Number(saleTokensPool)) : '—'}
+      </b>
+    </div>
+  </div>
+</div>
 
       {/* About / links */}
       <div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
