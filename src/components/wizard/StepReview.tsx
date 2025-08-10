@@ -250,12 +250,7 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         }
   
      // ----- Fees & timings (compute & clamp FIRST) -----
-const toBps = (pct?: number | null): number => {
-  if (typeof pct !== 'number' || !Number.isFinite(pct)) return 0;
-  return Math.max(0, Math.min(10_000, Math.round(pct * 100)));
-};
 const clampBps = (n: number) => Math.max(0, Math.min(10_000, Math.floor(n || 0)));
-const toUint8   = (n: number) => Math.max(0, Math.min(255, Math.floor(n || 0)));
 
 const raiseFeeBpsNum = clampBps(
   typeof sanitized.fees?.raisePct === 'number'
@@ -368,36 +363,6 @@ for (const key of bigintFields) {
 
 // final args (positional tuple + salt)
 // Build positional CreateArgs tuple to avoid any name/ABI drift
-const aTuple = [
-  // schedule & caps
-  a.startAt,            // uint64
-  a.endAt,              // uint64
-  a.softCap,            // uint256
-  a.hardCap,            // uint256
-  a.minBuy,             // uint256
-  a.maxBuy,             // uint256
-
-  // access
-  a.isPublic,                               // bool
-  a.merkleRoot as `0x${string}`,            // bytes32
-
-  // static tokenomics
-  a.totalSupply,                            // uint256
-  a.saleTokensPool,                         // uint256
-  Number(a.tokenPctToLPBps),                // uint16
-  Number(a.lpPctBps),                       // uint16
-
-  // timings & fees
-  a.payoutDelay,                            // uint64
-  a.lpLockDuration,                         // uint64
-  Number(a.raiseFeeBps),                    // uint16
-  Number(a.tokenFeeBps),                    // uint16
-
-  // token metadata
-  a.tokenName,                              // string
-  a.tokenSymbol,                            // string
-  Number(a.tokenDecimals),                  // uint8
-] as const;
 
 // If your ABI is (CreateArgs a, address quoteToken, bytes32 salt):
 const aNamed = {
