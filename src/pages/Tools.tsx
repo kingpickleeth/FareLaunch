@@ -56,6 +56,52 @@ export default function Tools() {
             </div>
           </div>
         </Link>
+{/* Simulator */}
+<Link to="/simulator" style={{ textDecoration: 'none', color: 'inherit' }}>
+  <div
+    className="card"
+    style={{
+      display: 'grid',
+      gap: 10,
+      padding: 18,
+      borderRadius: 16,
+      height: '100%',
+      transition: 'transform .12s ease, box-shadow .12s ease, border-color .12s ease',
+      border: '1px solid var(--card-border)',
+    }}
+    onMouseEnter={(e) => {
+      const el = e.currentTarget as HTMLDivElement;
+      el.style.transform = 'translateY(-2px)';
+      el.style.boxShadow = 'var(--shadow)';
+      el.style.borderColor = 'var(--border)';
+    }}
+    onMouseLeave={(e) => {
+      const el = e.currentTarget as HTMLDivElement;
+      el.style.transform = 'none';
+      el.style.boxShadow = 'var(--shadow)';
+      el.style.borderColor = 'var(--card-border)';
+    }}
+  >
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ fontWeight: 800, fontSize: 18, color: 'var(--fl-purple)' /* or var(--fl-gold) */ }}>
+        Simulator
+      </div>
+      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden>
+        <path fill="currentColor" d="M3 3v18h18M7 16l4-4 3 3 5-6" />
+      </svg>
+    </div>
+
+    <div style={{ opacity: .85, color: 'var(--text)' }}>
+      Model outcomes as a buyer or creator: caps, LP %, fees, rates, and what-if scenarios.
+    </div>
+
+    <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+      <span className="badge" style={{ background: 'var(--table-header-bg)', color: 'var(--text)' }}>Buyer</span>
+      <span className="badge" style={{ background: 'var(--table-header-bg)', color: 'var(--text)' }}>Creator</span>
+      <span className="badge" style={{ background: 'var(--table-header-bg)', color: 'var(--text)' }}>What-if</span>
+    </div>
+  </div>
+</Link>
 
         {/* Lock LP */}
         <Link to="/locker" style={{ textDecoration: 'none', color: 'inherit' }}>

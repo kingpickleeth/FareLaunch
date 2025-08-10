@@ -4,6 +4,14 @@ import { useAccount } from 'wagmi';
 import { supabase } from '../../lib/supabase';
 import { makeMerkle, isAddress } from '../../utils/merkle';
 import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { usePublicClient, useWriteContract } from 'wagmi';
+import {
+  parseUnits, keccak256, encodePacked, type Hex, decodeEventLog
+} from 'viem';
+import {
+  LAUNCHPAD_FACTORY, QUOTE_DECIMALS, launchpadFactoryAbi
+} from '../../lib/contracts';
 
 // Always return a string (or undefined) so it matches the WizardData fields
 function stripCommasStr(v: unknown): string | undefined {
@@ -37,6 +45,48 @@ type Props = {
   onFinish?: () => void;
   editingId?: string;
 };
+type CreateArgs = {
+  startAt: bigint;
+  endAt: bigint;
+  softCap: bigint;
+  hardCap: bigint;
+  minBuy: bigint;
+  maxBuy: bigint;
+  isPublic: boolean;
+  merkleRoot: Hex;
+  presaleRate: bigint;
+  listingRate: bigint;
+  lpPctBps: number;        // uint16 -> number
+  payoutDelay: bigint;     // uint64 -> bigint
+  lpLockDuration: bigint;  // uint64 -> bigint
+  raiseFeeBps: number;     // uint16 -> number
+  tokenFeeBps: number;     // uint16 -> number
+};
+function argsForDb(a: {
+  startAt: bigint; endAt: bigint; softCap: bigint; hardCap: bigint;
+  minBuy: bigint; maxBuy: bigint; isPublic: boolean; merkleRoot: Hex;
+  presaleRate: bigint; listingRate: bigint; lpPctBps: number;
+  payoutDelay: bigint; lpLockDuration: bigint; raiseFeeBps: number; tokenFeeBps: number;
+}, ctx: any) {
+  return {
+    startAt: a.startAt.toString(),
+    endAt: a.endAt.toString(),
+    softCap: a.softCap.toString(),
+    hardCap: a.hardCap.toString(),
+    minBuy: a.minBuy.toString(),
+    maxBuy: a.maxBuy.toString(),
+    isPublic: a.isPublic,
+    merkleRoot: a.merkleRoot,
+    presaleRate: a.presaleRate.toString(),
+    listingRate: a.listingRate.toString(),
+    lpPctBps: a.lpPctBps,
+    payoutDelay: a.payoutDelay.toString(),
+    lpLockDuration: a.lpLockDuration.toString(),
+    raiseFeeBps: a.raiseFeeBps,
+    tokenFeeBps: a.tokenFeeBps,
+    _context: ctx, // purely for debugging/traceability
+  };
+}
 
 async function upsertAllowlistBatched(saleId: string, addrs: string[]) {
   if (!supabase) throw new Error('Supabase not configured');
@@ -49,23 +99,38 @@ async function upsertAllowlistBatched(saleId: string, addrs: string[]) {
     if (error) throw error;
   }
 }
+const ZERO_BYTES32 = '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
+
+function toUnix(s?: string): bigint {
+  if (!s) return 0n;
+  const t = new Date(s).getTime();
+  return t > 0 ? BigInt(Math.floor(t / 1000)) : 0n;
+}
+function asStr(v?: unknown): string {
+  if (v === null || v === undefined) return '0';
+  return String(v).replace(/,/g, '').trim() || '0';
+}
 
 export default function StepReview({ value, onBack, onFinish, editingId }: Props) {
   const { address, isConnected } = useAccount();
   const navigate = useNavigate();
-
+  const publicClient = usePublicClient();
+  const { writeContractAsync } = useWriteContract();
+  const [creating, setCreating] = useState(false);
+  
   async function handleCreate() {
     try {
       if (!isConnected || !address) { alert('Connect your wallet first.'); return; }
       if (!supabase) { alert('Supabase not configured.'); return; }
-
+      setCreating(true);
+  
       const rawAddrs = ((value.allowlist as any)?.addresses ?? []) as string[];
-
-      // INSERT new or UPDATE existing to "upcoming"
+  
+      // 1) Save/Upsert to Supabase as "upcoming"
       const sanitized = sanitizeWizardNumbers(value);
       const row = await upsertLaunch(address, sanitized, editingId, 'upcoming');
-
-      // If allowlist enabled: verify & upload
+  
+      // 2) Allowlist upload / validation (unchanged)
       if (value.allowlist?.enabled) {
         const normalized = Array.from(
           new Set(
@@ -74,18 +139,16 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
               .filter((a): a is string => !!a && isAddress(a))
           )
         );
-
-        if (normalized.length === 0) { alert('Allowlist is enabled but contains 0 valid addresses.'); return; }
-
+        if (normalized.length === 0) { alert('Allowlist is enabled but contains 0 valid addresses.'); setCreating(false); return; }
+  
         const { root: recomputed } = makeMerkle(normalized);
         if (!value.allowlist.root || recomputed !== value.allowlist.root) {
           alert('Merkle root mismatch. Please re-upload your list.');
+          setCreating(false);
           return;
         }
-
         await upsertAllowlistBatched(row.id, normalized);
-
-        // Patch launch with root & count if missing/stale
+  
         if (row.allowlist_root !== value.allowlist.root || row.allowlist_count !== normalized.length) {
           const { error: patchErr } = await supabase
             .from('launches')
@@ -94,23 +157,195 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
           if (patchErr) throw patchErr;
         }
       } else if (editingId) {
-        // If editing and allowlist is now disabled, clear any previous root/count
         const { error: clrErr } = await supabase
           .from('launches')
           .update({ allowlist_root: null, allowlist_count: null, allowlist_enabled: false })
           .eq('id', row.id);
         if (clrErr) throw clrErr;
       }
-
+  
+      // ===== 3) Build CreateArgs tuple for on-chain call =====
+      // Required numbers
+      const tokenDecimals = Number(sanitized.token?.decimals ?? 18);
+  
+      // Hard cap is required to compute presaleRate reliably
+      if (!sanitized.sale?.hardCap) {
+        alert('Hard cap is required to compute presale rate. Please set a hard cap.');
+        setCreating(false);
+        return;
+      }
+  
+      const startAt = toUnix(sanitized.sale?.start);
+      const endAt   = toUnix(sanitized.sale?.end);
+  
+      const softCapWei = parseUnits(asStr(sanitized.sale?.softCap), QUOTE_DECIMALS);
+      const hardCapWei = parseUnits(asStr(sanitized.sale?.hardCap), QUOTE_DECIMALS);
+      const minBuyWei  = parseUnits(asStr(sanitized.sale?.minPerWallet), QUOTE_DECIMALS);
+      const maxBuyWei  = parseUnits(asStr(sanitized.sale?.maxPerWallet), QUOTE_DECIMALS);
+  
+      const isPublic   = !(sanitized.allowlist?.enabled);
+      const merkleRoot: Hex = sanitized.allowlist?.enabled && sanitized.allowlist?.root
+        ? (sanitized.allowlist.root as Hex)
+        : (ZERO_BYTES32 as Hex);
+  
+      // Presale rate = tokens per 1 WAPE (in smallest units)
+      // saleTokensPool and totalSupply are typed as strings in the wizard
+      const saleTokensPoolUnits = parseUnits(asStr(sanitized.sale?.saleTokensPool), tokenDecimals);
+      let presaleRate = 0n;
+      if (saleTokensPoolUnits > 0n && hardCapWei > 0n) {
+        presaleRate = (saleTokensPoolUnits * (10n ** BigInt(QUOTE_DECIMALS))) / hardCapWei;
+      } else {
+        alert('Sale token pool and hard cap must be > 0 to compute presale rate.');
+        setCreating(false);
+        return;
+      }
+  
+      // Listing rate from LP math (tokens per 1 WAPE at listing)
+      const totalSupplyUnits = parseUnits(asStr(sanitized.token?.totalSupply), tokenDecimals);
+      const lpTokenPct       = BigInt(Math.round(sanitized.lp?.tokenPercentToLP ?? 0));
+      const lpTokensUnits    = (totalSupplyUnits * lpTokenPct) / 100n;
+  
+      const lpRaisePct       = BigInt(Math.round(sanitized.lp?.percentToLP ?? 60));
+      const quoteForLPWei    = (hardCapWei * lpRaisePct) / 100n;
+  
+      let listingRate = presaleRate; // fallback
+      if (lpTokensUnits > 0n && quoteForLPWei > 0n) {
+        listingRate = (lpTokensUnits * (10n ** BigInt(QUOTE_DECIMALS))) / quoteForLPWei;
+      }
+  
+      // Fees & timings (BPS + seconds). If not provided in UI, use factory defaults.
+      // raiseFeeBps: percent -> bps (e.g., 5% -> 500)
+      // tokenFeeBps: percent -> bps (e.g., 0.05% -> 5)
+      let raiseFeeBps: number;
+      if (typeof sanitized.fees?.raisePct === 'number') {
+        raiseFeeBps = Math.round(sanitized.fees.raisePct * 100);
+      } else {
+        raiseFeeBps = Number(await publicClient!.readContract({
+          address: LAUNCHPAD_FACTORY,
+          abi: launchpadFactoryAbi,
+          functionName: 'defaultRaiseFeeBps'
+        }));
+      }
+      let tokenFeeBps: number;
+      if (typeof sanitized.fees?.supplyPct === 'number') {
+        tokenFeeBps = Math.round(sanitized.fees.supplyPct * 100);
+      } else {
+        tokenFeeBps = Number(await publicClient!.readContract({
+          address: LAUNCHPAD_FACTORY,
+          abi: launchpadFactoryAbi,
+          functionName: 'defaultTokenFeeBps'
+        }));
+      }
+    
+let lpPctBps: number;
+if (typeof sanitized.lp?.percentToLP === 'number') {
+  lpPctBps = Math.round(sanitized.lp.percentToLP * 100);
+} else {
+  lpPctBps = Number(await publicClient!.readContract({
+    address: LAUNCHPAD_FACTORY,
+    abi: launchpadFactoryAbi,
+    functionName: 'defaultLpPctBps'
+  }));
+}
+      // payoutDelay: seconds — not in the wizard, so take default
+      const payoutDelay = await publicClient!.readContract({
+        address: LAUNCHPAD_FACTORY,
+        abi: launchpadFactoryAbi,
+        functionName: 'defaultPayoutDelay'
+      });
+  
+      // lpLockDuration: prefer wizard lockDays; else default
+      let lpLockDuration = 0n;
+      const lockDays = sanitized.lp?.lockDays ?? null;
+      if (typeof lockDays === 'number' && Number.isFinite(lockDays) && lockDays > 0) {
+        lpLockDuration = BigInt(Math.round(lockDays)) * 86400n;
+      } else {
+        lpLockDuration = await publicClient!.readContract({
+          address: LAUNCHPAD_FACTORY,
+          abi: launchpadFactoryAbi,
+          functionName: 'defaultLpLock'
+        });
+      }
+  
+      // Deterministic salt: keccak256(encodePacked(creator, dbId))
+      const salt = keccak256(encodePacked(['address','string'], [address, row.id])) as Hex;
+  
+      const a: CreateArgs = {
+        startAt, endAt,
+        softCap: softCapWei,
+        hardCap: hardCapWei,
+        minBuy:  minBuyWei,
+        maxBuy:  maxBuyWei,
+        isPublic,
+        merkleRoot,
+        presaleRate,
+        listingRate,
+        lpPctBps,          // number
+        payoutDelay,       // bigint
+        lpLockDuration,    // bigint
+        raiseFeeBps,       // number
+        tokenFeeBps        // number
+      };
+      
+      const args: readonly [CreateArgs, Hex] = [a, salt];
+      
+      // 4) Send tx
+      const hash = await writeContractAsync({
+        address: LAUNCHPAD_FACTORY,
+        abi: launchpadFactoryAbi,
+        functionName: 'createPresale',
+        args
+      });
+  
+      // Mark pending
+      await supabase.from('launches').update({
+        chain_tx_hash: hash,
+        chain_status: 'tx_submitted'
+      }).eq('id', row.id);
+  
+      // 5) Wait & parse PoolCreated(pool)
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+      let poolAddress: string | null = null;
+  
+      for (const log of receipt.logs) {
+        if (log.address.toLowerCase() !== LAUNCHPAD_FACTORY.toLowerCase()) continue;
+        try {
+          const decoded = decodeEventLog({
+            abi: launchpadFactoryAbi,
+            data: log.data,
+            topics: log.topics
+          });
+          if (decoded.eventName === 'PoolCreated') {
+            poolAddress = (decoded.args as any).pool as string;
+            break;
+          }
+        } catch {}
+      }
+      const aForDb = argsForDb(a, {
+        tokenDecimals,
+        quoteDecimals: QUOTE_DECIMALS,
+        computedPresaleRate: presaleRate.toString(),
+        computedListingRate: listingRate.toString(),
+      });
+      
+      await supabase.from('launches').update({
+        chain_status: 'confirmed',
+        pool_address: poolAddress,
+        create_args: aForDb, // pass object (no BigInts)
+      }).eq('id', row.id);
+      
+  
       alert(`Launch created! ID: ${row.id}`);
       navigate(`/sale/${row.id}`, { replace: true });
       onFinish?.();
     } catch (e: any) {
       console.error(e);
       alert(`Failed to create launch: ${e?.message || e}`);
+    } finally {
+      setCreating(false);
     }
   }
-
+  
   async function handleSaveDraft() {
     try {
       if (!isConnected || !address) { alert('Connect your wallet first.'); return; }
@@ -290,8 +525,10 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
           <div className="review-actions">
             <button type="button" className="button button-back" onClick={onBack}>← Back</button>
             <div className="review-actions-right">
-              <button type="button" className="button" onClick={handleSaveDraft}>Save Draft</button>
-              <button type="button" className="button button-secondary" onClick={handleCreate}>Create</button>
+            <button type="button" className="button" onClick={handleSaveDraft} disabled={creating}>Save Draft</button>
+<button type="button" className="button button-secondary" onClick={handleCreate} disabled={creating}>
+  {creating ? 'Creating…' : 'Create'}
+</button>
             </div>
           </div>
 
