@@ -26,29 +26,120 @@ export default function SimulatorPage() {
   const groups = useMemo(() => groupSuggestions(suggestions), [suggestions]);
   const score  = useMemo(() => successScore(suggestions), [suggestions]);
   const tone   = scoreTone(score);
+  const bp = useBreakpoint();
+
+  // --- responsive ---
+const [isMobile, setIsMobile] = useState<boolean>(() =>
+    typeof window !== 'undefined'
+      ? window.matchMedia('(max-width: 768px)').matches
+      : false
+  );
+  
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+  // compose panel style with slight mobile tweaks
+  
+  // section grid becomes single column on mobile
+  const sectionGridStyle: React.CSSProperties = {
+    display: 'grid',
+    // left column is now much slimmer on desktop, and right can actually shrink
+    gridTemplateColumns: bp.sm
+      ? '1fr'
+      : 'clamp(260px, 28vw, 340px) minmax(0, 1fr)',
+    gap: bp.sm ? 12 : 16,
+    alignItems: 'start',
+    minWidth: 0,
+  };  
+  
+  // KPI grid: 2 cols on mobile, 4 on desktop
+  const kpiCols = bp.xl ? 4 : bp.md ? 3 : bp.sm ? 2 : 1;
+  const kpiGridStyle: React.CSSProperties = {
+    display: 'grid',
+    // packs 4 on wide screens, 2–3 on tablets, 1 on small, automatically
+    gridTemplateColumns: `repeat(auto-fit, minmax(${bp.sm ? 140 : 220}px, 1fr))`,
+    gap: bp.sm ? 8 : 10,
+    minWidth: 0,
+  };
+  
+
+  // Header: allow wrapping + smaller title on mobile
+  const headerStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 8,
+    flexWrap: 'wrap',
+  };
+  const titleStyle: React.CSSProperties = {
+    margin: 0,
+    // fluid type: scales w/ viewport, clamped for extremes
+    fontSize: 'clamp(20px, 2.4vw, 28px)',
+  };
+  // Success bar height tweak on mobile
+  const successBarOuter: React.CSSProperties = {
+    height: bp.sm ? 8 : 10,
+    background: 'var(--border)',
+    borderRadius: 999,
+    overflow: 'hidden',
+    position: 'relative',
+  };
+  const pillRowStyle: React.CSSProperties = {
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    rowGap: 8,
+  };
+  const panel = (extra?: React.CSSProperties): React.CSSProperties => ({
+    ...panelStyle,
+    padding: bp.sm ? 12 : 14,
+    minWidth: 0,   // <-- key for responsiveness inside grid
+    ...(extra || {}),
+  });
+  
+  function useBreakpoint() {
+    const get = () => (typeof window === 'undefined' ? 0 : window.innerWidth);
+    const [w, setW] = useState<number>(get);
+    useEffect(() => {
+      const on = () => setW(get());
+      window.addEventListener('resize', on);
+      return () => window.removeEventListener('resize', on);
+    }, []);
+    return {
+      width: w,
+      xs: w < 480,
+      sm: w < 768,
+      md: w < 1024,
+      lg: w < 1280,
+      xl: w >= 1280,
+    };
+  }
+  // inside SimulatorPage(), after you have `const bp = useBreakpoint();`
+const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : panel({ maxWidth: 340 });
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-      <header style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 28 }}>Fair Launch Simulator</h1>
-          <p style={{ margin: '6px 0 0', color: 'var(--muted)' }}>
-            Enter supply, raise, and LP splits. We’ll compute listing price, presale price, opening market cap, and proceeds.
-          </p>
-        </div>
-      </header>
+<header style={headerStyle}>
+  <div>
+    <h1 style={titleStyle}>FareLaunch Simulator</h1>
+    <p style={{ margin: '6px 0 0', color: 'var(--muted)' }}>
+      Enter supply, raise, and LP splits. We’ll compute listing price, presale price, opening market cap, and proceeds.
+    </p>
+  </div>
+</header>
 
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(300px, 460px) 1fr',
-          gap: 16,
-          alignItems: 'start',
-        }}
-      >
+
+<section style={sectionGridStyle}>
+
         {/* Editor */}
-        <div style={panelStyle}>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <FieldGroup title="Token">
+        
+        <div style={editorPanelStyle}>
+        <div style={{ display: 'grid', gap: 12 }}>
+            <FieldGroup title="Presale Parameters:">
               <Row>
                 <L>Symbol</L>
                 <input
@@ -152,8 +243,8 @@ export default function SimulatorPage() {
           <div style={panelStyle}>
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Key Outcomes</div>
-              <div style={kpiRowStyle}>
-                <KPI label={`Listing Price (${inp.base.symbol}/${inp.token.symbol})`} value={fmt(res.listingPrice)} />
+              <div style={kpiGridStyle}>
+              <KPI label={`Listing Price (${inp.base.symbol}/${inp.token.symbol})`} value={fmt(res.listingPrice)} />
                 <KPI label={`Presale Price (${inp.base.symbol}/${inp.token.symbol})`} value={fmt(res.presalePrice)} />
                 <KPI label="Opening Market Cap" value={`${fmt(res.openingFDV)} ${inp.base.symbol}`} />
                 <KPI label="LP Depth" value={`${fmt(res.baseToLP)} ${inp.base.symbol} / ${fmt(res.tokensToLP)} ${inp.token.symbol}`} />
@@ -173,38 +264,29 @@ export default function SimulatorPage() {
     </div>
 
     {/* Progress bar */}
-    <div
-      style={{
-        height: 10,
-        background: 'var(--border)',
-        borderRadius: 999,
-        overflow: 'hidden',
-        position: 'relative',
-      }}
-    >
-      <div
-        style={{
-          width: `${score}%`,
-          height: '100%',
-          background:
-            tone === 'good'
-              ? 'linear-gradient(90deg, #00d084, #00b57f)'
-              : tone === 'ok'
-              ? 'linear-gradient(90deg, #ffd166, #fdbb2d)'
-              : 'linear-gradient(90deg, #ff6b6b, #ff3b3b)',
-        }}
-      />
-    </div>
+  <div style={successBarOuter}>
+  <div
+    style={{
+      width: `${score}%`,
+      height: '100%',
+      background:
+        tone === 'good'
+          ? 'linear-gradient(90deg, #00d084, #00b57f)'
+          : tone === 'ok'
+          ? 'linear-gradient(90deg, #ffd166, #fdbb2d)'
+          : 'linear-gradient(90deg, #ff6b6b, #ff3b3b)',
+    }}
+  />
+</div>
 
-    {/* Small legend + counts */}
-    <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-      <small style={{ color: 'var(--muted)', flex: '1 1 auto' }}>
-        Score reflects detected errors (blockers) and warnings (risks) from your setup.
-      </small>
-      <CountPill label="Errors" count={groups.error.length} tone="error" />
-      <CountPill label="Warnings" count={groups.warn.length} tone="warn" />
-      <CountPill label="Info" count={groups.info.length} tone="info" />
-    </div>
+<div style={pillRowStyle}>
+  <small style={{ color: 'var(--muted)', flex: '1 1 auto', minWidth: 220 }}>
+    Score reflects detected errors/warnings (risks) from your setup.
+  </small>
+  <CountPill label="Errors" count={groups.error.length} tone="error" />
+  <CountPill label="Warnings" count={groups.warn.length} tone="warn" />
+  <CountPill label="Info" count={groups.info.length} tone="info" />
+</div>
 
     {/* Grouped suggestions */}
     {suggestions.length === 0 ? (
@@ -351,6 +433,7 @@ function RangeRow(props: {
 }
 
 /* ——— helpers / subcomponents ——— */
+
 function CommaNumberInput({
     value,
     onChange,
@@ -437,19 +520,20 @@ function CommaNumberInput({
     });
   }
   
-function KPI({ label, value }: { label: string; value: string }) {
-  return (
-    <div style={{
-      padding: 12,
-      border: '1px solid var(--border)',
-      borderRadius: 12,
-      background: 'var(--fl-surface)'
-    }}>
-      <div style={{ color: 'var(--muted)', fontSize: 12 }}>{label}</div>
-      <div style={{ fontWeight: 800, fontSize: 18 }}>{value}</div>
-    </div>
-  );
-}
+  function KPI({ label, value }: { label: string; value: string }) {
+    return (
+      <div style={{
+        padding: 10, // was 12
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        background: 'var(--fl-surface)'
+      }}>
+        <div style={{ color: 'var(--muted)', fontSize: 12 }}>{label}</div>
+        <div style={{ fontWeight: 800, fontSize: 18 }}>{value}</div>
+      </div>
+    );
+  }
+  
 function FieldGroup({ title, children }: React.PropsWithChildren<{ title: string }>) {
   return (
     <div style={{ display: 'grid', gap: 8 }}>
@@ -467,12 +551,13 @@ function L({ children }: React.PropsWithChildren<{}>) {
 }
 
 const panelStyle: React.CSSProperties = {
-  border: '1px solid var(--border)',
-  borderRadius: 14,
-  padding: 14,
-  background: 'var(--fl-surface)',
-  boxShadow: 'var(--shadow)',
-};
+    border: '1px solid var(--border)',
+    borderRadius: 14,
+    padding: 14,
+    background: 'var(--fl-surface)',
+    boxShadow: 'var(--shadow)',
+    minWidth: 0, // allow child grids to shrink
+  };
 const inputStyle: React.CSSProperties = {
   background: 'var(--input-bg, #0000)',
   border: '1px solid var(--border)',
