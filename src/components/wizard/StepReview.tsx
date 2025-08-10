@@ -303,38 +303,41 @@ if (typeof sanitized.lp?.percentToLP === 'number') {
         chain_status: 'tx_submitted'
       }).eq('id', row.id);
   
-      // 5) Wait & parse PoolCreated(pool)
-      const receipt = await publicClient!.waitForTransactionReceipt({ hash });
-      let poolAddress: string | null = null;
-  
-      for (const log of receipt.logs) {
-        if (log.address.toLowerCase() !== LAUNCHPAD_FACTORY.toLowerCase()) continue;
-        try {
-          const decoded = decodeEventLog({
-            abi: launchpadFactoryAbi,
-            data: log.data,
-            topics: log.topics
-          });
-          if (decoded.eventName === 'PoolCreated') {
-            poolAddress = (decoded.args as any).pool as string;
-            break;
-          }
-        } catch {}
-      }
-      const aForDb = argsForDb(a, {
-        tokenDecimals,
-        quoteDecimals: QUOTE_DECIMALS,
-        computedPresaleRate: presaleRate.toString(),
-        computedListingRate: listingRate.toString(),
-      });
-      
-      await supabase.from('launches').update({
-        chain_status: 'confirmed',
-        pool_address: poolAddress,
-        create_args: aForDb, // pass object (no BigInts)
-      }).eq('id', row.id);
-      
-  
+  // 5) Wait for confirmation
+const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+
+// 6) Parse PoolCreated(pool) and save it
+let poolAddress: string | null = null;
+
+for (const log of receipt.logs) {
+  if (log.address.toLowerCase() !== LAUNCHPAD_FACTORY.toLowerCase()) continue;
+  try {
+    const decoded = decodeEventLog({
+      abi: launchpadFactoryAbi,
+      data: log.data,
+      topics: log.topics,
+    });
+    if (decoded.eventName === 'PoolCreated') {
+      poolAddress = (decoded.args as any).pool as string;
+      break;
+    }
+  } catch {}
+}
+
+// 7) Persist final on-chain info
+const aForDb = argsForDb(a, {
+  tokenDecimals,
+  quoteDecimals: QUOTE_DECIMALS,
+  computedPresaleRate: presaleRate.toString(),
+  computedListingRate: listingRate.toString(),
+});
+
+await supabase.from('launches').update({
+  chain_status: 'confirmed',
+  pool_address: poolAddress,            // <— THIS is the important bit
+  create_args: aForDb
+}).eq('id', row.id);
+
       alert(`Launch created! ID: ${row.id}`);
       navigate(`/sale/${row.id}`, { replace: true });
       onFinish?.();

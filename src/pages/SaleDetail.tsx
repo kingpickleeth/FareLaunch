@@ -6,6 +6,11 @@ import { salePhase, countdown } from '../utils/time';
 import AllowlistCheck from '../components/AllowlistCheck';
 import { supabase } from '../lib/supabase';
 import { formatNumber } from '../utils/format';
+import { useAccount } from 'wagmi';
+import BuyModal from '../components/BuyModal';
+import { usePublicClient } from 'wagmi';
+import { decodeEventLog } from 'viem';
+import { launchpadFactoryAbi, LAUNCHPAD_FACTORY } from '../lib/contracts';
 
 type AnyRow = Record<string, any>;
 
@@ -14,6 +19,48 @@ export default function SaleDetail() {
   const [row, setRow] = useState<AnyRow | null>(null);
   const [err, setErr] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const { address, isConnected } = useAccount();
+  const [showBuy, setShowBuy] = useState(false);
+  const [allowlisted, setAllowlisted] = useState<boolean>(true); // default true when public/no allowlist
+  const publicClient = usePublicClient();
+
+  useEffect(() => {
+    (async () => {
+      if (!publicClient) return;
+      if (!row?.chain_tx_hash || row.pool_address) return;
+  
+      try {
+        const receipt = await publicClient.getTransactionReceipt({
+          hash: row.chain_tx_hash as `0x${string}`,
+        });
+        let pool: string | null = null;
+        for (const log of receipt.logs) {
+          if (log.address.toLowerCase() !== LAUNCHPAD_FACTORY.toLowerCase()) continue;
+          try {
+            const decoded = decodeEventLog({
+              abi: launchpadFactoryAbi,
+              data: log.data,
+              topics: log.topics,
+            });
+            if (decoded.eventName === 'PoolCreated') {
+              pool = (decoded.args as any).pool as string;
+              break;
+            }
+          } catch {}
+        }
+        if (pool) {
+          const { error } = await supabase
+            .from('launches')
+            .update({ pool_address: pool })
+            .eq('id', row.id);
+          if (!error) setRow(prev => prev ? { ...prev, pool_address: pool } : prev);
+          else console.error('Backfill update failed:', error);
+        }
+      } catch (e) {
+        console.error('Could not decode PoolCreated:', e);
+      }
+    })();
+  }, [publicClient, row?.chain_tx_hash, row?.pool_address, row?.id]);  
 
   // ticker (re-render every second)
   const [tick, setTick] = useState(0);
@@ -71,7 +118,22 @@ export default function SaleDetail() {
   const quote: string = row.quote ?? 'WAPE';
   const fmtq = (n: unknown) =>
     `${formatNumber(Number(n ?? NaN))} ${quote}`;
-
+  const hasPool = !!row.pool_address;
+  const now = Date.now();
+  const startMs = row.start_at ? new Date(row.start_at).getTime() : NaN;
+  const endMs   = row.end_at ? new Date(row.end_at).getTime() : NaN;
+  const beforeStart = Number.isFinite(startMs) && now < startMs;
+  const afterEnd    = Number.isFinite(endMs) && now > endMs;
+  
+  let buyDisabled = true;
+  let buyLabel = 'Buy';
+  if (!hasPool) { buyDisabled = true; buyLabel = 'Pending pool…'; }
+  else if (afterEnd) { buyDisabled = true; buyLabel = 'Sale ended'; }
+  else if (beforeStart) { buyDisabled = true; buyLabel = `Starts in ${timeToShow ? `${timeToShow.h}h ${timeToShow.m}m ${timeToShow.s}s` : ''}`; }
+  else if (!isConnected) { buyDisabled = true; buyLabel = 'Connect wallet'; }
+  else if (row.allowlist_enabled && !allowlisted) { buyDisabled = true; buyLabel = 'Not allowlisted'; }
+  else { buyDisabled = false; buyLabel = 'Buy'; }
+  
   // progress (mock until contracts)
   const soft = Number(row.soft_cap ?? NaN);
   const hard = Number(row.hard_cap ?? NaN);
@@ -160,7 +222,7 @@ const badgeStyle: React.CSSProperties = (() => {
           <div>Raised: <b>{fmtq(raised)}</b></div>
           <div>Quote: <b>{quote}</b></div>
         </div>
-
+        <div>Presale Address: <b><code className="break-anywhere">{row.pool_address || '—'}</code></b></div>
         <div className="progress-outer">
           <div className="progress-inner" style={{ width: `${pct}%` }} />
         </div>
@@ -201,10 +263,27 @@ const badgeStyle: React.CSSProperties = (() => {
 
       {/* Actions */}
       <div className="sale-actions">
-        <Link className="button" to="/">← Back</Link>
-        <button className="button button-secondary" disabled>Buy (soon)</button>
-        <button className="button" disabled>Claim (soon)</button>
-      </div>
+  <Link className="button" to="/">← Back</Link>
+
+  <button
+    className="button button-secondary"
+    disabled={buyDisabled}
+    onClick={() => setShowBuy(true)}
+    title={buyDisabled ? buyLabel : 'Contribute to this presale'}
+  >
+    {buyLabel}
+  </button>
+
+  <button className="button" disabled>Claim (soon)</button>
+</div>
+
+<BuyModal
+  open={showBuy}
+  onClose={() => setShowBuy(false)}
+  poolAddress={row.pool_address as `0x${string}`}
+  saleId={row.id}
+  allowlistRoot={row.allowlist_root as any}
+/>
     </div>
   );
 }
