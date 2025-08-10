@@ -10,6 +10,7 @@ import Locker from './pages/Locker.tsx'
 import { WalletProvider } from './lib/wallet';
 import MyLaunches from './pages/MyLaunches';
 import Tools from './pages/Tools';
+import Simulator from './pages/SimulatorPage'
 
 const router = createBrowserRouter([
   { path: '/', element: <App />, children: [
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
     { path: 'locker', element: <Locker /> },
     { path: 'me', element: <MyLaunches /> },
     { path: 'tools', element: <Tools /> },
+    { path: 'simulator', element: <Simulator /> },
   ] }
 ])
 

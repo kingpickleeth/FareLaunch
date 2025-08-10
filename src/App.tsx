@@ -249,45 +249,57 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
         </NavLink>
 
         {toolsOpen && (
-         <div
-         style={{
-           position: 'absolute',
-           top: 'calc(100% + 6px)',
-           left: 0,
-           background: 'var(--menu-panel-bg, var(--fl-surface))',
-           border: '1px solid var(--panel-border, var(--fl-border, rgba(255,255,255,.08)))',
-           borderRadius: 12,
-           minWidth: 180,
-           padding: 6,
-           display: 'grid',
-           gap: 4,
-           boxShadow: 'var(--shadow)',
-           zIndex: 100
-         }}
-       >
-       
-            <NavLink
-              to="/launch"
-              style={({ isActive }) => ({
-                ...linkIdle,
-                display: 'block',
-                background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
-              })}
-            >
-              Create Launch
-            </NavLink>
-            <NavLink
-              to="/locker"
-              style={({ isActive }) => ({
-                ...linkIdle,
-                display: 'block',
-                background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
-              })}
-            >
-              Lock LP
-            </NavLink>
-          </div>
-        )}
+  <div
+    style={{
+      position: 'absolute',
+      top: 'calc(100% + 6px)',
+      left: 0,
+      background: 'var(--menu-panel-bg, var(--fl-surface))',
+      border: '1px solid var(--panel-border, var(--fl-border, rgba(255,255,255,.08)))',
+      borderRadius: 12,
+      minWidth: 180,
+      padding: 6,
+      display: 'grid',
+      gap: 4,
+      boxShadow: 'var(--shadow)',
+      zIndex: 100
+    }}
+  >
+    <NavLink
+      to="/launch"
+      style={({ isActive }) => ({
+        ...linkIdle,
+        display: 'block',
+        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
+      })}
+    >
+      Create Launch
+    </NavLink>
+
+    {/* ✅ NEW: Fair Launch Simulator */}
+    <NavLink
+      to="/simulator"
+      style={({ isActive }) => ({
+        ...linkIdle,
+        display: 'block',
+        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
+      })}
+    >
+     Launch Simulator
+    </NavLink>
+
+    <NavLink
+      to="/locker"
+      style={({ isActive }) => ({
+        ...linkIdle,
+        display: 'block',
+        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
+      })}
+    >
+      Lock LP
+    </NavLink>
+  </div>
+)}
       </div>
 
       <NavLink to="/me" style={({ isActive }) => (isActive ? linkActive : linkIdle)}>Dashboard</NavLink>
@@ -413,6 +425,14 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
             >
               Create Launch
             </NavLink>
+            <NavLink
+              to="/simulator"
+              style={({ isActive }) => (isActive ? linkActive : linkIdle)}
+              onClick={() => {
+                setToolsMobileOpen(false);
+                setMenuOpen(false);
+              }}
+            >Launch Simulator</NavLink>
             <NavLink
               to="/locker"
               style={({ isActive }) => (isActive ? linkActive : linkIdle)}
