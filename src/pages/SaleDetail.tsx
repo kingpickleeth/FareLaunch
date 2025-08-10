@@ -6,11 +6,10 @@ import { salePhase, countdown } from '../utils/time';
 import AllowlistCheck from '../components/AllowlistCheck';
 import { supabase } from '../lib/supabase';
 import { formatNumber } from '../utils/format';
-import { useAccount } from 'wagmi';
+import { useAccount, usePublicClient } from 'wagmi';
 import BuyModal from '../components/BuyModal';
-import { usePublicClient } from 'wagmi';
-import { decodeEventLog } from 'viem';
-import { launchpadFactoryAbi, LAUNCHPAD_FACTORY } from '../lib/contracts';
+import { decodeEventLog, formatUnits } from 'viem';
+import { launchpadFactoryAbi, LAUNCHPAD_FACTORY, presalePoolAbi, QUOTE_DECIMALS } from '../lib/contracts';
 
 type AnyRow = Record<string, any>;
 
@@ -24,6 +23,48 @@ export default function SaleDetail() {
   const [allowlisted, setAllowlisted] = useState<boolean>(true); // default true if allowlist disabled
   const publicClient = usePublicClient();
   const [checkingAllowlist, setCheckingAllowlist] = useState<boolean>(false);
+  const [chain, setChain] = useState<{
+    softCap?: bigint;
+    hardCap?: bigint;
+    raised?: bigint;
+    userContrib?: bigint;
+  }>({});
+  useEffect(() => {
+    if (!publicClient || !row?.pool_address) return;
+    let cancelled = false;
+  
+    const fetchChain = async () => {
+      try {
+        const pool = row.pool_address as `0x${string}`;
+  
+        const [softCap, hardCap, raised, userContrib] = await Promise.all([
+          publicClient.readContract({
+            address: pool, abi: presalePoolAbi, functionName: 'softCap',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: pool, abi: presalePoolAbi, functionName: 'hardCap',
+          }) as Promise<bigint>,
+          publicClient.readContract({
+            address: pool, abi: presalePoolAbi, functionName: 'totalRaised',
+          }) as Promise<bigint>,
+          address
+            ? (publicClient.readContract({
+                address: pool, abi: presalePoolAbi, functionName: 'contributed', args: [address],
+              }) as Promise<bigint>)
+            : Promise.resolve(0n),
+        ]);
+  
+        if (!cancelled) setChain({ softCap, hardCap, raised, userContrib });
+      } catch (e) {
+        console.error('chain fetch failed', e);
+      }
+    };
+  
+    fetchChain();
+    const iv = setInterval(fetchChain, 3000);
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [publicClient, row?.pool_address, address]);
+  
   useEffect(() => {
     // If no allowlist for this sale, everyone can buy
     if (!row?.id || !row.allowlist_enabled) { setAllowlisted(true); return; }
@@ -146,8 +187,6 @@ export default function SaleDetail() {
 
   // quote + formatting
   const quote: string = row.quote ?? 'WAPE';
-  const fmtq = (n: unknown) =>
-    `${formatNumber(Number(n ?? NaN))} ${quote}`;
   const hasPool = !!row.pool_address;
   const now = Date.now();
   const startMs = row.start_at ? new Date(row.start_at).getTime() : NaN;
@@ -175,10 +214,30 @@ export default function SaleDetail() {
   }  
   
   // progress (mock until contracts)
-  const soft = Number(row.soft_cap ?? NaN);
-  const hard = Number(row.hard_cap ?? NaN);
-  const raised = 0; // TODO: replace with on-chain
-  const pct = Number.isFinite(hard) && hard > 0 ? Math.min(100, Math.max(0, (raised / hard) * 100)) : 0;
+  const raisedStr =
+  chain.raised !== undefined
+    ? `${Number(formatUnits(chain.raised, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
+    : `${formatNumber(0)} ${quote}`;
+
+    const softStr =
+    chain.softCap !== undefined
+      ? `${Number(formatUnits(chain.softCap, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
+      : (Number.isFinite(Number(row.soft_cap))
+          ? `${formatNumber(Number(row.soft_cap))} ${quote}`
+          : '—');
+
+          const hardStr =
+          chain.hardCap !== undefined
+            ? `${Number(formatUnits(chain.hardCap, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
+            : (Number.isFinite(Number(row.hard_cap))
+                ? `${formatNumber(Number(row.hard_cap))} ${quote}`
+                : '—');
+
+                const pct =
+                chain.hardCap !== undefined && chain.raised !== undefined && chain.hardCap > 0n
+                  ? Number((chain.raised * 10000n) / chain.hardCap) / 100 // two decimals
+                  : 0;
+
 
   // Themed status badge
  // Replace your badgeStyle block with this:
@@ -256,12 +315,17 @@ const badgeStyle: React.CSSProperties = (() => {
           </div>
         )}
 
-        <div className="meta-grid">
-          <div>Soft Cap: <b>{fmtq(soft)}</b></div>
-          <div>Hard Cap: <b>{Number.isFinite(hard) ? fmtq(hard) : '—'}</b></div>
-          <div>Raised: <b>{fmtq(raised)}</b></div>
-          <div>Quote: <b>{quote}</b></div>
+          <div className="meta-grid">
+          <div>Soft Cap: <b>{softStr}</b></div>
+          <div>Hard Cap: <b>{hardStr}</b></div>
+          <div>Raised:   <b>{raisedStr}</b></div>
+          <div>Quote:    <b>{quote}</b></div>
         </div>
+        {typeof chain.userContrib === 'bigint' && isConnected && (
+          <div className="meta-grid">
+            <div>Your Contribution: <b>{Number(formatUnits(chain.userContrib, QUOTE_DECIMALS)).toLocaleString()} {quote}</b></div>
+          </div>
+        )}
         <div>Presale Address: <b><code className="break-anywhere">{row.pool_address || '—'}</code></b></div>
         <div className="progress-outer">
           <div className="progress-inner" style={{ width: `${pct}%` }} />
