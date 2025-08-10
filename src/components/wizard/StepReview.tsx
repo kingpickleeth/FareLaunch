@@ -12,6 +12,7 @@ import {
 import {
   LAUNCHPAD_FACTORY, QUOTE_DECIMALS, launchpadFactoryAbi
 } from '../../lib/contracts';
+import { parseEventLogs } from 'viem';
 
 // Always return a string (or undefined) so it matches the WizardData fields
 function stripCommasStr(v: unknown): string | undefined {
@@ -288,43 +289,40 @@ if (typeof sanitized.lp?.percentToLP === 'number') {
       };
       
       const args: readonly [CreateArgs, Hex] = [a, salt];
-      
-      // 4) Send tx
-      const hash = await writeContractAsync({
-        address: LAUNCHPAD_FACTORY,
-        abi: launchpadFactoryAbi,
-        functionName: 'createPresale',
-        args
-      });
-  
-      // Mark pending
-      await supabase.from('launches').update({
-        chain_tx_hash: hash,
-        chain_status: 'tx_submitted'
-      }).eq('id', row.id);
-  
-  // 5) Wait for confirmation
-const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+// 4) Simulate the call to capture the pool address that will be created
+const { request, result: predictedPool } = await publicClient!.simulateContract({
+  address: LAUNCHPAD_FACTORY,
+  abi: launchpadFactoryAbi,
+  functionName: 'createPresale',
+  args,
+  account: address,
+});
 
-// 6) Parse PoolCreated(pool) and save it
-let poolAddress: string | null = null;
+// 5) Send tx using the simulated request (exact same calldata)
+const hash = await writeContractAsync(request);
 
-for (const log of receipt.logs) {
-  if (log.address.toLowerCase() !== LAUNCHPAD_FACTORY.toLowerCase()) continue;
-  try {
-    const decoded = decodeEventLog({
-      abi: launchpadFactoryAbi,
-      data: log.data,
-      topics: log.topics,
-    });
-    if (decoded.eventName === 'PoolCreated') {
-      poolAddress = (decoded.args as any).pool as string;
-      break;
-    }
-  } catch {}
+// Mark pending (log any error so we can see RLS/column issues)
+{
+  const { error } = await supabase.from('launches')
+    .update({ chain_tx_hash: hash, chain_status: 'tx_submitted' })
+    .eq('id', row.id);
+  if (error) console.error('Supabase pre-update failed:', error);
 }
 
-// 7) Persist final on-chain info
+// 6) Wait for confirmation and parse the event
+const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+
+const events = parseEventLogs({
+  abi: launchpadFactoryAbi,
+  logs: receipt.logs,
+  eventName: 'PoolCreated',
+});
+const eventPool = events[0]?.args?.pool as `0x${string}` | undefined;
+
+// Prefer the event value; fallback to simulated prediction if needed
+const poolAddress = (eventPool ?? predictedPool ?? null);
+
+// 7) Persist final on-chain info (single update; include create_args if you like)
 const aForDb = argsForDb(a, {
   tokenDecimals,
   quoteDecimals: QUOTE_DECIMALS,
@@ -332,11 +330,19 @@ const aForDb = argsForDb(a, {
   computedListingRate: listingRate.toString(),
 });
 
-await supabase.from('launches').update({
-  chain_status: 'confirmed',
-  pool_address: poolAddress,            // <— THIS is the important bit
-  create_args: aForDb
-}).eq('id', row.id);
+const { error: updErr } = await supabase.from('launches')
+  .update({
+    chain_status: 'confirmed',
+    chain_tx_hash: hash,
+    pool_address: poolAddress,
+    create_args: aForDb,
+  })
+  .eq('id', row.id);
+
+if (updErr) {
+  console.error('Supabase update failed:', updErr);
+  alert(`Launch created on-chain, but failed to save pool address: ${updErr.message}`);
+}
 
       alert(`Launch created! ID: ${row.id}`);
       navigate(`/sale/${row.id}`, { replace: true });

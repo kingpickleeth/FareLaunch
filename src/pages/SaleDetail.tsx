@@ -19,9 +19,9 @@ export default function SaleDetail() {
   const [row, setRow] = useState<AnyRow | null>(null);
   const [err, setErr] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const { address, isConnected } = useAccount();
+  const { isConnected } = useAccount();
   const [showBuy, setShowBuy] = useState(false);
-  const [allowlisted, setAllowlisted] = useState<boolean>(true); // default true when public/no allowlist
+  const [allowlisted] = useState<boolean>(true); // default true when public/no allowlist
   const publicClient = usePublicClient();
 
   useEffect(() => {
