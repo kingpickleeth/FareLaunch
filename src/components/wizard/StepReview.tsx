@@ -7,11 +7,13 @@ import { makeMerkle, isAddress } from '../../utils/merkle';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
-  parseUnits, keccak256, encodePacked, type Hex, parseEventLogs
+  parseUnits, keccak256, encodePacked, type Hex, parseEventLogs, type PublicClient
 } from 'viem';
 import {
   LAUNCHPAD_FACTORY, QUOTE_DECIMALS, launchpadFactoryAbi
 } from '../../lib/contracts';
+import { getAbiItem } from 'viem';
+
 
 // Always return a string (or undefined) so it matches the WizardData fields
 function stripCommasStr(v: unknown): string | undefined {
@@ -46,7 +48,8 @@ type Props = {
   editingId?: string;
 };
 
-// ✨ UPDATED: include tokenName/tokenSymbol/tokenDecimals
+// NEW CreateArgs (matches updated factory ABI)
+// ✨ NEW CreateArgs shape (matches updated factory + pool)
 type CreateArgs = {
   startAt: bigint;
   endAt: bigint;
@@ -56,17 +59,23 @@ type CreateArgs = {
   maxBuy: bigint;
   isPublic: boolean;
   merkleRoot: Hex;
-  presaleRate: bigint;
-  listingRate: bigint;
-  lpPctBps: number;        // uint16 -> number
-  payoutDelay: bigint;     // uint64 -> bigint
-  lpLockDuration: bigint;  // uint64 -> bigint
-  raiseFeeBps: number;     // uint16 -> number
-  tokenFeeBps: number;     // uint16 -> number
 
-  tokenName: string;       // NEW
-  tokenSymbol: string;     // NEW
-  tokenDecimals: number;   // NEW (uint8)
+  // static tokenomics (on-chain storage)
+  totalSupply: bigint;
+  saleTokensPool: bigint;
+  tokenPctToLPBps: number; // 0..10000
+
+  // raise/flow
+  lpPctBps: number;        // 0..10000
+  payoutDelay: bigint;     // seconds
+  lpLockDuration: bigint;  // seconds
+  raiseFeeBps: number;     // 0..10000
+  tokenFeeBps: number;     // 0..10000
+
+  // token metadata (stored for deterministic mint)
+  tokenName: string;
+  tokenSymbol: string;
+  tokenDecimals: number;   // uint8
 };
 
 function argsForDb(a: CreateArgs, ctx: any) {
@@ -79,16 +88,21 @@ function argsForDb(a: CreateArgs, ctx: any) {
     maxBuy: a.maxBuy.toString(),
     isPublic: a.isPublic,
     merkleRoot: a.merkleRoot,
-    presaleRate: a.presaleRate.toString(),
-    listingRate: a.listingRate.toString(),
+
+    totalSupply: a.totalSupply.toString(),
+    saleTokensPool: a.saleTokensPool.toString(),
+    tokenPctToLPBps: a.tokenPctToLPBps,
+
     lpPctBps: a.lpPctBps,
     payoutDelay: a.payoutDelay.toString(),
     lpLockDuration: a.lpLockDuration.toString(),
     raiseFeeBps: a.raiseFeeBps,
     tokenFeeBps: a.tokenFeeBps,
-    tokenName: a.tokenName,            // NEW
-    tokenSymbol: a.tokenSymbol,        // NEW
-    tokenDecimals: a.tokenDecimals,    // NEW
+
+    tokenName: a.tokenName,
+    tokenSymbol: a.tokenSymbol,
+    tokenDecimals: a.tokenDecimals,
+
     _context: ctx,
   };
 }
@@ -122,8 +136,33 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
   const publicClient = usePublicClient();
   const { writeContractAsync } = useWriteContract();
   const [creating, setCreating] = useState(false);
+  async function safeReadBigInt(
+    client: PublicClient | undefined,
+    fn: 'defaultRaiseFeeBps' | 'defaultTokenFeeBps' | 'defaultLpPctBps' | 'defaultPayoutDelay' | 'defaultLpLock'
+  ): Promise<bigint> {
+    if (!client) return 0n;
+    try {
+      const v: unknown = await client.readContract({
+        address: LAUNCHPAD_FACTORY,
+        abi: launchpadFactoryAbi,
+        functionName: fn,
+      });
+  
+      if (typeof v === 'bigint') return v;
+      if (typeof v === 'number') return BigInt(v);
+      if (typeof v === 'string' && v.trim()) return BigInt(v);
+  
+      return 0n;
+    } catch {
+      return 0n;
+    }
+  }
   
   async function handleCreate() {
+    // handy helpers
+  
+
+  
     try {
       if (!isConnected || !address) { alert('Connect your wallet first.'); return; }
       if (!supabase) { alert('Supabase not configured.'); return; }
@@ -135,7 +174,7 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
       const sanitized = sanitizeWizardNumbers(value);
       const row = await upsertLaunch(address, sanitized, editingId, 'upcoming');
   
-      // 2) Allowlist upload / validation
+      // 2) Allowlist upload / validation (unchanged)
       if (value.allowlist?.enabled) {
         const normalized = Array.from(
           new Set(
@@ -169,138 +208,275 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         if (clrErr) throw clrErr;
       }
   
-      // ===== 3) Build CreateArgs tuple for on-chain call =====
+      // ===== 3) Build CreateArgs tuple for on-chain call (new static model) =====
       const tokenDecimals = Number(sanitized.token?.decimals ?? 18);
-
-      if (!sanitized.sale?.hardCap) {
-        alert('Hard cap is required to compute presale rate. Please set a hard cap.');
-        setCreating(false);
-        return;
-      }
+      const tokenName =
+        (value as any)?.token?.name?.trim()
+        || value.project?.name?.trim()
+        || (sanitized.token?.symbol ? `${sanitized.token.symbol} Token` : 'Token');
+      const tokenSymbol = String(sanitized.token?.symbol || '').trim() || 'TKN';
   
+      // Required numbers
       const startAt = toUnix(sanitized.sale?.start);
       const endAt   = toUnix(sanitized.sale?.end);
-  
       const softCapWei = parseUnits(asStr(sanitized.sale?.softCap), QUOTE_DECIMALS);
       const hardCapWei = parseUnits(asStr(sanitized.sale?.hardCap), QUOTE_DECIMALS);
       const minBuyWei  = parseUnits(asStr(sanitized.sale?.minPerWallet), QUOTE_DECIMALS);
       const maxBuyWei  = parseUnits(asStr(sanitized.sale?.maxPerWallet), QUOTE_DECIMALS);
   
+      const totalSupplyUnits   = parseUnits(asStr(sanitized.token?.totalSupply), tokenDecimals);
+      const saleTokensPoolUnits= parseUnits(asStr(sanitized.sale?.saleTokensPool), tokenDecimals);
+  
+      // Basic validation that matches the pool’s `initialize` requirements
+      if (saleTokensPoolUnits <= 0n) {
+        alert('Sale token pool must be > 0.');
+        setCreating(false); return;
+      }
+      if (totalSupplyUnits < saleTokensPoolUnits) {
+        alert('Total supply must be >= Sale token pool.');
+        setCreating(false); return;
+      }
+  
       const isPublic   = !(sanitized.allowlist?.enabled);
       const merkleRoot: Hex = sanitized.allowlist?.enabled && sanitized.allowlist?.root
         ? (sanitized.allowlist.root as Hex)
         : (ZERO_BYTES32 as Hex);
+        // quick guards to avoid obvious contract reverts
+        if (endAt <= startAt) { alert('End time must be after start time.'); setCreating(false); return; }
+        if (hardCapWei < softCapWei) { alert('Hard cap must be >= soft cap.'); setCreating(false); return; }
+        if (maxBuyWei > 0n && minBuyWei > maxBuyWei) { alert('Max per wallet must be >= min per wallet.'); setCreating(false); return; }
+        if (!isPublic && (!value.allowlist?.root || merkleRoot === ZERO_BYTES32)) {
+          alert('Allowlist is enabled but the Merkle root is missing.'); setCreating(false); return;
+        }
   
-      // Presale rate = tokens per 1 WAPE (in smallest units)
-      const saleTokensPoolUnits = parseUnits(asStr(sanitized.sale?.saleTokensPool), tokenDecimals);
-      let presaleRate = 0n;
-      if (saleTokensPoolUnits > 0n && hardCapWei > 0n) {
-        presaleRate = (saleTokensPoolUnits * (10n ** BigInt(QUOTE_DECIMALS))) / hardCapWei;
-      } else {
-        alert('Sale token pool and hard cap must be > 0 to compute presale rate.');
-        setCreating(false);
-        return;
-      }
-  
-      // Listing rate
-      const totalSupplyUnits = parseUnits(asStr(sanitized.token?.totalSupply), tokenDecimals);
-      const lpTokenPct       = BigInt(Math.round(sanitized.lp?.tokenPercentToLP ?? 0));
-      const lpTokensUnits    = (totalSupplyUnits * lpTokenPct) / 100n;
-  
-      const lpRaisePct       = BigInt(Math.round(sanitized.lp?.percentToLP ?? 60));
-      const quoteForLPWei    = (hardCapWei * lpRaisePct) / 100n;
-  
-      let listingRate = presaleRate; // fallback
-      if (lpTokensUnits > 0n && quoteForLPWei > 0n) {
-        listingRate = (lpTokensUnits * (10n ** BigInt(QUOTE_DECIMALS))) / quoteForLPWei;
-      }
-  
-      // Fees & timings (BPS + seconds)
-      let raiseFeeBps: number;
-      if (typeof sanitized.fees?.raisePct === 'number') {
-        raiseFeeBps = Math.round(sanitized.fees.raisePct * 100);
-      } else {
-        raiseFeeBps = Number(await publicClient!.readContract({
-          address: LAUNCHPAD_FACTORY,
-          abi: launchpadFactoryAbi,
-          functionName: 'defaultRaiseFeeBps'
-        }));
-      }
-      let tokenFeeBps: number;
-      if (typeof sanitized.fees?.supplyPct === 'number') {
-        tokenFeeBps = Math.round(sanitized.fees.supplyPct * 100);
-      } else {
-        tokenFeeBps = Number(await publicClient!.readContract({
-          address: LAUNCHPAD_FACTORY,
-          abi: launchpadFactoryAbi,
-          functionName: 'defaultTokenFeeBps'
-        }));
-      }
-    
-      let lpPctBps: number;
-      if (typeof sanitized.lp?.percentToLP === 'number') {
-        lpPctBps = Math.round(sanitized.lp.percentToLP * 100);
-      } else {
-        lpPctBps = Number(await publicClient!.readContract({
-          address: LAUNCHPAD_FACTORY,
-          abi: launchpadFactoryAbi,
-          functionName: 'defaultLpPctBps'
-        }));
-      }
+     // ----- Fees & timings (compute & clamp FIRST) -----
+const toBps = (pct?: number | null): number => {
+  if (typeof pct !== 'number' || !Number.isFinite(pct)) return 0;
+  return Math.max(0, Math.min(10_000, Math.round(pct * 100)));
+};
+const clampBps = (n: number) => Math.max(0, Math.min(10_000, Math.floor(n || 0)));
+const toUint8   = (n: number) => Math.max(0, Math.min(255, Math.floor(n || 0)));
 
-      const payoutDelay = await publicClient!.readContract({
-        address: LAUNCHPAD_FACTORY,
-        abi: launchpadFactoryAbi,
-        functionName: 'defaultPayoutDelay'
-      });
-  
-      let lpLockDuration = 0n;
-      const lockDays = sanitized.lp?.lockDays ?? null;
-      if (typeof lockDays === 'number' && Number.isFinite(lockDays) && lockDays > 0) {
-        lpLockDuration = BigInt(Math.round(lockDays)) * 86400n;
-      } else {
-        lpLockDuration = await publicClient!.readContract({
-          address: LAUNCHPAD_FACTORY,
-          abi: launchpadFactoryAbi,
-          functionName: 'defaultLpLock'
-        });
-      }
-  
-      // Deterministic-ish salt: keccak256(encodePacked(creator, dbId))
-      const salt = keccak256(encodePacked(['address','string'], [address, row.id])) as Hex;
+const raiseFeeBpsNum = clampBps(
+  typeof sanitized.fees?.raisePct === 'number'
+    ? Math.round(sanitized.fees.raisePct * 100)
+    : Number(await safeReadBigInt(publicClient, 'defaultRaiseFeeBps'))
+);
 
-      // ✨ NEW: token metadata for pool storage
-      const tokenName =
-        (value as any)?.token?.name?.trim()
-        || value.project?.name?.trim()
-        || (value.token?.symbol ? `${value.token.symbol} Token` : 'Token');
+const tokenFeeBpsNum = clampBps(
+  typeof sanitized.fees?.supplyPct === 'number'
+    ? Math.round(sanitized.fees.supplyPct * 100)
+    : Number(await safeReadBigInt(publicClient, 'defaultTokenFeeBps'))
+);
 
-      const tokenSymbol = String(sanitized.token?.symbol || '').trim() || 'TKN';
-      const tokenDecimalsClamped = Math.max(0, Math.min(255, Number(sanitized.token?.decimals ?? 18)));
+const lpPctBpsNum = clampBps(
+  typeof sanitized.lp?.percentToLP === 'number'
+    ? Math.round(sanitized.lp.percentToLP * 100)
+    : Number(await safeReadBigInt(publicClient, 'defaultLpPctBps'))
+);
 
-      const a: CreateArgs = {
-        startAt, endAt,
-        softCap: softCapWei,
-        hardCap: hardCapWei,
-        minBuy:  minBuyWei,
-        maxBuy:  maxBuyWei,
-        isPublic,
-        merkleRoot,
-        presaleRate,
-        listingRate,
-        lpPctBps,
-        payoutDelay,
-        lpLockDuration,
-        raiseFeeBps,
-        tokenFeeBps,
+const tokenPctToLPBpsNum = clampBps(
+  typeof sanitized.lp?.tokenPercentToLP === 'number'
+    ? Math.round(sanitized.lp.tokenPercentToLP * 100)
+    : 0
+);const fallback = (x: bigint, min: bigint) => x > 0n ? x : min;
+const payoutDelay = fallback(
+  typeof (sanitized as any)?.lp?.payoutDelay === 'number'
+    ? BigInt(Math.max(0, Math.trunc((sanitized as any).lp.payoutDelay)))
+    : await safeReadBigInt(publicClient, 'defaultPayoutDelay'),
+  3600n
+);
+const lpLockDuration = fallback(
+  typeof sanitized.lp?.lockDays === 'number' && sanitized.lp.lockDays > 0
+    ? BigInt(Math.trunc(sanitized.lp.lockDays)) * 86400n
+    : await safeReadBigInt(publicClient, 'defaultLpLock'),
+  30n * 86400n
+);
 
-        // NEW
-        tokenName,
-        tokenSymbol,
-        tokenDecimals: tokenDecimalsClamped,
-      };
-      
-      const args: readonly [CreateArgs, Hex] = [a, salt];
+
+const tokenDecimalsClamped = Math.max(0, Math.min(255, Number(sanitized.token?.decimals ?? 18)));
+
+// ----- Build the tuple object EXACTLY once -----
+const a: CreateArgs = {
+  startAt, endAt,
+  softCap: softCapWei,
+  hardCap: hardCapWei,
+  minBuy:  minBuyWei,
+  maxBuy:  maxBuyWei,
+  isPublic,
+  merkleRoot,
+
+  totalSupply: totalSupplyUnits,
+  saleTokensPool: saleTokensPoolUnits,
+  tokenPctToLPBps: tokenPctToLPBpsNum,
+
+  lpPctBps: lpPctBpsNum,
+  payoutDelay,            // already bigint
+  lpLockDuration,         // already bigint
+  raiseFeeBps: raiseFeeBpsNum,
+  tokenFeeBps: tokenFeeBpsNum,
+
+  tokenName,
+  tokenSymbol,
+  tokenDecimals: tokenDecimalsClamped,
+};
+
+// quick sanity before encoding (will name the first bad field)
+(function assertCreateArgs(aChecked: CreateArgs) {
+  const checks: Array<[string, unknown]> = [
+    ['startAt', aChecked.startAt], ['endAt', aChecked.endAt],
+    ['softCap', aChecked.softCap], ['hardCap', aChecked.hardCap],
+    ['minBuy', aChecked.minBuy],   ['maxBuy', aChecked.maxBuy],
+    ['isPublic', aChecked.isPublic], ['merkleRoot', aChecked.merkleRoot],
+    ['totalSupply', aChecked.totalSupply], ['saleTokensPool', aChecked.saleTokensPool],
+    ['tokenPctToLPBps', aChecked.tokenPctToLPBps], ['lpPctBps', aChecked.lpPctBps],
+    ['payoutDelay', aChecked.payoutDelay], ['lpLockDuration', aChecked.lpLockDuration],
+    ['raiseFeeBps', aChecked.raiseFeeBps], ['tokenFeeBps', aChecked.tokenFeeBps],
+    ['tokenName', aChecked.tokenName], ['tokenSymbol', aChecked.tokenSymbol],
+    ['tokenDecimals', aChecked.tokenDecimals],
+  ];
+  for (const [k, v] of checks) {
+    if (v === undefined || (typeof v === 'number' && Number.isNaN(v))) {
+      console.error('Missing/invalid field in CreateArgs:', k, v);
+      throw new Error(`Internal error: "${k}" is missing or invalid`);
+    }
+  }
+  // additionally ensure bigint-typed fields are actually bigint
+  for (const k of ['startAt','endAt','softCap','hardCap','minBuy','maxBuy','totalSupply','saleTokensPool','payoutDelay','lpLockDuration'] as const) {
+    if (typeof (aChecked as any)[k] !== 'bigint') {
+      throw new Error(`${k} must be bigint, got ${typeof (aChecked as any)[k]}`);
+    }
+  }
+})(a);
+// 3.7 Salt for deterministic address (creator + DB id)
+const salt = keccak256(
+  encodePacked(['address','string'], [address as `0x${string}`, row.id])
+) as Hex;
+const bigintFields = [
+  'startAt','endAt','softCap','hardCap','minBuy','maxBuy',
+  'totalSupply','saleTokensPool','payoutDelay','lpLockDuration'
+] as const;
+
+for (const key of bigintFields) {
+  const val = (a as any)[key];
+  console.log(`DEBUG bigint field: ${key}`, val, typeof val);
+  if (val === undefined) {
+    throw new Error(`❌ ${key} is undefined before passing to createPresale`);
+  }
+}
+
+
+// final args (positional tuple + salt)
+// Build positional CreateArgs tuple to avoid any name/ABI drift
+const aTuple = [
+  // schedule & caps
+  a.startAt,            // uint64
+  a.endAt,              // uint64
+  a.softCap,            // uint256
+  a.hardCap,            // uint256
+  a.minBuy,             // uint256
+  a.maxBuy,             // uint256
+
+  // access
+  a.isPublic,                               // bool
+  a.merkleRoot as `0x${string}`,            // bytes32
+
+  // static tokenomics
+  a.totalSupply,                            // uint256
+  a.saleTokensPool,                         // uint256
+  Number(a.tokenPctToLPBps),                // uint16
+  Number(a.lpPctBps),                       // uint16
+
+  // timings & fees
+  a.payoutDelay,                            // uint64
+  a.lpLockDuration,                         // uint64
+  Number(a.raiseFeeBps),                    // uint16
+  Number(a.tokenFeeBps),                    // uint16
+
+  // token metadata
+  a.tokenName,                              // string
+  a.tokenSymbol,                            // string
+  Number(a.tokenDecimals),                  // uint8
+] as const;
+
+// If your ABI is (CreateArgs a, address quoteToken, bytes32 salt):
+const aNamed = {
+  startAt: a.startAt,
+  endAt: a.endAt,
+  softCap: a.softCap,
+  hardCap: a.hardCap,
+  minBuy: a.minBuy,
+  maxBuy: a.maxBuy,
+  isPublic: a.isPublic,
+  merkleRoot: a.merkleRoot as `0x${string}`,
+  totalSupply: a.totalSupply,
+  saleTokensPool: a.saleTokensPool,
+  tokenPctToLPBps: Number(a.tokenPctToLPBps),
+  lpPctBps:        Number(a.lpPctBps),
+  payoutDelay: a.payoutDelay,
+  lpLockDuration: a.lpLockDuration,
+  raiseFeeBps: Number(a.raiseFeeBps),
+  tokenFeeBps: Number(a.tokenFeeBps),
+  tokenName: a.tokenName,
+  tokenSymbol: a.tokenSymbol,
+  tokenDecimals: Number(a.tokenDecimals),
+} as const;
+
+const args = [
+  {
+    startAt: a.startAt,
+    endAt: a.endAt,
+    softCap: a.softCap,
+    hardCap: a.hardCap,
+    minBuy: a.minBuy,
+    maxBuy: a.maxBuy,
+    isPublic: a.isPublic,
+    merkleRoot: a.merkleRoot as `0x${string}`,
+    totalSupply: a.totalSupply,
+    saleTokensPool: a.saleTokensPool,
+    tokenPctToLPBps: Number(a.tokenPctToLPBps),
+    lpPctBps: Number(a.lpPctBps),
+    payoutDelay: a.payoutDelay,
+    lpLockDuration: a.lpLockDuration,
+    raiseFeeBps: Number(a.raiseFeeBps),
+    tokenFeeBps: Number(a.tokenFeeBps),
+    tokenName: a.tokenName,
+    tokenSymbol: a.tokenSymbol,
+    tokenDecimals: Number(a.tokenDecimals),
+    presaleRate: 0n,
+    listingRate: 0n,
+  },
+  salt
+] as const;
+
+// If (rarer) your ABI is only (CreateArgs a, bytes32 salt), then use:
+// const args = [aTuple, salt] as const;
+console.log('=== aNamed full check ===');
+const abiOrder = [
+  'startAt','endAt','softCap','hardCap','minBuy','maxBuy',
+  'isPublic','merkleRoot','totalSupply','saleTokensPool',
+  'tokenPctToLPBps','lpPctBps','payoutDelay','lpLockDuration',
+  'raiseFeeBps','tokenFeeBps','tokenName','tokenSymbol','tokenDecimals'
+] as const;
+
+for (const key of abiOrder) {
+  const val = (aNamed as any)[key];
+  console.log(key, val, typeof val);
+  if (val === undefined) {
+    throw new Error(`❌ MISSING FIELD: ${key}`);
+  }
+}
+console.log('DEBUG salt', salt, typeof salt);
+if (!salt || typeof salt !== 'string' || !salt.startsWith('0x') || salt.length !== 66) {
+  throw new Error('❌ Invalid salt: ' + salt);
+}
+console.log(
+  JSON.stringify(
+    getAbiItem({ abi: launchpadFactoryAbi, name: 'createPresale' }),
+    null,
+    2
+  )
+);
 
       // 4) Simulate to get the predicted pool (and a prebuilt request)
       const { request, result } = await publicClient!.simulateContract({
@@ -310,67 +486,59 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         args,
         account: address,
       });
+      
       const predictedPool = result as `0x${string}`;
-
+  
       // 5) Send tx using the simulated request (same calldata)
       const hash = await writeContractAsync(request);
-
-      // Mark pending (log any error so we can see RLS/column issues)
+  
+      // mark pending
       {
         const { error } = await supabase.from('launches')
           .update({ chain_tx_hash: hash, chain_status: 'tx_submitted' })
           .eq('id', row.id);
         if (error) console.error('Supabase pre-update failed:', error);
       }
-
+  
       // 6) Wait for confirmation and parse the event
       const receipt = await publicClient!.waitForTransactionReceipt({ hash });
-
       const events = parseEventLogs({
         abi: launchpadFactoryAbi,
         logs: receipt.logs,
         eventName: 'PoolCreated',
       });
       const eventPool = events[0]?.args?.pool as `0x${string}` | undefined;
-
       const poolAddress = (eventPool ?? predictedPool ?? null);
-
-      // 7) Persist final on-chain info
-// always persist the critical fields first
-const baseUpdate = {
-  chain_status: 'confirmed',
-  chain_tx_hash: hash,
-  pool_address: poolAddress,
-};
-
-const { error: baseErr } = await supabase
-  .from('launches')
-  .update(baseUpdate)
-  .eq('id', row.id);
-
-if (baseErr) {
-  console.error('Supabase base update failed:', baseErr);
-  alert(`Launch created on-chain, but failed to save pool address: ${baseErr.message}`);
-} else {
-  // try optional metadata; ignore "column not found"
-  const aForDb = argsForDb(a, {
-    tokenDecimals,
-    quoteDecimals: QUOTE_DECIMALS,
-    computedPresaleRate: presaleRate.toString(),
-    computedListingRate: listingRate.toString(),
-  });
-
-  const { error: metaErr } = await supabase
-    .from('launches')
-    .update({ create_args: aForDb as any })
-    .eq('id', row.id);
-
-  if (metaErr && !/create_args/i.test(metaErr.message)) {
-    console.warn('Optional create_args update failed:', metaErr);
-  }
-}
-
-
+  
+      // 7) Persist on-chain info
+      const baseUpdate = {
+        chain_status: 'confirmed',
+        chain_tx_hash: hash,
+        pool_address: poolAddress,
+      };
+      const { error: baseErr } = await supabase
+        .from('launches')
+        .update(baseUpdate)
+        .eq('id', row.id);
+  
+      if (baseErr) {
+        console.error('Supabase base update failed:', baseErr);
+        alert(`Launch created on-chain, but failed to save pool address: ${baseErr.message}`);
+      } else {
+        // Optional: store args for debugging/analytics (ignore if column missing)
+        const aForDb = argsForDb(a, {
+          tokenDecimals,
+          quoteDecimals: QUOTE_DECIMALS,
+        });
+        const { error: metaErr } = await supabase
+          .from('launches')
+          .update({ create_args: aForDb as any })
+          .eq('id', row.id);
+        if (metaErr && !/create_args/i.test(metaErr.message)) {
+          console.warn('Optional create_args update failed:', metaErr);
+        }
+      }
+  
       alert(`Launch created! ID: ${row.id}`);
       navigate(`/sale/${row.id}`, { replace: true });
       onFinish?.();
@@ -438,7 +606,6 @@ if (baseErr) {
     ? (keptTokens / totalSupplyNum) * 100
     : NaN;
 
-  const creatorRaisePct = 100 - raisePctToLP;
   const raiseFeePct = typeof value.fees?.raisePct === 'number' ? value.fees.raisePct : 5;
 
   // Supply fee is expressed as a % value like 0.05 (i.e., 0.05%)
@@ -538,7 +705,7 @@ if (baseErr) {
 
             <div>
               Creator Profits: <b>
-                {Number.isFinite(creatorRaisePct) ? `${creatorRaisePct}% of Raise` : '-'}
+                {Number.isFinite(100 - raisePctToLP) ? `${100 - raisePctToLP}% of Raise` : '-'}
               </b>{' '}
               <span style={note}>(minus platform fee {raiseFeePct}%)</span>
               {' '} & <b>{Number.isFinite(keptTokens) ? keptTokens.toLocaleString() : '-'}</b> {ticker}
