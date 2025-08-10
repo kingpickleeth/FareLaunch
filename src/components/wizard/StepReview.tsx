@@ -1,17 +1,17 @@
+// src/components/wizard/StepReview.tsx
 import type { WizardData } from '../../types/wizard';
 import { upsertLaunch } from '../../data/launches';
-import { useAccount } from 'wagmi';
+import { useAccount, usePublicClient, useWriteContract } from 'wagmi';
 import { supabase } from '../../lib/supabase';
 import { makeMerkle, isAddress } from '../../utils/merkle';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
-import { usePublicClient, useWriteContract } from 'wagmi';
 import {
-  parseUnits, keccak256, encodePacked, type Hex} from 'viem';
+  parseUnits, keccak256, encodePacked, type Hex, parseEventLogs
+} from 'viem';
 import {
   LAUNCHPAD_FACTORY, QUOTE_DECIMALS, launchpadFactoryAbi
 } from '../../lib/contracts';
-import { parseEventLogs } from 'viem';
 
 // Always return a string (or undefined) so it matches the WizardData fields
 function stripCommasStr(v: unknown): string | undefined {
@@ -45,6 +45,8 @@ type Props = {
   onFinish?: () => void;
   editingId?: string;
 };
+
+// ✨ UPDATED: include tokenName/tokenSymbol/tokenDecimals
 type CreateArgs = {
   startAt: bigint;
   endAt: bigint;
@@ -61,13 +63,13 @@ type CreateArgs = {
   lpLockDuration: bigint;  // uint64 -> bigint
   raiseFeeBps: number;     // uint16 -> number
   tokenFeeBps: number;     // uint16 -> number
+
+  tokenName: string;       // NEW
+  tokenSymbol: string;     // NEW
+  tokenDecimals: number;   // NEW (uint8)
 };
-function argsForDb(a: {
-  startAt: bigint; endAt: bigint; softCap: bigint; hardCap: bigint;
-  minBuy: bigint; maxBuy: bigint; isPublic: boolean; merkleRoot: Hex;
-  presaleRate: bigint; listingRate: bigint; lpPctBps: number;
-  payoutDelay: bigint; lpLockDuration: bigint; raiseFeeBps: number; tokenFeeBps: number;
-}, ctx: any) {
+
+function argsForDb(a: CreateArgs, ctx: any) {
   return {
     startAt: a.startAt.toString(),
     endAt: a.endAt.toString(),
@@ -84,7 +86,10 @@ function argsForDb(a: {
     lpLockDuration: a.lpLockDuration.toString(),
     raiseFeeBps: a.raiseFeeBps,
     tokenFeeBps: a.tokenFeeBps,
-    _context: ctx, // purely for debugging/traceability
+    tokenName: a.tokenName,            // NEW
+    tokenSymbol: a.tokenSymbol,        // NEW
+    tokenDecimals: a.tokenDecimals,    // NEW
+    _context: ctx,
   };
 }
 
@@ -130,7 +135,7 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
       const sanitized = sanitizeWizardNumbers(value);
       const row = await upsertLaunch(address, sanitized, editingId, 'upcoming');
   
-      // 2) Allowlist upload / validation (unchanged)
+      // 2) Allowlist upload / validation
       if (value.allowlist?.enabled) {
         const normalized = Array.from(
           new Set(
@@ -165,10 +170,8 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
       }
   
       // ===== 3) Build CreateArgs tuple for on-chain call =====
-      // Required numbers
       const tokenDecimals = Number(sanitized.token?.decimals ?? 18);
-  
-      // Hard cap is required to compute presaleRate reliably
+
       if (!sanitized.sale?.hardCap) {
         alert('Hard cap is required to compute presale rate. Please set a hard cap.');
         setCreating(false);
@@ -189,7 +192,6 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         : (ZERO_BYTES32 as Hex);
   
       // Presale rate = tokens per 1 WAPE (in smallest units)
-      // saleTokensPool and totalSupply are typed as strings in the wizard
       const saleTokensPoolUnits = parseUnits(asStr(sanitized.sale?.saleTokensPool), tokenDecimals);
       let presaleRate = 0n;
       if (saleTokensPoolUnits > 0n && hardCapWei > 0n) {
@@ -200,7 +202,7 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         return;
       }
   
-      // Listing rate from LP math (tokens per 1 WAPE at listing)
+      // Listing rate
       const totalSupplyUnits = parseUnits(asStr(sanitized.token?.totalSupply), tokenDecimals);
       const lpTokenPct       = BigInt(Math.round(sanitized.lp?.tokenPercentToLP ?? 0));
       const lpTokensUnits    = (totalSupplyUnits * lpTokenPct) / 100n;
@@ -213,9 +215,7 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         listingRate = (lpTokensUnits * (10n ** BigInt(QUOTE_DECIMALS))) / quoteForLPWei;
       }
   
-      // Fees & timings (BPS + seconds). If not provided in UI, use factory defaults.
-      // raiseFeeBps: percent -> bps (e.g., 5% -> 500)
-      // tokenFeeBps: percent -> bps (e.g., 0.05% -> 5)
+      // Fees & timings (BPS + seconds)
       let raiseFeeBps: number;
       if (typeof sanitized.fees?.raisePct === 'number') {
         raiseFeeBps = Math.round(sanitized.fees.raisePct * 100);
@@ -237,24 +237,23 @@ export default function StepReview({ value, onBack, onFinish, editingId }: Props
         }));
       }
     
-let lpPctBps: number;
-if (typeof sanitized.lp?.percentToLP === 'number') {
-  lpPctBps = Math.round(sanitized.lp.percentToLP * 100);
-} else {
-  lpPctBps = Number(await publicClient!.readContract({
-    address: LAUNCHPAD_FACTORY,
-    abi: launchpadFactoryAbi,
-    functionName: 'defaultLpPctBps'
-  }));
-}
-      // payoutDelay: seconds — not in the wizard, so take default
+      let lpPctBps: number;
+      if (typeof sanitized.lp?.percentToLP === 'number') {
+        lpPctBps = Math.round(sanitized.lp.percentToLP * 100);
+      } else {
+        lpPctBps = Number(await publicClient!.readContract({
+          address: LAUNCHPAD_FACTORY,
+          abi: launchpadFactoryAbi,
+          functionName: 'defaultLpPctBps'
+        }));
+      }
+
       const payoutDelay = await publicClient!.readContract({
         address: LAUNCHPAD_FACTORY,
         abi: launchpadFactoryAbi,
         functionName: 'defaultPayoutDelay'
       });
   
-      // lpLockDuration: prefer wizard lockDays; else default
       let lpLockDuration = 0n;
       const lockDays = sanitized.lp?.lockDays ?? null;
       if (typeof lockDays === 'number' && Number.isFinite(lockDays) && lockDays > 0) {
@@ -267,9 +266,18 @@ if (typeof sanitized.lp?.percentToLP === 'number') {
         });
       }
   
-      // Deterministic salt: keccak256(encodePacked(creator, dbId))
+      // Deterministic-ish salt: keccak256(encodePacked(creator, dbId))
       const salt = keccak256(encodePacked(['address','string'], [address, row.id])) as Hex;
-  
+
+      // ✨ NEW: token metadata for pool storage
+      const tokenName =
+        (value as any)?.token?.name?.trim()
+        || value.project?.name?.trim()
+        || (value.token?.symbol ? `${value.token.symbol} Token` : 'Token');
+
+      const tokenSymbol = String(sanitized.token?.symbol || '').trim() || 'TKN';
+      const tokenDecimalsClamped = Math.max(0, Math.min(255, Number(sanitized.token?.decimals ?? 18)));
+
       const a: CreateArgs = {
         startAt, endAt,
         softCap: softCapWei,
@@ -280,68 +288,88 @@ if (typeof sanitized.lp?.percentToLP === 'number') {
         merkleRoot,
         presaleRate,
         listingRate,
-        lpPctBps,          // number
-        payoutDelay,       // bigint
-        lpLockDuration,    // bigint
-        raiseFeeBps,       // number
-        tokenFeeBps        // number
+        lpPctBps,
+        payoutDelay,
+        lpLockDuration,
+        raiseFeeBps,
+        tokenFeeBps,
+
+        // NEW
+        tokenName,
+        tokenSymbol,
+        tokenDecimals: tokenDecimalsClamped,
       };
       
       const args: readonly [CreateArgs, Hex] = [a, salt];
-// 4) Simulate the call to capture the pool address that will be created
-const { request, result: predictedPool } = await publicClient!.simulateContract({
-  address: LAUNCHPAD_FACTORY,
-  abi: launchpadFactoryAbi,
-  functionName: 'createPresale',
-  args,
-  account: address,
-});
 
-// 5) Send tx using the simulated request (exact same calldata)
-const hash = await writeContractAsync(request);
+      // 4) Simulate to get the predicted pool (and a prebuilt request)
+      const { request, result } = await publicClient!.simulateContract({
+        address: LAUNCHPAD_FACTORY,
+        abi: launchpadFactoryAbi,
+        functionName: 'createPresale',
+        args,
+        account: address,
+      });
+      const predictedPool = result as `0x${string}`;
 
-// Mark pending (log any error so we can see RLS/column issues)
-{
-  const { error } = await supabase.from('launches')
-    .update({ chain_tx_hash: hash, chain_status: 'tx_submitted' })
-    .eq('id', row.id);
-  if (error) console.error('Supabase pre-update failed:', error);
-}
+      // 5) Send tx using the simulated request (same calldata)
+      const hash = await writeContractAsync(request);
 
-// 6) Wait for confirmation and parse the event
-const receipt = await publicClient!.waitForTransactionReceipt({ hash });
+      // Mark pending (log any error so we can see RLS/column issues)
+      {
+        const { error } = await supabase.from('launches')
+          .update({ chain_tx_hash: hash, chain_status: 'tx_submitted' })
+          .eq('id', row.id);
+        if (error) console.error('Supabase pre-update failed:', error);
+      }
 
-const events = parseEventLogs({
-  abi: launchpadFactoryAbi,
-  logs: receipt.logs,
-  eventName: 'PoolCreated',
-});
-const eventPool = events[0]?.args?.pool as `0x${string}` | undefined;
+      // 6) Wait for confirmation and parse the event
+      const receipt = await publicClient!.waitForTransactionReceipt({ hash });
 
-// Prefer the event value; fallback to simulated prediction if needed
-const poolAddress = (eventPool ?? predictedPool ?? null);
+      const events = parseEventLogs({
+        abi: launchpadFactoryAbi,
+        logs: receipt.logs,
+        eventName: 'PoolCreated',
+      });
+      const eventPool = events[0]?.args?.pool as `0x${string}` | undefined;
 
-// 7) Persist final on-chain info (single update; include create_args if you like)
-const aForDb = argsForDb(a, {
-  tokenDecimals,
-  quoteDecimals: QUOTE_DECIMALS,
-  computedPresaleRate: presaleRate.toString(),
-  computedListingRate: listingRate.toString(),
-});
+      const poolAddress = (eventPool ?? predictedPool ?? null);
 
-const { error: updErr } = await supabase.from('launches')
-  .update({
-    chain_status: 'confirmed',
-    chain_tx_hash: hash,
-    pool_address: poolAddress,
-    create_args: aForDb,
-  })
+      // 7) Persist final on-chain info
+// always persist the critical fields first
+const baseUpdate = {
+  chain_status: 'confirmed',
+  chain_tx_hash: hash,
+  pool_address: poolAddress,
+};
+
+const { error: baseErr } = await supabase
+  .from('launches')
+  .update(baseUpdate)
   .eq('id', row.id);
 
-if (updErr) {
-  console.error('Supabase update failed:', updErr);
-  alert(`Launch created on-chain, but failed to save pool address: ${updErr.message}`);
+if (baseErr) {
+  console.error('Supabase base update failed:', baseErr);
+  alert(`Launch created on-chain, but failed to save pool address: ${baseErr.message}`);
+} else {
+  // try optional metadata; ignore "column not found"
+  const aForDb = argsForDb(a, {
+    tokenDecimals,
+    quoteDecimals: QUOTE_DECIMALS,
+    computedPresaleRate: presaleRate.toString(),
+    computedListingRate: listingRate.toString(),
+  });
+
+  const { error: metaErr } = await supabase
+    .from('launches')
+    .update({ create_args: aForDb as any })
+    .eq('id', row.id);
+
+  if (metaErr && !/create_args/i.test(metaErr.message)) {
+    console.warn('Optional create_args update failed:', metaErr);
+  }
 }
+
 
       alert(`Launch created! ID: ${row.id}`);
       navigate(`/sale/${row.id}`, { replace: true });
@@ -533,10 +561,10 @@ if (updErr) {
           <div className="review-actions">
             <button type="button" className="button button-back" onClick={onBack}>← Back</button>
             <div className="review-actions-right">
-            <button type="button" className="button" onClick={handleSaveDraft} disabled={creating}>Save Draft</button>
-<button type="button" className="button button-secondary" onClick={handleCreate} disabled={creating}>
-  {creating ? 'Creating…' : 'Create'}
-</button>
+              <button type="button" className="button" onClick={handleSaveDraft} disabled={creating}>Save Draft</button>
+              <button type="button" className="button button-secondary" onClick={handleCreate} disabled={creating}>
+                {creating ? 'Creating…' : 'Create'}
+              </button>
             </div>
           </div>
 

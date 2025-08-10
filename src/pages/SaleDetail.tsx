@@ -304,6 +304,7 @@ const badgeStyle: React.CSSProperties = (() => {
       {/* Actions */}
       <div className="sale-actions">
   <Link className="button" to="/">← Back</Link>
+  <button className="button" disabled>Claim (soon)</button>
   <button
   className="button button-secondary"
   disabled={buyDisabled}
@@ -312,7 +313,7 @@ const badgeStyle: React.CSSProperties = (() => {
 >
   {buyLabel}
 </button>
-  <button className="button" disabled>Claim (soon)</button>
+
 </div>
 
 <BuyModal

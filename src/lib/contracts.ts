@@ -30,6 +30,11 @@ export const launchpadFactoryAbi = [
           { name: 'lpLockDuration',  type: 'uint64'  },
           { name: 'raiseFeeBps',     type: 'uint16'  },
           { name: 'tokenFeeBps',     type: 'uint16'  },
+
+          // NEW
+          { name: 'tokenName',       type: 'string'  },
+          { name: 'tokenSymbol',     type: 'string'  },
+          { name: 'tokenDecimals',   type: 'uint8'   },
         ],
       },
       { name: 'salt', type: 'bytes32' },
