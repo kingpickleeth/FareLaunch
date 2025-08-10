@@ -7,8 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { usePublicClient, useWriteContract } from 'wagmi';
 import {
-  parseUnits, keccak256, encodePacked, type Hex, decodeEventLog
-} from 'viem';
+  parseUnits, keccak256, encodePacked, type Hex} from 'viem';
 import {
   LAUNCHPAD_FACTORY, QUOTE_DECIMALS, launchpadFactoryAbi
 } from '../../lib/contracts';
