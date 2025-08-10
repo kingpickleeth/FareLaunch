@@ -68,7 +68,8 @@ export const erc20Abi = [
     { type:'function', name:'decimals', stateMutability:'view', inputs:[], outputs:[{type:'uint8'}] },
   ] as const satisfies Abi;
   
-  export const presalePoolAbi = [
+// src/lib/contracts.ts
+export const presalePoolAbi = [
     { type:'function', name:'contribute', stateMutability:'nonpayable',
       inputs:[{name:'amount',type:'uint256'},{name:'proof',type:'bytes32[]'}], outputs:[] },
     { type:'function', name:'isPublic', stateMutability:'view', inputs:[], outputs:[{type:'bool'}] },
@@ -79,4 +80,7 @@ export const erc20Abi = [
     { type:'function', name:'endAt', stateMutability:'view', inputs:[], outputs:[{type:'uint64'}] },
     { type:'function', name:'contributed', stateMutability:'view',
       inputs:[{name:'',type:'address'}], outputs:[{type:'uint256'}] },
+    // ⬇️ add this
+    { type:'function', name:'merkleRoot', stateMutability:'view', inputs:[], outputs:[{type:'bytes32'}] },
   ] as const satisfies Abi;
+  

@@ -19,11 +19,41 @@ export default function SaleDetail() {
   const [row, setRow] = useState<AnyRow | null>(null);
   const [err, setErr] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
   const [showBuy, setShowBuy] = useState(false);
-  const [allowlisted] = useState<boolean>(true); // default true when public/no allowlist
+  const [allowlisted, setAllowlisted] = useState<boolean>(true); // default true if allowlist disabled
   const publicClient = usePublicClient();
-
+  const [checkingAllowlist, setCheckingAllowlist] = useState<boolean>(false);
+  useEffect(() => {
+    // If no allowlist for this sale, everyone can buy
+    if (!row?.id || !row.allowlist_enabled) { setAllowlisted(true); return; }
+  
+    // If allowlist is enabled but no wallet, mark not allowlisted
+    if (!address) { setAllowlisted(false); return; }
+  
+    let cancelled = false;
+    setCheckingAllowlist(true);
+    (async () => {
+      const { data, error } = await supabase
+        .from('allowlists')
+        .select('address')
+        .eq('sale_id', row.id)
+        .eq('address', address.toLowerCase())
+        .limit(1);
+  
+      if (cancelled) return;
+      if (error) {
+        console.error('allowlist check failed:', error);
+        setAllowlisted(false);
+      } else {
+        setAllowlisted(!!data?.length);
+      }
+      setCheckingAllowlist(false);
+    })();
+  
+    return () => { cancelled = true; };
+  }, [row?.id, row?.allowlist_enabled, address]);
+  
   useEffect(() => {
     (async () => {
       if (!publicClient) return;
@@ -127,12 +157,22 @@ export default function SaleDetail() {
   
   let buyDisabled = true;
   let buyLabel = 'Buy';
-  if (!hasPool) { buyDisabled = true; buyLabel = 'Pending pool…'; }
-  else if (afterEnd) { buyDisabled = true; buyLabel = 'Sale ended'; }
-  else if (beforeStart) { buyDisabled = true; buyLabel = `Starts in ${timeToShow ? `${timeToShow.h}h ${timeToShow.m}m ${timeToShow.s}s` : ''}`; }
-  else if (!isConnected) { buyDisabled = true; buyLabel = 'Connect wallet'; }
-  else if (row.allowlist_enabled && !allowlisted) { buyDisabled = true; buyLabel = 'Not allowlisted'; }
-  else { buyDisabled = false; buyLabel = 'Buy'; }
+  
+  if (!hasPool) {
+    buyDisabled = true; buyLabel = 'Pending pool…';
+  } else if (afterEnd) {
+    buyDisabled = true; buyLabel = 'Sale ended';
+  } else if (beforeStart) {
+    buyDisabled = true; buyLabel = `Starts in ${timeToShow ? `${timeToShow.h}h ${timeToShow.m}m ${timeToShow.s}s` : ''}`;
+  } else if (!isConnected) {
+    buyDisabled = true; buyLabel = 'Connect wallet';
+  } else if (row.allowlist_enabled && checkingAllowlist) {
+    buyDisabled = true; buyLabel = 'Checking allowlist…';
+  } else if (row.allowlist_enabled && !allowlisted) {
+    buyDisabled = true; buyLabel = 'Not allowlisted';
+  } else {
+    buyDisabled = false; buyLabel = 'Buy';
+  }  
   
   // progress (mock until contracts)
   const soft = Number(row.soft_cap ?? NaN);
@@ -264,16 +304,14 @@ const badgeStyle: React.CSSProperties = (() => {
       {/* Actions */}
       <div className="sale-actions">
   <Link className="button" to="/">← Back</Link>
-
   <button
-    className="button button-secondary"
-    disabled={buyDisabled}
-    onClick={() => setShowBuy(true)}
-    title={buyDisabled ? buyLabel : 'Contribute to this presale'}
-  >
-    {buyLabel}
-  </button>
-
+  className="button button-secondary"
+  disabled={buyDisabled}
+  onClick={() => setShowBuy(true)}
+  title={buyDisabled ? buyLabel : 'Contribute to this presale'}
+>
+  {buyLabel}
+</button>
   <button className="button" disabled>Claim (soon)</button>
 </div>
 
