@@ -459,3 +459,110 @@ input[type="range"]::-moz-range-thumb {
   min-width: unset;
   padding-inline: 14px;
 }
+/* ===========================================================================
+   9) SIMULATOR (scoped + fully themed)
+   ========================================================================== */
+   .sim-shell { display: grid; gap: 16px; }
+
+   .sim-header h1 {
+     font-family: var(--font-head);
+     color: var(--fl-gold);
+     font-weight: 800;
+     font-size: clamp(20px, 2.4vw, 28px);
+     margin: 0;
+   }
+   .sim-header p { margin: 6px 0 0; color: var(--muted); }
+   
+   /* Layout */
+   .sim-grid {
+     display: grid;
+     gap: 16px;
+     align-items: start;
+     grid-template-columns: clamp(260px, 28vw, 340px) minmax(0, 1fr);
+     min-width: 0;
+   }
+   @media (max-width: 768px) {
+     .sim-grid { grid-template-columns: 1fr; gap: 12px; }
+   }
+   
+   /* Panels */
+   .sim-panel {
+     background: var(--card-bg);
+     border: 1px solid var(--card-border);
+     border-radius: var(--radius);
+     box-shadow: var(--shadow);
+     padding: 14px;
+     min-width: 0;
+   }
+   @media (max-width: 768px) { .sim-panel { padding: 12px; } }
+   .sim-panel--editor { max-width: 340px; }
+   @media (max-width: 768px) { .sim-panel--editor { max-width: none; width: 100%; } }
+   
+   .sim-group-title { font-weight: 800; margin-bottom: 6px; }
+   
+   /* Fields */
+   .sim-field { display: grid; gap: 6px; }
+   .sim-label { font-weight: 700; }
+   .sim-input,
+   .sim-select {
+     background: var(--input-bg);
+     border: 1px solid var(--input-border);
+     border-radius: 10px;
+     padding: 10px 12px;
+     color: var(--text);
+     outline: none;
+     font: inherit;
+   }
+   
+   /* KPIs */
+   .kpi-grid {
+     display: grid;
+     gap: 10px;
+     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+     min-width: 0;
+   }
+   @media (max-width: 768px) {
+     .kpi-grid { gap: 8px; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+   }
+   .kpi { padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--card-bg); }
+   .kpi__label { color: var(--muted); font-size: 12px; }
+   .kpi__value { font-weight: 800; font-size: 18px; }
+   
+   /* Score bar */
+   .scorebar { height: 10px; background: var(--border); border-radius: 999px; overflow: hidden; }
+   @media (max-width: 768px) { .scorebar { height: 8px; } }
+   .scorebar__fill--good { height: 100%; background: linear-gradient(90deg, var(--fl-aqua), var(--fl-purple)); }
+   .scorebar__fill--ok   { height: 100%; background: linear-gradient(90deg, var(--fl-gold), #fdbb2d); }
+   .scorebar__fill--bad  { height: 100%; background: linear-gradient(90deg, var(--fl-danger), #ff3b3b); }
+   
+   /* Badges + counts (use your tokenized colors) */
+   .badge { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; border: 1px solid transparent; }
+   .badge--error { background: var(--badge-danger-bg); border-color: var(--badge-danger-border); color: var(--fl-danger); }
+   .badge--warn  { background: var(--badge-warning-bg); border-color: var(--badge-warning-border); color: var(--fl-gold); }
+   .badge--info  { background: var(--badge-info-bg); border-color: var(--badge-info-border); color: var(--fl-white); }
+   
+   .count-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 12px; border: 1px solid transparent; }
+   .count-pill--error { background: var(--badge-danger-bg); border-color: var(--badge-danger-border); color: var(--fl-danger); }
+   .count-pill--warn  { background: var(--badge-warning-bg); border-color: var(--badge-warning-border); color: var(--fl-gold); }
+   .count-pill--info  { background: var(--badge-info-bg); border-color: var(--badge-info-border); color: #66aaff; }
+   
+   /* Card & panel titles */
+.card-title,
+.sim-group-title,               /* if you already use this */
+.field-group-title {            /* for editor section headers */
+  color: var(--fl-gold);
+  font-family: var(--font-head);
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+
+/* Size + spacing tuned for cards */
+.sim-panel .card-title,
+.sim-panel .field-group-title {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+@media (min-width: 768px) {
+  .sim-panel .card-title,
+  .sim-panel .field-group-title { font-size: 18px; }
+}

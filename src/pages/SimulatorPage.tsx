@@ -26,7 +26,6 @@ export default function SimulatorPage() {
   const groups = useMemo(() => groupSuggestions(suggestions), [suggestions]);
   const score  = useMemo(() => successScore(suggestions), [suggestions]);
   const tone   = scoreTone(score);
-  const bp = useBreakpoint();
 
   // --- responsive ---
 const [, setIsMobile] = useState<boolean>(() =>
@@ -44,48 +43,17 @@ const [, setIsMobile] = useState<boolean>(() =>
   // compose panel style with slight mobile tweaks
   
   // section grid becomes single column on mobile
-  const sectionGridStyle: React.CSSProperties = {
-    display: 'grid',
-    // left column is now much slimmer on desktop, and right can actually shrink
-    gridTemplateColumns: bp.sm
-      ? '1fr'
-      : 'clamp(260px, 28vw, 340px) minmax(0, 1fr)',
-    gap: bp.sm ? 12 : 16,
-    alignItems: 'start',
-    minWidth: 0,
-  };  
   
   // KPI grid: 2 cols on mobile, 4 on desktop
-  const kpiGridStyle: React.CSSProperties = {
-    display: 'grid',
-    // packs 4 on wide screens, 2–3 on tablets, 1 on small, automatically
-    gridTemplateColumns: `repeat(auto-fit, minmax(${bp.sm ? 140 : 220}px, 1fr))`,
-    gap: bp.sm ? 8 : 10,
-    minWidth: 0,
-  };
   
 
   // Header: allow wrapping + smaller title on mobile
-  const headerStyle: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 8,
-    flexWrap: 'wrap',
-  };
   const titleStyle: React.CSSProperties = {
     margin: 0,
     // fluid type: scales w/ viewport, clamped for extremes
     fontSize: 'clamp(20px, 2.4vw, 28px)',
   };
   // Success bar height tweak on mobile
-  const successBarOuter: React.CSSProperties = {
-    height: bp.sm ? 8 : 10,
-    background: 'var(--border)',
-    borderRadius: 999,
-    overflow: 'hidden',
-    position: 'relative',
-  };
   const pillRowStyle: React.CSSProperties = {
     display: 'flex',
     gap: 12,
@@ -93,36 +61,14 @@ const [, setIsMobile] = useState<boolean>(() =>
     flexWrap: 'wrap',
     rowGap: 8,
   };
-  const panel = (extra?: React.CSSProperties): React.CSSProperties => ({
-    ...panelStyle,
-    padding: bp.sm ? 12 : 14,
-    minWidth: 0,   // <-- key for responsiveness inside grid
-    ...(extra || {}),
-  });
   
-  function useBreakpoint() {
-    const get = () => (typeof window === 'undefined' ? 0 : window.innerWidth);
-    const [w, setW] = useState<number>(get);
-    useEffect(() => {
-      const on = () => setW(get());
-      window.addEventListener('resize', on);
-      return () => window.removeEventListener('resize', on);
-    }, []);
-    return {
-      width: w,
-      xs: w < 480,
-      sm: w < 768,
-      md: w < 1024,
-      lg: w < 1280,
-      xl: w >= 1280,
-    };
-  }
   // inside SimulatorPage(), after you have `const bp = useBreakpoint();`
-const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : panel({ maxWidth: 340 });
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
-<header style={headerStyle}>
+        <div className="sim-shell">
+
+<header className="sim-header">
   <div>
     <h1 style={titleStyle}>FareLaunch Simulator</h1>
     <p style={{ margin: '6px 0 0', color: 'var(--muted)' }}>
@@ -132,11 +78,11 @@ const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : pa
 </header>
 
 
-<section style={sectionGridStyle}>
+<section className="sim-grid">
 
         {/* Editor */}
         
-        <div style={editorPanelStyle}>
+        <div className="sim-panel sim-panel--editor">
         <div style={{ display: 'grid', gap: 12 }}>
             <FieldGroup title="Presale Parameters:">
               <Row>
@@ -144,7 +90,7 @@ const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : pa
                 <input
                   value={inp.token.symbol}
                   onChange={e => set('token', { ...inp.token, symbol: e.target.value.toUpperCase() })}
-                  style={inputStyle}
+                 className="sim-input"
                 />
               </Row>
               <Row>
@@ -165,7 +111,7 @@ const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : pa
     <select
       value={inp.base.symbol}
       onChange={e => set('base', { symbol: e.target.value as any })}
-      style={inputStyle}
+      className="sim-select"
     >
       <option value="APE">APE</option>
       <option value="ETH">ETH</option>
@@ -239,10 +185,10 @@ const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : pa
 
         {/* Results */}
         <div style={{ display: 'grid', gap: 16 }}>
-          <div style={panelStyle}>
+          <div className="sim-panel">
             <div style={{ display: 'grid', gap: 10 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Key Outcomes</div>
-              <div style={kpiGridStyle}>
+              <div  className="card-title">Key Outcomes</div>
+              <div className="kpi-grid">
               <KPI label={`Listing Price (${inp.base.symbol}/${inp.token.symbol})`} value={fmt(res.listingPrice)} />
                 <KPI label={`Presale Price (${inp.base.symbol}/${inp.token.symbol})`} value={fmt(res.presalePrice)} />
                 <KPI label="Opening Market Cap" value={`${fmt(res.openingFDV)} ${inp.base.symbol}`} />
@@ -258,23 +204,15 @@ const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : pa
   <div style={{ display: 'grid', gap: 12 }}>
     {/* Header + score chip */}
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-      <div style={{ fontWeight: 800, fontSize: 16 }}>Success & Guidance</div>
+      <div className="card-title">Success & Guidance</div>
       <ScoreChip score={score} tone={tone} />
     </div>
 
     {/* Progress bar */}
-  <div style={successBarOuter}>
+    <div className="scorebar">
   <div
-    style={{
-      width: `${score}%`,
-      height: '100%',
-      background:
-        tone === 'good'
-          ? 'linear-gradient(90deg, #00d084, #00b57f)'
-          : tone === 'ok'
-          ? 'linear-gradient(90deg, #ffd166, #fdbb2d)'
-          : 'linear-gradient(90deg, #ff6b6b, #ff3b3b)',
-    }}
+    className={tone === 'good' ? 'scorebar__fill--good' : tone === 'ok' ? 'scorebar__fill--ok' : 'scorebar__fill--bad'}
+    style={{ width: `${score}%` }}
   />
 </div>
 
@@ -342,7 +280,7 @@ const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : pa
 </div>
 
           <div style={panelStyle}>
-            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>Breakdown</div>
+            <div className="card-title">Breakdown</div>
             <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.6 }}>
               <li>Tokens to LP: <strong>{fmt(res.tokensToLP)}</strong></li>
               <li>Tokens withheld: <strong>{fmt(res.tokensWithheld)}</strong></li>
@@ -355,6 +293,7 @@ const editorPanelStyle = bp.sm ? panel({ width: '100%', maxWidth: 'none' }) : pa
           <WhatIfPanel inp={inp} setInp={setInp} />
         </div>
       </section>
+      </div>
     </div>
   );
 }
@@ -366,7 +305,7 @@ function WhatIfPanel({ inp, setInp }: { inp: FairLaunchInput; setInp: React.Disp
 
   return (
     <div style={panelStyle}>
-      <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 8 }}>What-If</div>
+      <div className="card-title">What If ...</div>
       <div style={{ display: 'grid', gap: 12 }}>
         <RangeRow
           label={`Total raised (${inp.base.symbol})`}
@@ -439,7 +378,6 @@ function CommaNumberInput({
     min,
     max,
     placeholder,
-    style,
   }: {
     value: number;
     onChange: (n: number) => void;
@@ -497,8 +435,7 @@ function CommaNumberInput({
         value={text}
         onChange={handleChange}
         onBlur={handleBlur}
-        style={style ?? inputStyle}
-      />
+        className="sim-input"      />
     );
   }
   
@@ -521,32 +458,29 @@ function CommaNumberInput({
   
   function KPI({ label, value }: { label: string; value: string }) {
     return (
-      <div style={{
-        padding: 10, // was 12
-        border: '1px solid var(--border)',
-        borderRadius: 12,
-        background: 'var(--fl-surface)'
-      }}>
-        <div style={{ color: 'var(--muted)', fontSize: 12 }}>{label}</div>
-        <div style={{ fontWeight: 800, fontSize: 18 }}>{value}</div>
+      <div className="kpi">
+        <div className="kpi__label">{label}</div>
+        <div className="kpi__value">{value}</div>
       </div>
     );
   }
   
-function FieldGroup({ title, children }: React.PropsWithChildren<{ title: string }>) {
-  return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div style={{ fontWeight: 800 }}>{title}</div>
-      {children}
-      <div style={{ height: 1, background: 'var(--border)', opacity: .4 }} />
-    </div>
-  );
-}
+  
+  function FieldGroup({ title, children }: React.PropsWithChildren<{ title: string }>) {
+    return (
+      <div style={{ display: 'grid', gap: 8 }}>
+        <div className="field-group-title">{title}</div>
+        {children}
+        <div style={{ height: 1, background: 'var(--border)', opacity: .4 }} />
+      </div>
+    );
+  }
+  
 function Row({ children }: React.PropsWithChildren<{}>) {
-  return <label style={{ display: 'grid', gap: 6 }}>{children}</label>;
+  return <label className="sim-field">{children}</label>;
 }
 function L({ children }: React.PropsWithChildren<{}>) {
-  return <span style={{ fontWeight: 700 }}>{children}</span>;
+  return <span className="sim-label">{children}</span>;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -580,49 +514,10 @@ function fmt(n: number) {
   const abs = Math.abs(n);
   const digits = abs >= 1 ? 4 : 6;
   return n.toLocaleString(undefined, { maximumFractionDigits: digits });
+}function Badge({ tone, label }: { tone: 'error' | 'warn' | 'info'; label?: string }) {
+  const fallback = tone === 'error' ? 'Errors' : tone === 'warn' ? 'Warnings' : 'Info';
+  return <span className={`badge badge--${tone}`}>{label ?? fallback}</span>;
 }
-function Badge({
-    tone,
-    label,
-  }: {
-    tone: 'error' | 'warn' | 'info';
-    label?: string; // optional override
-  }) {
-    const bg =
-      tone === 'error' ? 'rgba(255,80,80,.15)' :
-      tone === 'warn'  ? 'rgba(255,200,0,.15)' :
-                         'rgba(80,160,255,.15)';
-    const fg =
-      tone === 'error' ? '#ff5050' :
-      tone === 'warn'  ? '#e6b800' :
-                         '#66aaff';
-  
-    // Default labels (pluralized)
-    const defaultLabel =
-      tone === 'error' ? 'Errors' :
-      tone === 'warn'  ? 'Warnings' :
-                         'Info';
-  
-    return (
-      <span
-        style={{
-          display: 'inline-block',
-          padding: '2px 8px',
-          borderRadius: 999,
-          fontSize: 12,
-          fontWeight: 800,
-          background: bg,
-          color: fg,
-          border: `1px solid ${fg}33`,
-          marginRight: 6,
-          textTransform: 'uppercase',
-          letterSpacing: .3
-        }}
-      >
-        {label ?? defaultLabel}
-      </span>
-    );
-  }  
   function ScoreChip({ score, tone }: { score: number; tone: 'bad' | 'ok' | 'good' }) {
     const bg =
       tone === 'good' ? 'rgba(0,208,132,.15)' :
@@ -645,27 +540,10 @@ function Badge({
       </span>
     );
   }
-  
   function CountPill({ label, count, tone }: { label: string; count: number; tone: 'error' | 'warn' | 'info' }) {
-    const colors = tone === 'error'
-      ? { bg: 'rgba(255,80,80,.15)', fg: '#ff5050' }
-      : tone === 'warn'
-      ? { bg: 'rgba(255,200,0,.15)', fg: '#e6b800' }
-      : { bg: 'rgba(80,160,255,.15)', fg: '#66aaff' };
     return (
-      <span style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '4px 10px',
-        borderRadius: 999,
-        background: colors.bg,
-        color: colors.fg,
-        border: `1px solid ${colors.fg}33`,
-        fontWeight: 700,
-        fontSize: 12
-      }}>
-        {label}: <strong style={{ fontSize: 13 }}>{count}</strong>
+      <span className={`count-pill count-pill--${tone}`}>
+        {label}: <strong>{count}</strong>
       </span>
     );
   }
