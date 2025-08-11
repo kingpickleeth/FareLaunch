@@ -1,10 +1,11 @@
 // src/App.tsx
 import { useEffect, useRef, useState } from 'react';
-import { Outlet, NavLink, useLocation } from 'react-router-dom';
+import { Outlet, NavLink, useLocation, Link } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import ProfileButton from './components/ProfileButton';
 import { useConnectModal } from '@rainbow-me/rainbowkit';
+
 // THEME -----------------------------------------------------------------------
 type Theme = 'dark' | 'light';
 const THEME_KEY = 'farelaunch:theme';
@@ -197,7 +198,19 @@ display:'flex', justifyContent:'space-between', alignItems:'center',
 padding:'16px 24px', background:'var(--nav-bg)',
 backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}}>
  {/* Brand */}
-<div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+{/* Brand */}
+<Link
+  to="/"
+  aria-label="Go to homepage"
+  style={{
+    display: 'flex',
+    gap: 12,
+    alignItems: 'center',
+    textDecoration: 'none',
+    color: 'inherit',
+    cursor: 'pointer',
+  }}
+>
   <img
     src="https://dengdefense.xyz/taxi.svg"
     alt="FareLaunch logo"
@@ -205,7 +218,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
     height={46}
     style={{
       display: 'block',
-      borderRadius: 8,         // optional: matches your rounded vibe
+      borderRadius: 8,
       objectFit: 'contain',
     }}
   />
@@ -225,7 +238,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
   <span className="navsubtitle" style={{ fontSize: 12, color: 'var(--muted)', opacity: .9 }}>
     {' '}on ApeChain // Camelot
   </span>
-</div>
+</Link>
 
 
   {/* Right side */}
