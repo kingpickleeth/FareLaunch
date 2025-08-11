@@ -11,6 +11,7 @@ import { WalletProvider } from './lib/wallet';
 import MyLaunches from './pages/MyLaunches';
 import Tools from './pages/Tools';
 import Simulator from './pages/SimulatorPage'
+import LaunchERC20 from './pages/LaunchERC20.tsx'; // ✅ new import
 
 const router = createBrowserRouter([
   { path: '/', element: <App />, children: [
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
     { path: 'me', element: <MyLaunches /> },
     { path: 'tools', element: <Tools /> },
     { path: 'simulator', element: <Simulator /> },
+    { path: 'launch-erc20', element: <LaunchERC20 /> }, // ✅ new route
   ] }
 ])
 

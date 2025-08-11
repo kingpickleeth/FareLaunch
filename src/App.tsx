@@ -286,9 +286,18 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
         background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
       })}
     >
-      Create Launch
+      Create FareLaunch
     </NavLink>
-
+    <NavLink
+  to="/launch-erc20"
+  style={({ isActive }) => ({
+    ...linkIdle,
+    display: 'block',
+    background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
+  })}
+>
+  Create ERC20
+</NavLink>
     {/* ✅ NEW: Fair Launch Simulator */}
     <NavLink
       to="/simulator"
@@ -311,8 +320,11 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
     >
       Lock LP
     </NavLink>
+
+
   </div>
 )}
+
       </div>
 
       <NavLink to="/me" style={({ isActive }) => (isActive ? linkActive : linkIdle)}>Dashboard</NavLink>
@@ -436,8 +448,19 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
                 setMenuOpen(false);
               }}
             >
-              Create Launch
+              Create FareLaunch
             </NavLink>
+            <NavLink
+  to="/launch-erc20"
+  style={({ isActive }) => (isActive ? linkActive : linkIdle)}
+  onClick={() => {
+    setToolsMobileOpen(false);
+    setMenuOpen(false);
+  }}
+>
+  Create ERC20
+</NavLink>
+
             <NavLink
               to="/simulator"
               style={({ isActive }) => (isActive ? linkActive : linkIdle)}

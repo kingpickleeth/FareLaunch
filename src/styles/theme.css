@@ -566,3 +566,61 @@ input[type="range"]::-moz-range-thumb {
   .sim-panel .card-title,
   .sim-panel .field-group-title { font-size: 18px; }
 }
+
+/* ERC Factory Tool Styles */
+.tool-container {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 20px;
+  background: var(--fl-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.tool-title {
+  font-family: var(--font-head);
+  font-size: 1.8rem;
+  color: var(--fl-gold);
+  margin-bottom: 20px;
+}
+
+.tool-form label {
+  display: block;
+  margin-top: 15px;
+  font-weight: 600;
+  color: var(--fl-text);
+}
+
+.tool-form input,
+.tool-form textarea {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border-radius: var(--radius);
+  border: none;
+  background: var(--fl-bg);
+  color: var(--fl-text);
+}
+
+.tool-form button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 12px;
+  background: var(--fl-gold);
+  color: #000;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.tool-form button:hover {
+  background: var(--fl-aqua);
+}
+
+.status {
+  margin-top: 15px;
+  font-size: 0.9rem;
+  color: var(--fl-text);
+}
