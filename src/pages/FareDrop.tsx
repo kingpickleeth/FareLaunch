@@ -395,7 +395,7 @@ async function onSubmit(e: React.FormEvent) {
   // ---------------------------
   return (
     <div className="tool-container fdl-pad" style={{ maxWidth: 900, margin: "0 auto" }}>
-      <h1 className="tool-title">FareDrop — Airdrop Tool</h1>
+      <h1 className="tool-title">FareDrop</h1>
 
 {/* STEP 1: token picker */}
 <div
