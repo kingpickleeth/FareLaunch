@@ -196,7 +196,17 @@ useEffect(() => {
       .catch((e) => setErr(e?.message ?? String(e)))
       .finally(() => setLoading(false));
   }, [id]);
-
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    const refetch = async () => {
+      const fresh = await getLaunch(id);
+      if (!cancelled) setRow(fresh);
+    };
+    const iv = setInterval(refetch, 15000); // or 60000 to match cron frequency
+    return () => { cancelled = true; clearInterval(iv); };
+  }, [id]);
+  
   // ---- Early returns ----
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
