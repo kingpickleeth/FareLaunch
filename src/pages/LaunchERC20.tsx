@@ -97,7 +97,16 @@ export default function LaunchERC20() {
         <input value={name} onChange={e => setName(e.target.value)} required />
 
         <label>Token Symbol</label>
-        <input value={symbol} onChange={e => setSymbol(e.target.value)} required />
+<input
+  value={symbol}
+  onChange={e => {
+    // Force uppercase and max length 6
+    const upper = e.target.value.toUpperCase().slice(0, 6);
+    setSymbol(upper);
+  }}
+  required
+/>
+
 
         <label>Total Supply</label>
         <input
