@@ -227,7 +227,7 @@ export default function StepBasics({ value, onChange, onNext }: Props) {
         {/* Fields */}
         <div style={{ display: 'grid', gap: 12, minWidth: 0 }}>
           <label style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-            <div>Project Name<span style={{ color: 'red' }}> *</span></div>
+            <div>Project Name(internal)<span style={{ color: 'red' }}> *</span></div>
             <input
               value={local.project.name}
               onChange={e =>
