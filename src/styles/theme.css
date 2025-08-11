@@ -624,3 +624,36 @@ input[type="range"]::-moz-range-thumb {
   font-size: 0.9rem;
   color: var(--fl-text);
 }
+/* FareDrop mobile helpers */
+.fdl-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(130px, 40vw, 220px);
+  gap: 10px;
+}
+
+.fdl-input,
+.fdl-select,
+.fdl-textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.fdl-wrap {
+  word-break: break-word;      /* wrap long addresses */
+  overflow-wrap: anywhere;
+}
+
+/* Narrow phones: stack address + amount into one column */
+@media (max-width: 420px) {
+  .fdl-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Slight breathing room on small screens */
+@media (max-width: 600px) {
+  .fdl-pad {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+}

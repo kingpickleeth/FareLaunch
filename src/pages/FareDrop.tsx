@@ -364,7 +364,7 @@ async function onSubmit(e: React.FormEvent) {
   // UI (theme-matched)
   // ---------------------------
   return (
-    <div className="tool-container" style={{ maxWidth: 900, margin: "0 auto" }}>
+    <div className="tool-container fdl-pad" style={{ maxWidth: 900, margin: "0 auto" }}>
       <h1 className="tool-title">FareDrop — Airdrop Tool</h1>
 
 {/* STEP 1: token picker */}
@@ -387,7 +387,7 @@ async function onSubmit(e: React.FormEvent) {
   {loadingDetect && <div style={{ opacity: .8 }}>Detecting balances…</div>}
 
   {/* Minimal dropdown: only show symbol · name in the popup */}
-  <select
+  <select className="fdl-select"
     value={selected ? tokenKey(selected) : ""}
     onChange={(e) => {
       const val = e.target.value;
@@ -438,9 +438,10 @@ async function onSubmit(e: React.FormEvent) {
       <div style={{ fontSize: 12, opacity: .9 }}>
         Balance: <b>{pretty(selected.balance, selected.decimals)}</b> · Decimals: <b>{selected.decimals}</b>
       </div>
-      <div style={{ fontSize: 12, opacity: .7 }}>
-        {selected.mode === "native" ? "Native coin" : (selected.address as string)}
-      </div>
+      <div className="fdl-wrap" style={{ fontSize: 12, opacity: .7 }}>
+  {selected.mode === "native" ? "Native coin" : (selected.address as string)}
+</div>
+
     </div>
   )}
 </div>
@@ -475,16 +476,11 @@ async function onSubmit(e: React.FormEvent) {
     {inputMode === "line" && (
       <div style={{ display: "grid", gap: 10 }}>
         {validatedEntries.map((r, i) => (
-          <div key={i}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "1fr 220px",
-              gap: 10,
-            }}
-          >
+          <div key={i} className="fdl-row">
+
             <div>
               <label style={{ fontSize: 12, opacity: .8 }}>Recipient (0x…)</label>
-              <input
+              <input className="fdl-input"
                 placeholder="0xabc…"
                 value={r.address}
                 onChange={(e) => setEntry(i, { address: e.target.value })}
@@ -508,7 +504,7 @@ async function onSubmit(e: React.FormEvent) {
 
             <div>
               <label style={{ fontSize: 12, opacity: .8 }}>Amount</label>
-              <input
+              <input className="fdl-input"
                 placeholder={`Amount${selected?.symbol ? ` of $${selected.symbol}` : ""}`}
                 value={r.amount}
                 onChange={(e) => onAmountChange(i, e.target.value)}
@@ -595,7 +591,7 @@ async function onSubmit(e: React.FormEvent) {
     {inputMode === "csv" && (
       <div style={{ display: "grid", gap: 8 }}>
         <label style={{ fontSize: 12, opacity: .8 }}>Upload CSV (address,amount)</label>
-        <input
+        <input className="fdl-input"
           ref={fileRef}
           type="file"
           accept=".csv,text/csv"
