@@ -321,7 +321,9 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
     >
       Liquidity Locker
     </NavLink>
-
+    <NavLink to="/faredrop" style={({ isActive }) => ({ ...linkIdle, display: 'block', background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent' })}>
+  FareDrop
+</NavLink>
 
   </div>
 )}
@@ -481,6 +483,9 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
             >
               Liquidity Locker
             </NavLink>
+            <NavLink to="/faredrop" style={({ isActive }) => (isActive ? linkActive : linkIdle)} onClick={() => { setToolsMobileOpen(false); setMenuOpen(false); }}>
+  FareDrop
+</NavLink>
           </div>
         )}
       </div>

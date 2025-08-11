@@ -12,6 +12,7 @@ import MyLaunches from './pages/MyLaunches';
 import Tools from './pages/Tools';
 import Simulator from './pages/SimulatorPage'
 import LaunchERC20 from './pages/LaunchERC20.tsx'; // ✅ new import
+import FareDrop from './pages/FareDrop';
 
 const router = createBrowserRouter([
   { path: '/', element: <App />, children: [
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
     { path: 'tools', element: <Tools /> },
     { path: 'simulator', element: <Simulator /> },
     { path: 'launch-erc20', element: <LaunchERC20 /> }, // ✅ new route
+    { path: 'faredrop', element: <FareDrop /> },
   ] }
 ])
 
