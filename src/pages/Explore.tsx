@@ -49,6 +49,21 @@ const POOL_ABI = [
 ] as const;
 
 // ---------- hooks/helpers ----------
+// Default status order: active > upcoming > finalized > ended > failed
+const STATUS_ORDER: Row['status'][] = [
+  'active', 'upcoming', 'finalized', 'ended', 'failed',
+  'created', 'draft' // just in case they ever appear
+];
+const STATUS_WEIGHT: Record<Row['status'], number> = STATUS_ORDER
+  .reduce((acc, s, i) => (acc[s] = i, acc), {} as Record<Row['status'], number>);
+
+// Date helpers
+function ts(val: string | null): number | null {
+  if (!val) return null;
+  const t = new Date(val).getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
 function useDebounced<T>(value: T, ms = 150) {
   const [v, setV] = useState(value);
   useEffect(() => { const t = setTimeout(() => setV(value), ms); return () => clearTimeout(t); }, [value, ms]);
@@ -155,12 +170,37 @@ export default function Explore() {
       return (r.token_name ?? '').toLowerCase().includes(s) || (r.token_symbol ?? '').toLowerCase().includes(s);
     });
   }, [rows, debouncedQ, selected]);
+// Sort after filtering: by status group, then date rule
+const sorted = useMemo(() => {
+  return [...filtered].sort((a, b) => {
+    // 1) status group
+    const wa = STATUS_WEIGHT[a.status] ?? 999;
+    const wb = STATUS_WEIGHT[b.status] ?? 999;
+    if (wa !== wb) return wa - wb;
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(Math.max(page, 1), totalPages);
-  const start = (safePage - 1) * PAGE_SIZE;
-  const pageRows = filtered.slice(start, start + PAGE_SIZE);
+    // 2) secondary by date:
+    // - upcoming: start_at ASC (soonest first, nulls last)
+    // - others:  end_at DESC (most recent first, nulls last)
+    if (a.status === 'upcoming' && b.status === 'upcoming') {
+      const sa = ts(a.start_at); const sb = ts(b.start_at);
+      if (sa == null && sb == null) return 0;
+      if (sa == null) return 1;  // nulls last
+      if (sb == null) return -1;
+      return sa - sb;            // ASC
+    }
 
+    const ea = ts(a.end_at); const eb = ts(b.end_at);
+    if (ea == null && eb == null) return 0;
+    if (ea == null) return 1;    // nulls last
+    if (eb == null) return -1;
+    return eb - ea;              // DESC
+  });
+}, [filtered]);
+// REPLACE your existing pagination calc with:
+const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+const safePage = Math.min(Math.max(page, 1), totalPages);
+const start = (safePage - 1) * PAGE_SIZE;
+const pageRows = sorted.slice(start, start + PAGE_SIZE);
   // ---------- On-chain reads for current page ----------
   const pagePoolKey = useMemo(
     () => [...new Set(pageRows.map(r => r.pool_address || ''))].join(','),
