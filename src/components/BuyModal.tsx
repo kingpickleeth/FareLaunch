@@ -9,7 +9,7 @@ import {
   presalePoolAbi,
 } from '../lib/contracts';
 import { supabase } from '../lib/supabase';
-import { makeMerkle, isAddress } from '../utils/merkle';
+import { makeMerkle} from '../utils/merkle';
 
 type Props = {
   open: boolean;
@@ -24,7 +24,6 @@ export default function BuyModal({
   onClose,
   poolAddress,
   saleId,
-  allowlistRoot,
 }: Props) {
   const { address } = useAccount();
   const publicClient = usePublicClient();
@@ -39,54 +38,58 @@ export default function BuyModal({
 
   const [minBuy, setMinBuy] = useState<bigint | null>(null);
   const [maxBuy, setMaxBuy] = useState<bigint | null>(null);
-  const [isPublic, setIsPublic] = useState<boolean>(true);
-  const [onchainRoot, setOnchainRoot] = useState<Hex | null>(null);
+  const [, setIsPublic] = useState<boolean>(true);
+  const [, setOnchainRoot] = useState<Hex | null>(null);
   const [alreadyContributed, setAlreadyContributed] = useState<bigint>(0n);
+  const [hardCap, setHardCap] = useState<bigint>(0n);
+  const [totalRaised, setTotalRaised] = useState<bigint>(0n);
+  const [activeFlag, setActiveFlag] = useState<boolean>(true);
+  const [quoteTokenAddr, setQuoteTokenAddr] = useState<`0x${string}`>(QUOTE_TOKEN);
+const [quoteDecimals, setQuoteDecimals] = useState<number>(QUOTE_DECIMALS);
 
   // Load balances/limits + pool flags when opened
   useEffect(() => {
     if (!open || !address) return;
     (async () => {
       try {
+        // 1) Read the pool’s actual quote token
+        const qt = await publicClient!.readContract({
+          address: poolAddress,
+          abi: presalePoolAbi,
+          functionName: 'quoteToken',
+        }) as `0x${string}`;
+    
+        setQuoteTokenAddr(qt);
+    
+        // 2) Read decimals from that token (fallback to constant if it throws)
+        let qd = QUOTE_DECIMALS;
+        try {
+          const d = await publicClient!.readContract({
+            address: qt, abi: erc20Abi, functionName: 'decimals'
+          });
+          qd = Number(d);
+        } catch {}
+        setQuoteDecimals(qd);
+    
+        // 3) Now read everything that depends on the token/pool
         const [
-          bal,
-          allw,
-          minB,
-          maxB,
-          pub,
-          contribByUser,
+          bal, allw, minB, maxB, pub, contribByUser, hc, tr, active
         ] = await Promise.all([
-          publicClient!.readContract({
-            address: QUOTE_TOKEN, abi: erc20Abi,
-            functionName: 'balanceOf', args: [address],
-          }),
-          publicClient!.readContract({
-            address: QUOTE_TOKEN, abi: erc20Abi,
-            functionName: 'allowance', args: [address, poolAddress],
-          }),
-          publicClient!.readContract({
-            address: poolAddress, abi: presalePoolAbi,
-            functionName: 'minBuy',
-          }),
-          publicClient!.readContract({
-            address: poolAddress, abi: presalePoolAbi,
-            functionName: 'maxBuy',
-          }),
-          publicClient!.readContract({
-            address: poolAddress, abi: presalePoolAbi,
-            functionName: 'isPublic',
-          }),
-          publicClient!.readContract({
-            address: poolAddress, abi: presalePoolAbi,
-            functionName: 'contributed', args: [address],
-          }),
+          publicClient!.readContract({ address: qt, abi: erc20Abi, functionName: 'balanceOf', args: [address] }),
+          publicClient!.readContract({ address: qt, abi: erc20Abi, functionName: 'allowance', args: [address, poolAddress] }),
+          publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'minBuy' }),
+          publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'maxBuy' }),
+          publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'isPublic' }),
+          publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'contributed', args: [address] }),
+          publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'hardCap' }),
+          publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'totalRaised' }),
+          publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'isActive' }),
         ]);
-
-        // Read merkleRoot separately to keep typing clean
+    
         const root = await publicClient!.readContract({
           address: poolAddress, abi: presalePoolAbi, functionName: 'merkleRoot',
         });
-
+    
         setBalance(bal as bigint);
         setAllowance(allw as bigint);
         setMinBuy(minB as bigint);
@@ -94,78 +97,131 @@ export default function BuyModal({
         setIsPublic(pub as boolean);
         setAlreadyContributed(contribByUser as bigint);
         setOnchainRoot(root as `0x${string}`);
+        setHardCap(hc as bigint);
+        setTotalRaised(tr as bigint);
+        setActiveFlag(active as boolean);
       } catch (e: any) {
         console.error(e);
         setError(e?.message || String(e));
       }
     })();
+    
   }, [open, address, poolAddress, publicClient]);
 
   const amountWei = useMemo(() => {
-    try { return parseUnits((amount || '0').trim(), QUOTE_DECIMALS); }
+    try { return parseUnits((amount || '0').trim(), quoteDecimals); }
     catch { return 0n; }
-  }, [amount]);
-
+  }, [amount, quoteDecimals]);
+  
+  // replace every formatUnits(..., QUOTE_DECIMALS) with quoteDecimals
+  
   const remainingAllowed = useMemo(() => {
     if (!maxBuy || maxBuy === 0n) return null; // no max
     const rem = maxBuy - alreadyContributed;
     return rem > 0n ? rem : 0n;
   }, [maxBuy, alreadyContributed]);
+// How much more you MUST add to reach minBuy, considering what you already contributed.
+const requiredMinForThisTx = useMemo(() => {
+  if (!minBuy) return 0n;
+  if (alreadyContributed >= minBuy) return 0n;
+  return minBuy - alreadyContributed;
+}, [minBuy, alreadyContributed]);
 
-  const withinMinMax = useMemo(() => {
-    if (minBuy && amountWei < minBuy) return false;
-    if (remainingAllowed !== null && amountWei > remainingAllowed) return false;
-    return true;
-  }, [amountWei, minBuy, remainingAllowed]);
+// Remaining headroom from per-wallet MAX (if any)
+const remainingPerWallet = useMemo(() => {
+  if (!maxBuy || maxBuy === 0n) return null; // no max
+  const rem = maxBuy - alreadyContributed;
+  return rem > 0n ? rem : 0n;
+}, [maxBuy, alreadyContributed]);
 
-  async function getProof(): Promise<Hex[]> {
-    // Public sale → empty proof
-    if (isPublic || !address) return [];
+// Remaining room before HARD CAP is hit
+const remainingToHardCap = useMemo(() => {
+  if (hardCap === 0n) return null; // defensive
+  const rem = hardCap - totalRaised;
+  return rem > 0n ? rem : 0n;
+}, [hardCap, totalRaised]);
 
-    // Load the allowlist snapshot we stored
-    const { data, error } = await supabase
-      .from('allowlists')
-      .select('address')
-      .eq('sale_id', saleId);
-    if (error) throw error;
+// Your true effective max = min(remainingPerWallet, remainingToHardCap) ignoring nulls
+const effectiveMax = useMemo(() => {
+  const cands = [remainingPerWallet ?? undefined, remainingToHardCap ?? undefined].filter(
+    (x): x is bigint => typeof x === 'bigint'
+  );
+  if (!cands.length) return null;
+  return cands.reduce((m, v) => (v < m ? v : m));
+}, [remainingPerWallet, remainingToHardCap]);
 
-    // Mirror utils/merkle.ts normalization exactly
-    const addrs = Array.from(
-      new Set((data || []).map(r => String(r.address).trim().toLowerCase()))
-    ).filter(isAddress);
+// Validate input against the CUMULATIVE min and both caps
+const withinMinMax = useMemo(() => {
+  if (amountWei <= 0n) return false;
+  if (amountWei < requiredMinForThisTx) return false;
+  if (effectiveMax !== null && amountWei > effectiveMax) return false;
+  return true;
+}, [amountWei, requiredMinForThisTx, effectiveMax]);
+async function getProofForWallet(saleId: string, walletAddress: string) {
+  // Normalize address
+  const cleanAddr = walletAddress.trim().toLowerCase();
 
-    const { root, getProof } = makeMerkle(addrs);
+  // 1) Fetch allowlist addresses from Supabase
+  const { data, error } = await supabase
+    .from('allowlists')
+    .select('address')
+    .eq('sale_id', saleId);
 
-    // Verify against on-chain root first (source of truth), else DB root
-    const expectedRoot = onchainRoot ?? allowlistRoot ?? null;
-    if (expectedRoot && root.toLowerCase() !== expectedRoot.toLowerCase()) {
-      throw new Error(
-        `Allowlist is stale: computed root ${root} != on-chain root ${expectedRoot}. Please refresh the allowlist.`
-      );
-    }
+  if (error) throw new Error(`Supabase error: ${error.message}`);
+  if (!data?.length) throw new Error('No allowlist found for this sale ID');
 
-    const proof = getProof(address); // string[]
-    if (!proof.length) throw new Error('Your wallet is not on the allowlist.');
-    return proof as unknown as Hex[];
+  // 2) Normalize and dedupe addresses
+  const addresses = Array.from(
+    new Set(data.map(r => String(r.address).trim().toLowerCase()))
+  );
+
+  // 3) Build Merkle tree
+  const { root, getProof, verify } = makeMerkle(addresses);
+
+  console.log('🪵 Computed Root:', root);
+  console.log('🪵 My Address:', cleanAddr);
+
+  // 4) Get proof for this wallet
+  const proof = getProof(cleanAddr);
+  console.log('🪵 Generated Proof:', proof);
+
+  // 5) Verify locally before sending to chain
+  const isValid = verify(cleanAddr, proof);
+  console.log('🪵 Local Verify Result:', isValid);
+
+  if (!isValid) {
+    throw new Error('Your wallet is not on the allowlist.');
   }
 
+  return proof as readonly `0x${string}`[];
+}
   async function onConfirm() {
     try {
       setError('');
       setSubmitting(true);
       if (!address) throw new Error('Connect your wallet');
+      if (!activeFlag) throw new Error('Sale is not active right now.');
       if (amountWei <= 0n) throw new Error('Enter an amount > 0');
       if (amountWei > balance) throw new Error('Insufficient WAPE');
-      if (!withinMinMax) {
-        if (minBuy && amountWei < minBuy) throw new Error('Below minimum contribution.');
-        if (remainingAllowed !== null && amountWei > remainingAllowed)
-          throw new Error('Exceeds your per-wallet max for this sale.');
+      
+      // Explain exactly WHY the input fails
+      if (amountWei < requiredMinForThisTx) {
+        throw new Error(
+          `Minimum for this transaction is ${formatUnits(requiredMinForThisTx, QUOTE_DECIMALS)} WAPE ` +
+          `(your total must reach at least ${formatUnits(minBuy ?? 0n, QUOTE_DECIMALS)} WAPE).`
+        );
       }
-
+      if (effectiveMax !== null && amountWei > effectiveMax) {
+        const parts: string[] = [];
+        if (remainingPerWallet !== null) parts.push(`per-wallet remaining ${formatUnits(remainingPerWallet, QUOTE_DECIMALS)}`);
+        if (remainingToHardCap !== null) parts.push(`hard-cap remaining ${formatUnits(remainingToHardCap, QUOTE_DECIMALS)}`);
+        throw new Error(`Amount exceeds ${parts.join(' and ')}.`);
+      }
+      
       // Approve if needed
       if (allowance < amountWei) {
         const approveHash = await writeContractAsync({
-          address: QUOTE_TOKEN,
+          address: quoteTokenAddr,          // <— dynamic
           abi: erc20Abi,
           functionName: 'approve',
           args: [poolAddress, amountWei],
@@ -173,9 +229,10 @@ export default function BuyModal({
         await publicClient!.waitForTransactionReceipt({ hash: approveHash });
         setAllowance(amountWei);
       }
+      
 
       // Contribute(amount, proof)
-      const proof = await getProof(); // [] if public
+      const proof = await getProofForWallet(saleId, address);
       const hash = await writeContractAsync({
         address: poolAddress,
         abi: presalePoolAbi,

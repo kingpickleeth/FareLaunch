@@ -414,7 +414,7 @@ const badgeStyle: React.CSSProperties = (() => {
           : '—'}
         </div>
         <div>Twitter: {row.twitter
-          ? <a className="break-anywhere" href={row.twitter} target="_blank" rel="noreferrer">{row.twitter}</a>
+          ? <a className="break-anywhere" href='https://x.com/{row.twitter}' target="_blank" rel="noreferrer">{row.twitter}</a>
           : '—'}
         </div>
         <div>Description:</div>

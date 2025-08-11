@@ -144,6 +144,13 @@ export const erc20Abi = [
 /** PresalePool ABI (matches your latest contract) */
 export const presalePoolAbi = [
   // core actions
+  { 
+    type: 'function',
+    name: 'quoteToken',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'address' }],
+  },
   {
     type: 'function',
     name: 'contribute',
