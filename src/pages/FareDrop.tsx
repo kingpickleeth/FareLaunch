@@ -79,16 +79,7 @@ export default function FareDrop() {
   // helpers
   // ---------------------------
   // Quick checks for what the user has typed
-const hasAnyAddr = entries.some(e => (e.address || '').trim().length > 0);
-const hasAnyAmt  = entries.some(e => Number(toCleanNumberText(e.amount || '')) > 0);
 
-// Specific missing-pair cases
-const hasAddrNoAmt = entries.some(
-  e => (e.address || '').trim().length > 0 && !(Number(toCleanNumberText(e.amount || '')) > 0)
-);
-const hasAmtNoAddr = entries.some(
-  e => Number(toCleanNumberText(e.amount || '')) > 0 && !(e.address || '').trim().length
-);
 
   const prettyWhole = (n: bigint, decimals: number) => {
     try {
@@ -366,35 +357,44 @@ async function onSubmit(e: React.FormEvent) {
       setStatus(friendly(err));
     }
   }  
-
+  const hasAnyAddr = entries.some(e => (e.address || '').trim().length > 0);
+  const hasAnyAmt  = entries.some(e => Number(toCleanNumberText(e.amount || '')) > 0);
+  
+  // Specific missing-pair cases
+  const hasAddrNoAmt = entries.some(
+    e => (e.address || '').trim().length > 0 && !(Number(toCleanNumberText(e.amount || '')) > 0)
+  );
+  const hasAmtNoAddr = entries.some(
+    e => Number(toCleanNumberText(e.amount || '')) > 0 && !(e.address || '').trim().length
+  );
   // ---------------------------
   // CTA label / disabled
   // ---------------------------
   const canProceedStep2 =
     !!inputMode && filteredValid.length > 0 && !anyInvalidAddr && !anyInvalidAmt && totalAmountWei > 0n;
 
-    const buttonLabel = (() => {
-        if (!isConnected) return "Connect wallet to continue";
-        if (!selected) return loadingDetect ? "Detecting tokens…" : "Select a token";
-        if (!inputMode) return "Choose recipient input method";
-      
-        // Nothing added yet after choosing a mode
-        if (!hasAnyAddr && !hasAnyAmt) return "Add Recipient Wallets & Amounts";
-      
-        // Validation errors first
-        if (anyInvalidAddr) return "Fix invalid addresses";
-        if (anyInvalidAmt)  return "Fix invalid amounts";
-      
-        // Pairing guidance
-        if (hasAddrNoAmt)   return `Add an amount of $${selected.symbol} to send`;
-        if (hasAmtNoAddr)   return "Don't forget to add a recipient wallet";
-      
-        // If all good but total is zero (edge cases)
-        if (totalAmountWei === 0n) return `Add an amount of $${selected.symbol} to send`;
-      
-        return "Send Airdrop";
-      })();
-      
+const buttonLabel = (() => {
+  if (!isConnected) return "Connect wallet to continue";
+  if (!selected) return loadingDetect ? "Detecting tokens…" : "Select a token";
+  if (!inputMode) return "Choose recipient input method";
+
+  // Nothing added yet after choosing a mode
+  if (!hasAnyAddr && !hasAnyAmt) return "Add Recipient Wallets & Amounts";
+
+  // Validation errors first
+  if (anyInvalidAddr) return "Fix invalid addresses";
+  if (anyInvalidAmt)  return "Fix invalid amounts";
+
+  // Pairing guidance
+  if (hasAddrNoAmt)   return `Add an amount of $${selected.symbol} to send`;
+  if (hasAmtNoAddr)   return "Don't forget to add a recipient wallet";
+
+  // If all good but total is zero (edge cases)
+  if (totalAmountWei === 0n) return `Add an amount of $${selected.symbol} to send`;
+
+  return "Send Airdrop";
+})();
+
 
   // ---------------------------
   // UI (theme-matched)
