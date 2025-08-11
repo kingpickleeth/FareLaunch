@@ -70,22 +70,47 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
   const [minPerWallet, setMinPerWallet] = useState<string>(toStr(value.sale?.minPerWallet));
   const [maxPerWallet, setMaxPerWallet] = useState<string>(toStr(value.sale?.maxPerWallet));
 
-  // ---------- Validation ----------
-  const valid = useMemo(() => {
-    if (!start || !end) return false;
-    const t0 = Date.parse(start);
-    const t1 = Date.parse(end);
-    if (!Number.isFinite(t0) || !Number.isFinite(t1) || t0 >= t1) return false;
+  // ---------- Field validations ----------
+  const tStart = Date.parse(start);
+  const tEnd = Date.parse(end);
 
-    const sc = toNum(softCap);
-    if (!Number.isFinite(sc) || sc <= 0) return false;
+  const startOk = Boolean(start) && Number.isFinite(tStart) && tStart >= now.getTime() && tStart <= maxFuture.getTime();
 
-    const hc = toNum(hardCap);
-    if (hardCap && (!Number.isFinite(hc) || hc <= sc)) return false;
-
+  const endOk = useMemo(() => {
+    if (!end || !Number.isFinite(tEnd)) return false;
+    if (!Number.isFinite(tStart)) return false;
+    if (tEnd <= tStart) return false;
+    // within 14 days of start and within 60 days from now
+    const maxByStart = new Date(new Date(start).getTime() + 14 * 24 * 60 * 60 * 1000).getTime();
+    if (tEnd > maxByStart) return false;
+    if (tEnd > maxFuture.getTime()) return false;
     return true;
-  }, [start, end, softCap, hardCap]);
+  }, [end, tEnd, tStart, start]);
 
+  const scNum = toNum(softCap);
+  const hcNum = toNum(hardCap);
+  const minNum = toNum(minPerWallet);
+  const maxNum = toNum(maxPerWallet);
+
+  const softCapOk = Number.isFinite(scNum) && scNum > 0;
+  const hardCapOk = Number.isFinite(hcNum) && hcNum >= scNum && hcNum > 0;
+  const minOk = Number.isFinite(minNum) && minNum >= 0; // allow 0 min if you want; it's required to be filled
+  const maxOk = Number.isFinite(maxNum) && maxNum >= minNum && maxNum > 0;
+
+  // ---------- Dynamic next issue ----------
+  const nextIssue = useMemo(() => {
+    if (!startOk) return 'Set a valid start time';
+    if (!endOk) return 'Set a valid end time';
+    if (!softCapOk) return 'Enter a valid soft cap (> 0)';
+    if (!hardCapOk) return 'Enter a valid hard cap (≥ soft cap)';
+    if (!minOk) return 'Enter a valid per-wallet minimum (≥ 0)';
+    if (!maxOk) return 'Enter a valid per-wallet maximum (≥ min)';
+    return null;
+  }, [startOk, endOk, softCapOk, hardCapOk, minOk, maxOk]);
+
+  const valid = nextIssue === null;
+
+  // ---------- Save ----------
   function commitAndNext() {
     if (!valid) return;
     onChange({
@@ -124,7 +149,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 
           {/* Start */}
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Start (local)</div>
+            <div>Start (local) <span style={{ color: 'red' }}>*</span></div>
             <input
               type="datetime-local"
               value={start}
@@ -151,7 +176,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 
           {/* End */}
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>End (local)</div>
+            <div>End (local) <span style={{ color: 'red' }}>*</span></div>
             <input
               type="datetime-local"
               value={end}
@@ -176,7 +201,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 
         <div className="tokenomics-grid-3">
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Soft Cap ({quote})</div>
+            <div>Soft Cap ({quote}) <span style={{ color: 'red' }}>*</span></div>
             <input
               value={softCap}
               onChange={(e) => setSoftCap(e.target.value)}
@@ -188,12 +213,12 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
           </label>
 
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Hard Cap ({quote}) <span style={{ color: 'var(--muted)' }}>(optional)</span></div>
+            <div>Hard Cap ({quote}) <span style={{ color: 'red' }}>*</span></div>
             <input
               value={hardCap}
               onChange={(e) => setHardCap(e.target.value)}
               onBlur={(e) => setHardCap(formatNumberInputStr(e.target.value))}
-              placeholder="(none)"
+              placeholder="500"
               style={inputStyle}
               inputMode="decimal"
             />
@@ -204,7 +229,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 
         <div className="tokenomics-grid-2">
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Per-Wallet Min ({quote})</div>
+            <div>Per-Wallet Min ({quote}) <span style={{ color: 'red' }}>*</span></div>
             <input
               value={minPerWallet}
               onChange={(e) => setMinPerWallet(e.target.value)}
@@ -215,7 +240,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
             />
           </label>
           <label style={{ display: 'grid', gap: 6 }}>
-            <div>Per-Wallet Max ({quote})</div>
+            <div>Per-Wallet Max ({quote}) <span style={{ color: 'red' }}>*</span></div>
             <input
               value={maxPerWallet}
               onChange={(e) => setMaxPerWallet(e.target.value)}
@@ -235,9 +260,10 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
           className="button button-primary"
           onClick={commitAndNext}
           disabled={!valid}
-          style={{ opacity: valid ? 1 : 0.5 }}
+          title={nextIssue ?? 'All set'}
+          style={{ opacity: valid ? 1 : 0.6 }}
         >
-          Save & Continue
+          {valid ? 'Save & Continue' : nextIssue}
         </button>
       </div>
     </div>
