@@ -33,7 +33,27 @@ export default function FareDrop() {
   const { data: walletClient } = useWalletClient();
   const { writeContractAsync, isPending: erc20Pending } = useWriteContract();
   const { sendTransactionAsync } = useSendTransaction();
-
+  const tokenKey = (t: TokenMeta) => `${t.mode}:${t.address}`;
+  const shortAddr = (a: string) => a.length > 12 ? `${a.slice(0,6)}…${a.slice(-4)}` : a;
+  const ModeButton = ({
+    active, onClick, children,
+  }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        padding: "10px 12px",
+        borderRadius: 999,
+        border: active ? "2px solid var(--fl-gold)" : "1px solid var(--border)",
+        background: active ? "rgba(255,184,46,.10)" : "transparent",
+        color: "var(--text)",
+        fontWeight: 700,
+        cursor: "pointer",
+      }}
+    >
+      {children}
+    </button>
+  );
   // STEP 1: token discovery + selection
   const [detected, setDetected] = useState<TokenMeta[]>([]);
   const [loadingDetect, setLoadingDetect] = useState(false);
@@ -294,238 +314,270 @@ export default function FareDrop() {
     <div className="tool-container" style={{ maxWidth: 900, margin: "0 auto" }}>
       <h1 className="tool-title">FareDrop — Airdrop Tool</h1>
 
-      {/* STEP 1: token picker */}
-      <div
-        className="card"
-        style={{
-          background: "var(--fl-surface)",
-          borderRadius: "var(--radius)",
-          border: "1px solid var(--border)",
-          boxShadow: "var(--shadow)",
-          padding: 16,
-          display: "grid",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <div style={{ fontWeight: 800, color: "var(--fl-gold)" }}>1) Select a token from your wallet</div>
+{/* STEP 1: token picker */}
+<div
+  className="card"
+  style={{
+    background: "var(--fl-surface)",
+    borderRadius: "var(--radius)",
+    border: "1px solid var(--border)",
+    boxShadow: "var(--shadow)",
+    padding: 16,
+    display: "grid",
+    gap: 12,
+    marginBottom: 16,
+  }}
+>
+  <div style={{ fontWeight: 800, color: "var(--fl-gold)" }}>1) Select a token from your wallet</div>
 
-        {detectErr && <div style={{ color: "var(--fl-danger)" }}>{detectErr}</div>}
-        {loadingDetect && <div style={{ opacity: 0.8 }}>Detecting balances…</div>}
+  {detectErr && <div style={{ color: "var(--fl-danger)" }}>{detectErr}</div>}
+  {loadingDetect && <div style={{ opacity: .8 }}>Detecting balances…</div>}
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-            gap: 12,
-          }}
-        >
-          {detected.map((t) => {
-            const isActive = selected?.address === t.address && selected.mode === t.mode;
-            return (
-              <button
-                key={`${t.mode}-${t.address}`}
-                type="button"
-                onClick={() => setSelected(t)}
-                style={{
-                  textAlign: "left",
-                  padding: 14,
-                  borderRadius: 12,
-                  border: isActive ? "2px solid var(--fl-gold)" : "1px solid var(--border)",
-                  background: isActive ? "rgba(255,184,46,.08)" : "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ fontWeight: 700, color: "var(--text)" }}>
-                  {t.symbol} {t.name ? <span style={{ opacity: 0.7, fontWeight: 600 }}>· {t.name}</span> : null}
-                </div>
-                <div style={{ fontSize: 12, opacity: 0.85 }}>
-                  Balance: <b>{pretty(t.balance, t.decimals)}</b>
-                </div>
-                <div style={{ fontSize: 11, opacity: 0.6, marginTop: 6 }}>
-                  {t.mode === "native" ? "Native coin" : (t.address as string)}
-                </div>
-              </button>
-            );
-          })}
-        </div>
+  {/* Minimal dropdown: only show symbol · name in the popup */}
+  <select
+    value={selected ? tokenKey(selected) : ""}
+    onChange={(e) => {
+      const val = e.target.value;
+      setSelected(detected.find(t => tokenKey(t) === val) ?? null);
+    }}
+    disabled={!detected.length}
+    style={{
+      appearance: "none",
+      width: "100%",
+      padding: "12px 14px",
+      borderRadius: 12,
+      border: "1px solid var(--border)",
+      background: "var(--fl-bg)",
+      color: "var(--text)",
+      fontWeight: 700,
+      outline: "none",
+      cursor: detected.length ? "pointer" : "not-allowed",
+      backgroundImage:
+        "linear-gradient(45deg, transparent 50%, var(--text) 50%), linear-gradient(135deg, var(--text) 50%, transparent 50%)",
+      backgroundPosition: "calc(100% - 18px) calc(50% - 3px), calc(100% - 12px) calc(50% - 3px)",
+      backgroundSize: "6px 6px, 6px 6px",
+      backgroundRepeat: "no-repeat",
+    }}
+  >
+    {!selected && <option value="">— Select a token —</option>}
+    {detected.map((t) => (
+      <option key={tokenKey(t)} value={tokenKey(t)}>
+        {t.symbol}{t.name ? ` · ${t.name}` : ""}
+      </option>
+    ))}
+  </select>
+
+  {/* Clean details row below */}
+  {selected && (
+    <div
+      style={{
+        display: "grid",
+        gap: 6,
+        padding: 12,
+        borderRadius: 12,
+        border: "1px solid var(--border)",
+        background: "var(--fl-bg)",
+      }}
+    >
+      <div style={{ fontWeight: 800, color: "var(--text)" }}>
+        {selected.symbol} {selected.name ? <span style={{ opacity: .75 }}>· {selected.name}</span> : null}
       </div>
+      <div style={{ fontSize: 12, opacity: .9 }}>
+        Balance: <b>{pretty(selected.balance, selected.decimals)}</b> · Decimals: <b>{selected.decimals}</b>
+      </div>
+      <div style={{ fontSize: 12, opacity: .7 }}>
+        {selected.mode === "native" ? "Native coin" : (selected.address as string)}
+      </div>
+    </div>
+  )}
+</div>
+{/* STEP 2: recipients */}
+{selected && (
+  <div
+    className="card"
+    style={{
+      background: "var(--fl-surface)",
+      borderRadius: "var(--radius)",
+      border: "1px solid var(--border)",
+      boxShadow: "var(--shadow)",
+      padding: 16,
+      display: "grid",
+      gap: 14,
+      marginBottom: 16,
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ fontWeight: 800, color: "var(--fl-gold)" }}>2) Add recipients</div>
+      <div style={{ fontSize: 12, color: "var(--muted)" }}>Token: <b>{selected.symbol}</b></div>
+    </div>
 
-      {/* STEP 2: recipients */}
-      {canProceedStep1 && (
-        <div
-          className="card"
-          style={{
-            background: "var(--fl-surface)",
-            borderRadius: "var(--radius)",
-            border: "1px solid var(--border)",
-            boxShadow: "var(--shadow)",
-            padding: 16,
-            display: "grid",
-            gap: 12,
-            marginBottom: 16,
-          }}
-        >
-          <div style={{ fontWeight: 800, color: "var(--fl-gold)" }}>
-            2) Add recipients — {selected?.symbol}
-          </div>
+    {/* Segmented control */}
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <ModeButton active={inputMode === "line"} onClick={() => setInputMode("line")}>Line by line</ModeButton>
+      <ModeButton active={inputMode === "paste"} onClick={() => setInputMode("paste")}>Paste list</ModeButton>
+      <ModeButton active={inputMode === "csv"} onClick={() => setInputMode("csv")}>Upload CSV</ModeButton>
+    </div>
 
-          {/* input mode */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
-            {(["line", "paste", "csv"] as const).map((m) => {
-              const active = inputMode === m;
-              const label = m === "line" ? "Line by line" : m === "paste" ? "Paste list" : "Upload CSV";
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => setInputMode(m)}
-                  style={{
-                    padding: 10,
-                    borderRadius: 10,
-                    border: active ? "2px solid var(--fl-gold)" : "1px solid var(--border)",
-                    background: active ? "rgba(255,184,46,.08)" : "transparent",
-                    textAlign: "left",
-                    cursor: "pointer",
-                  }}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* modes */}
-          {inputMode === "line" && (
-            <div style={{ display: "grid", gap: 8 }}>
-              {validatedEntries.map((r, i) => (
-                <div key={i} style={{ display: "flex", gap: 8 }}>
-                  <div style={{ flex: 1 }}>
-                    <input
-                      placeholder="Recipient address (0x…)"
-                      value={r.address}
-                      onChange={(e) => setEntry(i, { address: e.target.value })}
-                      style={{
-                        width: "100%",
-                        padding: 10,
-                        borderRadius: 10,
-                        border: "1px solid var(--border)",
-                        background: "var(--fl-bg)",
-                        color: "var(--text)",
-                        outline: "none",
-                        borderColor: r.address && !r.validAddr ? "var(--fl-danger)" : "var(--border)",
-                      }}
-                    />
-                    {r.address && !r.validAddr && (
-                      <div style={{ color: "var(--fl-danger)", fontSize: 12, marginTop: 4 }}>
-                        Invalid address format
-                      </div>
-                    )}
-                  </div>
-                  <input
-                    style={{
-                      width: 200,
-                      padding: 10,
-                      borderRadius: 10,
-                      border: "1px solid var(--border)",
-                      background: "var(--fl-bg)",
-                      color: "var(--text)",
-                      outline: "none",
-                    }}
-                    placeholder={placeholderAmt}
-                    value={r.amount}
-                    onChange={(e) => onAmountChange(i, e.target.value)}
-                  />
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={addRow}
-                style={{
-                  justifySelf: "start",
-                  padding: "8px 10px",
-                  borderRadius: 10,
-                  border: "1px solid var(--border)",
-                  background: "transparent",
-                  color: "var(--text)",
-                  cursor: "pointer",
-                }}
-              >
-                + Add row
-              </button>
-            </div>
-          )}
-
-          {inputMode === "paste" && (
-            <div style={{ display: "grid", gap: 8 }}>
-              <textarea
-                rows={6}
-                placeholder={`0xAddress1, 100\n0xAddress2 250\n0xAddress3\t400`}
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
+    {/* LINE BY LINE */}
+    {inputMode === "line" && (
+      <div style={{ display: "grid", gap: 10 }}>
+        {validatedEntries.map((r, i) => (
+          <div key={i}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 220px",
+              gap: 10,
+            }}
+          >
+            <div>
+              <label style={{ fontSize: 12, opacity: .8 }}>Recipient (0x…)</label>
+              <input
+                placeholder="0xabc…"
+                value={r.address}
+                onChange={(e) => setEntry(i, { address: e.target.value })}
                 style={{
                   width: "100%",
-                  padding: 10,
-                  borderRadius: 10,
+                  padding: 12,
+                  borderRadius: 12,
+                  border: "1px solid var(--border)",
+                  background: "var(--fl-bg)",
+                  color: "var(--text)",
+                  outline: "none",
+                  borderColor: r.address && !r.validAddr ? "var(--fl-danger)" : "var(--border)",
+                }}
+              />
+              {r.address && !r.validAddr && (
+                <div style={{ color: "var(--fl-danger)", fontSize: 12, marginTop: 4 }}>
+                  Invalid address format
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label style={{ fontSize: 12, opacity: .8 }}>Amount</label>
+              <input
+                placeholder={`Amount${selected?.symbol ? ` of $${selected.symbol}` : ""}`}
+                value={r.amount}
+                onChange={(e) => onAmountChange(i, e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  borderRadius: 12,
                   border: "1px solid var(--border)",
                   background: "var(--fl-bg)",
                   color: "var(--text)",
                   outline: "none",
                 }}
               />
-              <div>
-                <button
-                  type="button"
-                  onClick={handlePasteApply}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "none",
-                    background: "var(--fl-gold)",
-                    color: "#000",
-                    fontWeight: 800,
-                    cursor: "pointer",
-                  }}
-                >
-                  Apply
-                </button>
-              </div>
-              {validatedEntries.length > 0 && (
-                <div style={{ fontSize: 12, opacity: 0.8 }}>
-                  Parsed {validatedEntries.length} row(s). You can switch to “Line by line” to edit.
-                </div>
-              )}
             </div>
-          )}
+          </div>
+        ))}
 
-          {inputMode === "csv" && (
-            <div style={{ display: "grid", gap: 8 }}>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv,text/csv"
-                onChange={async (e) => {
-                  const f = e.target.files?.[0];
-                  if (f) await handleCSV(f);
-                }}
-                style={{ color: "var(--text)" }}
-              />
-              <div style={{ fontSize: 12, opacity: 0.8 }}>
-                CSV format: <code>address,amount</code> (no header). Example: <code>0xabc...,100</code>
-              </div>
-            </div>
-          )}
-
-          {/* totals */}
-          {canProceedStep2 && selected && (
-            <div style={{ fontSize: 12, opacity: 0.9 }}>
-              Total: <b>{withCommas(String(totalAmountHuman))} {selected.symbol}</b> · Your balance:{" "}
-              <b>{pretty(selected.balance, selected.decimals)} {selected.symbol}</b>
-            </div>
-          )}
+        <div>
+          <button
+            type="button"
+            onClick={addRow}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text)",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            + Add recipient
+          </button>
         </div>
-      )}
+      </div>
+    )}
 
+    {/* PASTE MODE */}
+    {inputMode === "paste" && (
+      <div style={{ display: "grid", gap: 10 }}>
+        <label style={{ fontSize: 12, opacity: .8 }}>Paste one per line (address, amount)</label>
+        <textarea
+          rows={6}
+          placeholder={`0xAddress1, 100\n0xAddress2, 250\n0xAddress3, 400`}
+          value={pasteText}
+          onChange={(e) => setPasteText(e.target.value)}
+          style={{
+            width: "100%",
+            padding: 12,
+            borderRadius: 12,
+            border: "1px solid var(--border)",
+            background: "var(--fl-bg)",
+            color: "var(--text)",
+            outline: "none",
+          }}
+        />
+        <div>
+          <button
+            type="button"
+            onClick={handlePasteApply}
+            style={{
+              padding: "10px 12px",
+              borderRadius: 12,
+              border: "none",
+              background: "var(--fl-gold)",
+              color: "#000",
+              fontWeight: 800,
+              cursor: "pointer",
+              boxShadow: "var(--shadow)",
+            }}
+          >
+            Apply
+          </button>
+        </div>
+        {validatedEntries.length > 0 && (
+          <div style={{ fontSize: 12, opacity: .8 }}>
+            Parsed {validatedEntries.length} row(s). You can switch to “Line by line” to edit.
+          </div>
+        )}
+      </div>
+    )}
+
+    {/* CSV MODE */}
+    {inputMode === "csv" && (
+      <div style={{ display: "grid", gap: 8 }}>
+        <label style={{ fontSize: 12, opacity: .8 }}>Upload CSV (address,amount)</label>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={async (e) => {
+            const f = e.target.files?.[0];
+            if (f) await handleCSV(f);
+          }}
+          style={{ color: "var(--text)" }}
+        />
+        <div style={{ fontSize: 12, opacity: .7 }}>
+          Example: <code>0xabc...,100</code>
+        </div>
+      </div>
+    )}
+
+    {/* Totals */}
+    {canProceedStep2 && selected && (
+      <div
+        style={{
+          display: "flex",
+          gap: 10,
+          flexWrap: "wrap",
+          fontSize: 12,
+          background: "var(--fl-bg)",
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 10,
+        }}
+      >
+        <div>Total: <b>{withCommas(String(totalAmountHuman))} {selected.symbol}</b></div>
+        <div style={{ opacity: .8 }}>Your balance: <b>{pretty(selected.balance, selected.decimals)} {selected.symbol}</b></div>
+      </div>
+    )}
+  </div>
+)}
       {/* STEP 3: submit */}
       <form onSubmit={onSubmit}>
         <button
