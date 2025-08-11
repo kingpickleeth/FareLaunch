@@ -313,7 +313,7 @@ const statusToShow =
           : <div className="sale-logo placeholder" />}
         <div className="sale-title">
           <div className="h1 break-anywhere">
-            {row.name ?? 'Untitled'}{' '}
+            {row.token_name ?? 'Untitled'}{' '}
             <span style={{ opacity: .7 }}>({row.token_symbol ?? '—'})</span>
           </div>
           <div className="sale-creator">

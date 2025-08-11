@@ -5,7 +5,7 @@ import { listExplore } from '../data/launches';
 
 type Row = {
   id: string;
-  name: string | null;
+  token_name: string | null;
   token_symbol: string | null;
   status: 'draft'|'created'|'upcoming'|'active'|'ended'|'failed'|'finalized';
   start_at: string | null;
@@ -175,7 +175,7 @@ export default function Explore() {
       // Search filter
       if (!s) return true;
       return (
-        (r.name ?? '').toLowerCase().includes(s) ||
+        (r.token_name ?? '').toLowerCase().includes(s) ||
         (r.token_symbol ?? '').toLowerCase().includes(s)
       );
     });
@@ -329,7 +329,7 @@ export default function Explore() {
 
                 <div style={{ display: 'grid', gap: 4 }}>
                   <div style={{ fontWeight: 800, color: 'var(--fl-gold)' }}>
-                    {r.name ?? 'Untitled'}{' '}
+                    {r.token_name ?? 'Untitled'}{' '}
                     <span style={{ color: 'var(--muted)' }}>
                       ({r.token_symbol ?? '—'})
                     </span>
