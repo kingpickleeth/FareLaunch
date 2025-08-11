@@ -7,15 +7,23 @@ import {
   useSendTransaction,
 } from "wagmi";
 import { isAddress, parseUnits, formatUnits } from "viem";
+import { FAREDROP_ABI } from "../lib/fareDropAbi";
 
-// Minimal ERC20 ABI for transfer & reads
+// Faredrop ABI
+const FAREDROP_ADDRESS = (
+  import.meta.env.VITE_FAREDROP_ADDRESS ||
+  "0x20718bC7342640287b15D727F1feaC51e0A262CC"
+) as `0x${string}`;
+
+// Minimal ERC20 ABI for reads + approvals
 const MIN_ERC20_ABI = [
-  { type: "function", stateMutability: "view", name: "decimals", inputs: [], outputs: [{ type: "uint8" }] },
-  { type: "function", stateMutability: "view", name: "symbol",   inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", stateMutability: "view", name: "name",     inputs: [], outputs: [{ type: "string" }] },
-  { type: "function", stateMutability: "view", name: "balanceOf",inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
-  { type: "function", stateMutability: "nonpayable", name: "transfer", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "bool" }] },
-] as const;
+    { type: "function", stateMutability: "view", name: "decimals", inputs: [], outputs: [{ type: "uint8" }] },
+    { type: "function", stateMutability: "view", name: "symbol",   inputs: [], outputs: [{ type: "string" }] },
+    { type: "function", stateMutability: "view", name: "name",     inputs: [], outputs: [{ type: "string" }] },
+    { type: "function", stateMutability: "view", name: "balanceOf",inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+    { type: "function", stateMutability: "view", name: "allowance",inputs: [{ type:"address" }, { type:"address" }], outputs:[{ type:"uint256" }] },
+    { type: "function", stateMutability: "nonpayable", name: "approve", inputs: [{ type:"address" }, { type:"uint256" }], outputs:[{ type:"bool" }] },
+  ] as const;  
 
 type Entry = { address: string; amount: string; validAddr?: boolean; validAmt?: boolean };
 type TokenMeta = {
@@ -32,7 +40,7 @@ export default function FareDrop() {
   const publicClient = usePublicClient();
   const { data: walletClient } = useWalletClient();
   const { writeContractAsync, isPending: erc20Pending } = useWriteContract();
-  const { sendTransactionAsync } = useSendTransaction();
+  useSendTransaction();
   const tokenKey = (t: TokenMeta) => `${t.mode}:${t.address}`;
   const ModeButton = ({
     active, onClick, children,
@@ -80,7 +88,15 @@ export default function FareDrop() {
     const w = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return frac ? `${w}.${frac}` : w;
   };
-
+// Map known contract errors to friendly messages
+const friendly = (e: any): string => {
+    const msg = e?.shortMessage || e?.message || "";
+    if (/EmptyArrays/.test(msg)) return "No recipients provided.";
+    if (/LengthMismatch/.test(msg)) return "Recipients and amounts must be the same length.";
+    if (/BadValue/.test(msg)) return "Native airdrop requires msg.value to equal the total amount.";
+    if (/User rejected/i.test(msg)) return "Transaction rejected.";
+    return msg || "Airdrop failed.";
+  };  
   // live validation
   const validatedEntries = useMemo(
     () =>
@@ -229,62 +245,102 @@ export default function FareDrop() {
   // ---------------------------
   // submit (v1: one tx per row)
   // ---------------------------
-  async function onSubmit(e: React.FormEvent) {
+  // ---------------------------
+// submit (v2: single batch tx via FareDrop)
+// ---------------------------
+async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setStatus("");
-
+  
     if (!isConnected || !walletClient || !publicClient || !address || !selected) {
       setStatus("Connect your wallet and select a token.");
       return;
     }
+  
     const rows = validatedEntries.filter((r) => r.validAddr && r.validAmt);
     if (!rows.length) {
       setStatus("Add at least one valid recipient.");
       return;
     }
-
+  
+    // Build arrays for contract call
+    const toList  = rows.map(r => r.address as `0x${string}`);
+    const amtList = rows.map(r => parseUnits(toCleanNumberText(r.amount), selected.decimals));
+  
     try {
-      // Balance check refresh
+      // Fresh balance checks
       if (selected.mode === "native") {
         const bal = await publicClient.getBalance({ address });
         if (bal < totalAmountWei) {
           setStatus("Insufficient APE balance for total airdrop.");
           return;
         }
-      } else {
-        const bal = await publicClient.readContract({
-          address: selected.address as `0x${string}`,
+  
+        // 1 tx: FareDrop.airdropNative(recipients, amounts) with msg.value
+        setStatus(`Submitting native airdrop to ${rows.length} recipient${rows.length > 1 ? "s" : ""}…`);
+        const hash = await writeContractAsync({
+          address: FAREDROP_ADDRESS,
+          abi: FAREDROP_ABI,
+          functionName: "airdropNative",
+          args: [toList, amtList],
+          value: totalAmountWei,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
+        setStatus(`Success! Sent ${rows.length} transfer${rows.length > 1 ? "s" : ""} in one transaction.`);
+        return;
+      }
+  
+      // ERC-20 path
+      const erc20Addr = selected.address as `0x${string}`;
+  
+      // Check wallet token balance
+      const bal = await publicClient.readContract({
+        address: erc20Addr,
+        abi: MIN_ERC20_ABI,
+        functionName: "balanceOf",
+        args: [address],
+      }) as bigint;
+  
+      if (bal < totalAmountWei) {
+        setStatus(`Insufficient ${selected.symbol} balance for total airdrop.`);
+        return;
+      }
+  
+      // Ensure allowance to FareDrop
+      const allowance = await publicClient.readContract({
+        address: erc20Addr,
+        abi: MIN_ERC20_ABI,
+        functionName: "allowance",
+        args: [address, FAREDROP_ADDRESS],
+      }) as bigint;
+  
+      if (allowance < totalAmountWei) {
+        setStatus(`Approving ${selected.symbol}…`);
+        const approveHash = await writeContractAsync({
+          address: erc20Addr,
           abi: MIN_ERC20_ABI,
-          functionName: "balanceOf",
-          args: [address],
-        }) as bigint;
-        if (bal < totalAmountWei) {
-          setStatus(`Insufficient ${selected.symbol} balance for total airdrop.`);
-          return;
-        }
+          functionName: "approve",
+          args: [FAREDROP_ADDRESS, totalAmountWei],
+        });
+        await publicClient.waitForTransactionReceipt({ hash: approveHash });
       }
-
-      // Send transfers sequentially (simple v1)
-      for (const row of rows) {
-        const to = row.address as `0x${string}`;
-        const amt = parseUnits(toCleanNumberText(row.amount), selected.decimals);
-        if (selected.mode === "native") {
-          await sendTransactionAsync({ to, value: amt });
-        } else {
-          await writeContractAsync({
-            address: selected.address as `0x${string}`,
-            abi: MIN_ERC20_ABI,
-            functionName: "transfer",
-            args: [to, amt],
-          });
-        }
-      }
-
-      setStatus(`Success! Sent ${rows.length} transfer${rows.length > 1 ? "s" : ""}.`);
-    } catch (err: any) {
-      setStatus(err?.shortMessage || err?.message || "Airdrop failed.");
+  
+      // 1 tx: FareDrop.airdropERC20(token, recipients, amounts)
+      setStatus(`Submitting ${selected.symbol} airdrop to ${rows.length} recipient${rows.length > 1 ? "s" : ""}…`);
+      const dropHash = await writeContractAsync({
+        address: FAREDROP_ADDRESS,
+        abi: FAREDROP_ABI,
+        functionName: "airdropERC20",
+        args: [erc20Addr, toList, amtList],
+      });
+      await publicClient.waitForTransactionReceipt({ hash: dropHash });
+  
+      setStatus(`Success! Sent ${rows.length} transfer${rows.length > 1 ? "s" : ""} in one transaction.`);
+    } catch (err:any) {
+      console.error(err);
+      setStatus(friendly(err));
     }
-  }
+  }  
 
   // ---------------------------
   // CTA label / disabled
@@ -610,10 +666,9 @@ export default function FareDrop() {
       </form>
 
       {status && <div style={{ marginTop: 12, color: "var(--text)" }}>{status}</div>}
-
       <div style={{ marginTop: 12, fontSize: 12, opacity: 0.8 }}>
-        Note: v1 sends one transaction per recipient. Next, we can add a batch airdrop smart contract (FareDrop.sol) to do it in a single tx.
-      </div>
+  Uses FareDrop to send a single batch transaction. For very large lists, we can add client-side chunking next.
+</div>
     </div>
   );
 }
