@@ -65,7 +65,7 @@ export default function AllowlistCheck({ saleId, root }: Props) {
       <div style={{ fontWeight: 700 }}>Allowlist{!saleIdValid ? ' (saleId missing/invalid)' : ''}</div>
 
       {!canCheckRoot ? (
-        <div style={{ opacity:.8, color: 'var(--muted)' }}>Open sale or allowlist not set.</div>
+        <div style={{ opacity:.8, color: 'var(--muted)' }}>Public Sale (no allowlist)</div>
       ) : (
         <>
           <div style={{ fontSize:12, color: 'var(--muted)' }}>

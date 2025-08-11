@@ -9,21 +9,25 @@ import {
   presalePoolAbi,
 } from '../lib/contracts';
 import { supabase } from '../lib/supabase';
-import { makeMerkle} from '../utils/merkle';
+import { makeMerkle } from '../utils/merkle';
 
 type Props = {
   open: boolean;
   onClose: () => void;
   poolAddress: `0x${string}`;
   saleId: string;
-  allowlistRoot?: Hex | null;
+  allowlistRoot?: Hex | null; // optional: if parent has it
 };
+
+const ZERO_BYTES32 =
+  '0x0000000000000000000000000000000000000000000000000000000000000000' as const;
 
 export default function BuyModal({
   open,
   onClose,
   poolAddress,
   saleId,
+  allowlistRoot, // optional
 }: Props) {
   const { address } = useAccount();
   const publicClient = usePublicClient();
@@ -38,14 +42,16 @@ export default function BuyModal({
 
   const [minBuy, setMinBuy] = useState<bigint | null>(null);
   const [maxBuy, setMaxBuy] = useState<bigint | null>(null);
-  const [, setIsPublic] = useState<boolean>(true);
-  const [, setOnchainRoot] = useState<Hex | null>(null);
+  const [isPublic, setIsPublic] = useState<boolean>(true);
+  const [onchainRoot, setOnchainRoot] = useState<Hex | null>(null);
+
   const [alreadyContributed, setAlreadyContributed] = useState<bigint>(0n);
   const [hardCap, setHardCap] = useState<bigint>(0n);
   const [totalRaised, setTotalRaised] = useState<bigint>(0n);
   const [activeFlag, setActiveFlag] = useState<boolean>(true);
+
   const [quoteTokenAddr, setQuoteTokenAddr] = useState<`0x${string}`>(QUOTE_TOKEN);
-const [quoteDecimals, setQuoteDecimals] = useState<number>(QUOTE_DECIMALS);
+  const [quoteDecimals, setQuoteDecimals] = useState<number>(QUOTE_DECIMALS);
 
   // Load balances/limits + pool flags when opened
   useEffect(() => {
@@ -58,9 +64,9 @@ const [quoteDecimals, setQuoteDecimals] = useState<number>(QUOTE_DECIMALS);
           abi: presalePoolAbi,
           functionName: 'quoteToken',
         }) as `0x${string}`;
-    
+
         setQuoteTokenAddr(qt);
-    
+
         // 2) Read decimals from that token (fallback to constant if it throws)
         let qd = QUOTE_DECIMALS;
         try {
@@ -70,7 +76,7 @@ const [quoteDecimals, setQuoteDecimals] = useState<number>(QUOTE_DECIMALS);
           qd = Number(d);
         } catch {}
         setQuoteDecimals(qd);
-    
+
         // 3) Now read everything that depends on the token/pool
         const [
           bal, allw, minB, maxB, pub, contribByUser, hc, tr, active
@@ -85,11 +91,11 @@ const [quoteDecimals, setQuoteDecimals] = useState<number>(QUOTE_DECIMALS);
           publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'totalRaised' }),
           publicClient!.readContract({ address: poolAddress, abi: presalePoolAbi, functionName: 'isActive' }),
         ]);
-    
+
         const root = await publicClient!.readContract({
           address: poolAddress, abi: presalePoolAbi, functionName: 'merkleRoot',
         });
-    
+
         setBalance(bal as bigint);
         setAllowance(allw as bigint);
         setMinBuy(minB as bigint);
@@ -105,96 +111,95 @@ const [quoteDecimals, setQuoteDecimals] = useState<number>(QUOTE_DECIMALS);
         setError(e?.message || String(e));
       }
     })();
-    
   }, [open, address, poolAddress, publicClient]);
 
   const amountWei = useMemo(() => {
     try { return parseUnits((amount || '0').trim(), quoteDecimals); }
     catch { return 0n; }
   }, [amount, quoteDecimals]);
-  
-  // replace every formatUnits(..., QUOTE_DECIMALS) with quoteDecimals
-  
-  const remainingAllowed = useMemo(() => {
+
+  // Remaining headroom from per-wallet MAX (if any)
+  const remainingPerWallet = useMemo(() => {
     if (!maxBuy || maxBuy === 0n) return null; // no max
     const rem = maxBuy - alreadyContributed;
     return rem > 0n ? rem : 0n;
   }, [maxBuy, alreadyContributed]);
-// How much more you MUST add to reach minBuy, considering what you already contributed.
-const requiredMinForThisTx = useMemo(() => {
-  if (!minBuy) return 0n;
-  if (alreadyContributed >= minBuy) return 0n;
-  return minBuy - alreadyContributed;
-}, [minBuy, alreadyContributed]);
 
-// Remaining headroom from per-wallet MAX (if any)
-const remainingPerWallet = useMemo(() => {
-  if (!maxBuy || maxBuy === 0n) return null; // no max
-  const rem = maxBuy - alreadyContributed;
-  return rem > 0n ? rem : 0n;
-}, [maxBuy, alreadyContributed]);
+  // Remaining room before HARD CAP is hit
+  const remainingToHardCap = useMemo(() => {
+    if (hardCap === 0n) return null; // defensive
+    const rem = hardCap - totalRaised;
+    return rem > 0n ? rem : 0n;
+  }, [hardCap, totalRaised]);
 
-// Remaining room before HARD CAP is hit
-const remainingToHardCap = useMemo(() => {
-  if (hardCap === 0n) return null; // defensive
-  const rem = hardCap - totalRaised;
-  return rem > 0n ? rem : 0n;
-}, [hardCap, totalRaised]);
+  // Your true effective max = min(remainingPerWallet, remainingToHardCap) ignoring nulls
+  const effectiveMax = useMemo(() => {
+    const cands = [remainingPerWallet ?? undefined, remainingToHardCap ?? undefined].filter(
+      (x): x is bigint => typeof x === 'bigint'
+    );
+    if (!cands.length) return null;
+    return cands.reduce((m, v) => (v < m ? v : m));
+  }, [remainingPerWallet, remainingToHardCap]);
 
-// Your true effective max = min(remainingPerWallet, remainingToHardCap) ignoring nulls
-const effectiveMax = useMemo(() => {
-  const cands = [remainingPerWallet ?? undefined, remainingToHardCap ?? undefined].filter(
-    (x): x is bigint => typeof x === 'bigint'
-  );
-  if (!cands.length) return null;
-  return cands.reduce((m, v) => (v < m ? v : m));
-}, [remainingPerWallet, remainingToHardCap]);
+  // How much more you MUST add to reach minBuy, considering what you already contributed.
+  const requiredMinForThisTx = useMemo(() => {
+    if (!minBuy) return 0n;
+    if (alreadyContributed >= minBuy) return 0n;
+    return minBuy - alreadyContributed;
+  }, [minBuy, alreadyContributed]);
 
-// Validate input against the CUMULATIVE min and both caps
-const withinMinMax = useMemo(() => {
-  if (amountWei <= 0n) return false;
-  if (amountWei < requiredMinForThisTx) return false;
-  if (effectiveMax !== null && amountWei > effectiveMax) return false;
-  return true;
-}, [amountWei, requiredMinForThisTx, effectiveMax]);
-async function getProofForWallet(saleId: string, walletAddress: string) {
-  // Normalize address
-  const cleanAddr = walletAddress.trim().toLowerCase();
+  // Validate input against the CUMULATIVE min and both caps
+  const withinMinMax = useMemo(() => {
+    if (amountWei <= 0n) return false;
+    if (amountWei < requiredMinForThisTx) return false;
+    if (effectiveMax !== null && amountWei > effectiveMax) return false;
+    return true;
+  }, [amountWei, requiredMinForThisTx, effectiveMax]);
 
-  // 1) Fetch allowlist addresses from Supabase
-  const { data, error } = await supabase
-    .from('allowlists')
-    .select('address')
-    .eq('sale_id', saleId);
-
-  if (error) throw new Error(`Supabase error: ${error.message}`);
-  if (!data?.length) throw new Error('No allowlist found for this sale ID');
-
-  // 2) Normalize and dedupe addresses
-  const addresses = Array.from(
-    new Set(data.map(r => String(r.address).trim().toLowerCase()))
+  // Do we actually need a Merkle proof?
+  const effectiveRoot = (onchainRoot ?? allowlistRoot) || ZERO_BYTES32;
+  const needsProof = useMemo(
+    () => !isPublic && effectiveRoot !== ZERO_BYTES32,
+    [isPublic, effectiveRoot]
   );
 
-  // 3) Build Merkle tree
-  const { root, getProof, verify } = makeMerkle(addresses);
+  async function getProofForWallet(saleId: string, walletAddress: string) {
+    // Normalize address
+    const cleanAddr = walletAddress.trim().toLowerCase();
 
-  console.log('🪵 Computed Root:', root);
-  console.log('🪵 My Address:', cleanAddr);
+    // 1) Fetch allowlist addresses from Supabase
+    const { data, error } = await supabase
+      .from('allowlists')
+      .select('address')
+      .eq('sale_id', saleId);
 
-  // 4) Get proof for this wallet
-  const proof = getProof(cleanAddr);
-  console.log('🪵 Generated Proof:', proof);
+    if (error) throw new Error(`Supabase error: ${error.message}`);
 
-  // 5) Verify locally before sending to chain
-  const isValid = verify(cleanAddr, proof);
-  console.log('🪵 Local Verify Result:', isValid);
+    if (!data?.length) {
+      // Most likely RLS filtered to zero rows; explain better:
+      throw new Error('Allowlist not available. Please try again in a moment or contact the creator.');
+    }
 
-  if (!isValid) {
-    throw new Error('Your wallet is not on the allowlist.');
+    // 2) Normalize and dedupe addresses
+    const addresses = Array.from(
+      new Set(data.map(r => String(r.address).trim().toLowerCase()))
+    );
+
+    // 3) Build Merkle tree
+    const { getProof, verify } = makeMerkle(addresses);
+
+    // 4) Get proof for this wallet
+    const proof = getProof(cleanAddr);
+
+    // 5) Verify locally before sending to chain
+    const isValid = verify(cleanAddr, proof);
+    if (!isValid) {
+      throw new Error('Your wallet is not on the allowlist.');
+    }
+
+    return proof as readonly `0x${string}`[];
   }
 
-  return proof as readonly `0x${string}`[];
-}
   async function onConfirm() {
     try {
       setError('');
@@ -202,26 +207,26 @@ async function getProofForWallet(saleId: string, walletAddress: string) {
       if (!address) throw new Error('Connect your wallet');
       if (!activeFlag) throw new Error('Sale is not active right now.');
       if (amountWei <= 0n) throw new Error('Enter an amount > 0');
-      if (amountWei > balance) throw new Error('Insufficient WAPE');
-      
-      // Explain exactly WHY the input fails
+      if (amountWei > balance) throw new Error('Insufficient balance');
+
+      // Explain exactly WHY the input fails (use dynamic decimals)
       if (amountWei < requiredMinForThisTx) {
         throw new Error(
-          `Minimum for this transaction is ${formatUnits(requiredMinForThisTx, QUOTE_DECIMALS)} WAPE ` +
-          `(your total must reach at least ${formatUnits(minBuy ?? 0n, QUOTE_DECIMALS)} WAPE).`
+          `Minimum for this transaction is ${formatUnits(requiredMinForThisTx, quoteDecimals)} ` +
+          `(your total must reach at least ${formatUnits(minBuy ?? 0n, quoteDecimals)}).`
         );
       }
       if (effectiveMax !== null && amountWei > effectiveMax) {
         const parts: string[] = [];
-        if (remainingPerWallet !== null) parts.push(`per-wallet remaining ${formatUnits(remainingPerWallet, QUOTE_DECIMALS)}`);
-        if (remainingToHardCap !== null) parts.push(`hard-cap remaining ${formatUnits(remainingToHardCap, QUOTE_DECIMALS)}`);
+        if (remainingPerWallet !== null) parts.push(`per-wallet remaining ${formatUnits(remainingPerWallet, quoteDecimals)}`);
+        if (remainingToHardCap !== null) parts.push(`hard-cap remaining ${formatUnits(remainingToHardCap, quoteDecimals)}`);
         throw new Error(`Amount exceeds ${parts.join(' and ')}.`);
       }
-      
+
       // Approve if needed
       if (allowance < amountWei) {
         const approveHash = await writeContractAsync({
-          address: quoteTokenAddr,          // <— dynamic
+          address: quoteTokenAddr,
           abi: erc20Abi,
           functionName: 'approve',
           args: [poolAddress, amountWei],
@@ -229,10 +234,12 @@ async function getProofForWallet(saleId: string, walletAddress: string) {
         await publicClient!.waitForTransactionReceipt({ hash: approveHash });
         setAllowance(amountWei);
       }
-      
 
-      // Contribute(amount, proof)
-      const proof = await getProofForWallet(saleId, address);
+      // Contribute(amount, proof) — proof only if needed
+      const proof: readonly `0x${string}`[] = needsProof
+        ? await getProofForWallet(saleId, address)
+        : [];
+
       const hash = await writeContractAsync({
         address: poolAddress,
         abi: presalePoolAbi,
@@ -271,11 +278,11 @@ async function getProofForWallet(saleId: string, walletAddress: string) {
         </div>
 
         <div style={{ fontSize:13, opacity:.8, marginBottom:12 }}>
-          Balance: <b>{formatUnits(balance, QUOTE_DECIMALS)} WAPE</b>
+          Balance: <b>{formatUnits(balance, quoteDecimals)}</b>
         </div>
 
         <label style={{ display:'grid', gap:6 }}>
-          <span style={{ fontWeight:700 }}>Amount (WAPE)</span>
+          <span style={{ fontWeight:700 }}>Amount</span>
           <input
             type="number" min="0" step="0.0001" value={amount}
             onChange={(e) => setAmount(e.target.value)} placeholder="0.0"
@@ -285,15 +292,15 @@ async function getProofForWallet(saleId: string, walletAddress: string) {
 
         {(minBuy || maxBuy) && (
           <div style={{ marginTop:8, fontSize:12, opacity:.8 }}>
-            {minBuy ? <>Min: <b>{formatUnits(minBuy, QUOTE_DECIMALS)}</b>&nbsp;</> : null}
-            {maxBuy && maxBuy > 0n ? <>Max: <b>{formatUnits(maxBuy, QUOTE_DECIMALS)}</b></> : null}
+            {minBuy ? <>Min: <b>{formatUnits(minBuy, quoteDecimals)}</b>&nbsp;</> : null}
+            {maxBuy && maxBuy > 0n ? <>Max: <b>{formatUnits(maxBuy, quoteDecimals)}</b></> : null}
           </div>
         )}
 
         {maxBuy && maxBuy > 0n ? (
           <div style={{ marginTop:4, fontSize:12, opacity:.8 }}>
-            You’ve contributed: <b>{formatUnits(alreadyContributed, QUOTE_DECIMALS)} WAPE</b>
-            {remainingAllowed !== null ? <> • Remaining: <b>{formatUnits(remainingAllowed, QUOTE_DECIMALS)} WAPE</b></> : null}
+            You’ve contributed: <b>{formatUnits(alreadyContributed, quoteDecimals)}</b>
+            {remainingPerWallet !== null ? <> • Remaining: <b>{formatUnits(remainingPerWallet, quoteDecimals)}</b></> : null}
           </div>
         ) : null}
 

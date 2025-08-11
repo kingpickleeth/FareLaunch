@@ -38,9 +38,6 @@ export default function LaunchERC20() {
   function addRecipientRow() {
     setRecipients([...recipients, { address: "", amount: "" }]);
   }
-  function removeRecipient(index: number) {
-    setRecipients(prev => prev.filter((_, i) => i !== index));
-  }
 
   // ---------- helpers / validation ----------
   const symbolOk = /^[A-Z0-9]{1,6}$/.test(symbol.trim());
