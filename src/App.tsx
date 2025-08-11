@@ -278,6 +278,17 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
       zIndex: 100
     }}
   >
+        {/* ✅ NEW: Fair Launch Simulator */}
+        <NavLink
+      to="/simulator"
+      style={({ isActive }) => ({
+        ...linkIdle,
+        display: 'block',
+        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
+      })}
+    >
+     Launch Simulator
+    </NavLink>
     <NavLink
       to="/launch"
       style={({ isActive }) => ({
@@ -298,17 +309,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
 >
   Create ERC20
 </NavLink>
-    {/* ✅ NEW: Fair Launch Simulator */}
-    <NavLink
-      to="/simulator"
-      style={({ isActive }) => ({
-        ...linkIdle,
-        display: 'block',
-        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
-      })}
-    >
-     Launch Simulator
-    </NavLink>
+
 
     <NavLink
       to="/locker"
@@ -318,7 +319,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
         background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
       })}
     >
-      Lock LP
+      Liquidity Locker
     </NavLink>
 
 
@@ -440,6 +441,14 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
             id="mobile-tools-submenu"
             style={{ display: 'grid', gap: 4, paddingLeft: 6, marginTop: 4 }}
           >
+               <NavLink
+              to="/simulator"
+              style={({ isActive }) => (isActive ? linkActive : linkIdle)}
+              onClick={() => {
+                setToolsMobileOpen(false);
+                setMenuOpen(false);
+              }}
+            >Launch Simulator</NavLink>
             <NavLink
               to="/launch"
               style={({ isActive }) => (isActive ? linkActive : linkIdle)}
@@ -461,14 +470,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
   Create ERC20
 </NavLink>
 
-            <NavLink
-              to="/simulator"
-              style={({ isActive }) => (isActive ? linkActive : linkIdle)}
-              onClick={() => {
-                setToolsMobileOpen(false);
-                setMenuOpen(false);
-              }}
-            >Launch Simulator</NavLink>
+         
             <NavLink
               to="/locker"
               style={({ isActive }) => (isActive ? linkActive : linkIdle)}
@@ -477,7 +479,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
                 setMenuOpen(false);
               }}
             >
-              Lock LP
+              Liquidity Locker
             </NavLink>
           </div>
         )}
