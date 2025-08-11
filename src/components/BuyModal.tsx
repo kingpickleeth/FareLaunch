@@ -278,29 +278,28 @@ export default function BuyModal({
         </div>
 
         <div style={{ fontSize:13, opacity:.8, marginBottom:12 }}>
-          Balance: <b>{formatUnits(balance, quoteDecimals)}</b>
+          Balance: <b>{formatUnits(balance, quoteDecimals)} $WAPE</b>
         </div>
 
         <label style={{ display:'grid', gap:6 }}>
           <span style={{ fontWeight:700 }}>Amount</span>
           <input
             type="number" min="0" step="0.0001" value={amount}
-            onChange={(e) => setAmount(e.target.value)} placeholder="0.0"
+            onChange={(e) => setAmount(e.target.value)} placeholder="0.0 $WAPE"
             style={{ padding:'10px 12px', borderRadius:12, border:'1px solid var(--card-border)', background:'var(--table-row)', color:'var(--text)' }}
           />
         </label>
 
         {(minBuy || maxBuy) && (
           <div style={{ marginTop:8, fontSize:12, opacity:.8 }}>
-            {minBuy ? <>Min: <b>{formatUnits(minBuy, quoteDecimals)}</b>&nbsp;</> : null}
-            {maxBuy && maxBuy > 0n ? <>Max: <b>{formatUnits(maxBuy, quoteDecimals)}</b></> : null}
-          </div>
+            {minBuy ? <>Min: <b>{formatUnits(minBuy, quoteDecimals)}</b>&nbsp;</> : null}$WAPE 
+            {maxBuy && maxBuy > 0n ? <> Max: <b>{formatUnits(maxBuy, quoteDecimals)}</b> $WAPE</> : null}</div>
         )}
 
         {maxBuy && maxBuy > 0n ? (
           <div style={{ marginTop:4, fontSize:12, opacity:.8 }}>
-            You’ve contributed: <b>{formatUnits(alreadyContributed, quoteDecimals)}</b>
-            {remainingPerWallet !== null ? <> • Remaining: <b>{formatUnits(remainingPerWallet, quoteDecimals)}</b></> : null}
+            You’ve contributed: <b>{formatUnits(alreadyContributed, quoteDecimals)} $WAPE</b>
+            {remainingPerWallet !== null ? <> • Remaining: <b>{formatUnits(remainingPerWallet, quoteDecimals)} $WAPE</b></> : null}
           </div>
         ) : null}
 
