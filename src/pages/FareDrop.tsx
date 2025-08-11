@@ -78,7 +78,20 @@ export default function FareDrop() {
   // ---------------------------
   // helpers
   // ---------------------------
- 
+  const prettyWhole = (n: bigint, decimals: number) => {
+    try {
+      const s = formatUnits(n, decimals);
+      const whole = s.split('.')[0];
+      // reuse your withCommas
+      return withCommas(whole);
+    } catch {
+      return "0";
+    }
+  };
+  
+  const shortAddr = (addr: `0x${string}`) =>
+    addr.slice(0, 8) + "…" + addr.slice(-6);
+
   const pretty = (n: bigint, decimals: number) => {
     try { return formatUnits(n, decimals); } catch { return "0"; }
   };
@@ -421,29 +434,45 @@ async function onSubmit(e: React.FormEvent) {
   </select>
 
   {/* Clean details row below */}
-  {selected && (
-    <div
-      style={{
-        display: "grid",
-        gap: 6,
-        padding: 12,
-        borderRadius: 12,
-        border: "1px solid var(--border)",
-        background: "var(--fl-bg)",
-      }}
-    >
-      <div style={{ fontWeight: 800, color: "var(--text)" }}>
-        {selected.symbol} {selected.name ? <span style={{ opacity: .75 }}>· {selected.name}</span> : null}
-      </div>
-      <div style={{ fontSize: 12, opacity: .9 }}>
-        Balance: <b>{pretty(selected.balance, selected.decimals)}</b> · Decimals: <b>{selected.decimals}</b>
-      </div>
-      <div className="fdl-wrap" style={{ fontSize: 12, opacity: .7 }}>
-  {selected.mode === "native" ? "Native coin" : (selected.address as string)}
-</div>
-
+{selected && (
+  <div
+    style={{
+      display: "grid",
+      gap: 6,
+      padding: 12,
+      borderRadius: 12,
+      border: "1px solid var(--border)",
+      background: "var(--fl-bg)",
+    }}
+  >
+    <div style={{ fontWeight: 800, color: "var(--text)" }}>
+      {selected.symbol} {selected.name ? <span style={{ opacity: .75 }}>· {selected.name}</span> : null}
     </div>
-  )}
+
+    {/* Balance: no decimals */}
+    <div style={{ fontSize: 12, opacity: .9 }}>
+      Balance: <b>{prettyWhole(selected.balance, selected.decimals)}</b> · Decimals: <b>{selected.decimals}</b>
+    </div>
+
+    {/* Address: only for ERC-20; short + link to ApeScan */}
+    {selected.mode === "erc20" ? (
+      <div className="fdl-wrap" style={{ fontSize: 12, opacity: .9 }}>
+        ${selected.symbol} Address:&nbsp;
+        <a
+          href={`https://apescan.io/address/${selected.address}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "var(--fl-gold)", textDecoration: "none", fontWeight: 700 }}
+          title={selected.address as string}
+        >
+          {shortAddr(selected.address as `0x${string}`)}
+        </a>
+      </div>
+    ) : (
+      <div style={{ fontSize: 12, opacity: .7 }}>Native coin</div>
+    )}
+  </div>
+)}
 </div>
 {/* STEP 2: recipients */}
 {selected && (
@@ -662,9 +691,6 @@ async function onSubmit(e: React.FormEvent) {
       </form>
 
       {status && <div style={{ marginTop: 12, color: "var(--text)" }}>{status}</div>}
-      <div style={{ marginTop: 12, fontSize: 12, opacity: 0.8 }}>
-  Uses FareDrop to send a single batch transaction. For very large lists, we can add client-side chunking next.
-</div>
     </div>
   );
 }
