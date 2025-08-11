@@ -12,17 +12,26 @@ type Row = {
   end_at: string | null;
   soft_cap: string | null;
   hard_cap: string | null;
+  logo_url?: string | null; // <- same field name as sale detail
 };
 
 const STATUS_FILTERS = ['all','upcoming','active','finalized','failed'] as const;
 type StatusFilter = typeof STATUS_FILTERS[number];
-
+function useDebounced<T>(value: T, ms = 150) {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
 export default function Explore() {
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState('');
   const [status, setStatus] = useState<StatusFilter>('all');
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>('');
+  const debouncedQ = useDebounced(q, 150);
 
   useEffect(() => {
     setLoading(true);
@@ -31,16 +40,32 @@ export default function Explore() {
       .catch((e) => setErr(e?.message ?? String(e)))
       .finally(() => setLoading(false));
   }, []);
-
+  useEffect(() => {
+    setLoading(true);
+    listExplore()
+      .then((r) => {
+        console.table((r as any[]).map(x => ({
+          id: x.id,
+          name: x.name,
+          token_symbol: x.token_symbol,
+          status: x.status,
+          logo_url: x.logo_url,   // 👈 confirm this exists
+        })));
+        setRows(r as Row[]);
+      })
+      .catch((e) => setErr(e?.message ?? String(e)))
+      .finally(() => setLoading(false));
+  }, []);
+  
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
+    const s = debouncedQ.trim().toLowerCase();
     return rows.filter(r => {
       if (status !== 'all' && r.status !== status) return false;
       if (!s) return true;
       return (r.name ?? '').toLowerCase().includes(s)
           || (r.token_symbol ?? '').toLowerCase().includes(s);
     });
-  }, [rows, q, status]);
+  }, [rows, debouncedQ, status]);
 
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
@@ -110,7 +135,9 @@ export default function Explore() {
         <div style={{
           display: 'grid',
           gap: 12,
-          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))'
+          gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+          containIntrinsicSize: '1px 120px' // reserve space for offscreen content
+
         }}>
           {filtered.map((r) => (
             <Link
@@ -121,37 +148,79 @@ export default function Explore() {
                 padding: 12,
                 textDecoration: 'none',
                 color: 'inherit',
-                display: 'grid',
-                gap: 8,
                 background: 'var(--card-bg, var(--fl-surface))',
                 border: '1px solid var(--card-border, var(--border))',
                 borderRadius: 'var(--radius)',
-                boxShadow: 'var(--shadow)'
+                boxShadow: 'var(--shadow)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12
               }}
             >
-              <div style={{ fontWeight: 800, color: 'var(--fl-gold)' }}>
-                {r.name ?? 'Untitled'}{' '}
-                <span style={{ color: 'var(--muted)' }}>
-                  ({r.token_symbol ?? '—'})
-                </span>
-              </div>
+              {/* Logo (mirrors sale-detail behavior) */}
+              {r.logo_url ? (
+  <img
+    src={r.logo_url!}
+    alt=""
+    width={62}
+    height={62}
+    loading="lazy"
+    decoding="async"
+    fetchPriority="low"
+    style={{
+      width: 62,
+      height: 62,
+      borderRadius: 'var(--radius)',
+      objectFit: 'cover',
+      flexShrink: 0
+    }}
+  />
+) : (
+  <img
+    src="https://dengdefense.xyz/taxi.svg"
+    alt=""
+    width={62}
+    height={62}
+    loading="lazy"
+    decoding="async"
+    fetchPriority="low"
+    style={{
+      width: 62,
+      height: 62,
+      borderRadius: 'var(--radius)',
+      objectFit: 'cover',
+      flexShrink: 0
+    }}
+  />
+)}
 
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)' }}>
-                <StatusBadge s={r.status} />
-                <span style={{ color: 'var(--muted)' }}>
-                  {r.start_at
-                    ? new Date(r.start_at).toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })
-                    : 'TBA'}
-                </span>
-              </div>
 
-              <div style={{ color: 'var(--muted)', fontFamily: 'var(--font-data)' }}>
-                Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
+              {/* Text block */}
+              <div style={{ display: 'grid', gap: 4 }}>
+                <div style={{ fontWeight: 800, color: 'var(--fl-gold)' }}>
+                  {r.name ?? 'Untitled'}{' '}
+                  <span style={{ color: 'var(--muted)' }}>
+                    ({r.token_symbol ?? '—'})
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)' }}>
+                  <StatusBadge s={r.status} />
+                  <span style={{ color: 'var(--muted)' }}>
+                    {r.start_at
+                      ? new Date(r.start_at).toLocaleString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })
+                      : 'TBA'}
+                  </span>
+                </div>
+
+                <div style={{ color: 'var(--muted)', fontFamily: 'var(--font-data)' }}>
+                  Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
+                </div>
               </div>
             </Link>
           ))}
@@ -162,7 +231,6 @@ export default function Explore() {
 }
 
 function StatusBadge({ s }: { s: Row['status'] }) {
-  // Theme-driven semantic colors with safe fallbacks
   const styles: Record<string, React.CSSProperties> = {
     active: {
       background: 'var(--badge-success-bg, rgba(46,204,113,.15))',

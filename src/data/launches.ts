@@ -125,16 +125,27 @@ export async function upsertLaunch(
 }
 
 /** Simple explore list (optional helpers, handy for the Explore page) */
+/** Simple explore list (optional helpers, handy for the Explore page) */
 export async function listExplore() {
   const { data, error } = await supabase
     .from('launches')
-    .select('id, name, token_symbol, status, start_at, end_at, soft_cap, hard_cap')
-    .neq('status', 'draft')                 // ⬅️ exclude drafts
+    .select(`
+      id,
+      name,
+      token_symbol,
+      status,
+      start_at,
+      end_at,
+      soft_cap,
+      hard_cap,
+      logo_url
+    `)
+    .neq('status', 'draft')
     .order('start_at', { ascending: false, nullsFirst: false });
+
   if (error) throw error;
   return data ?? [];
 }
-
 
 export async function getLaunch(id: string) {
   const { data, error } = await supabase
