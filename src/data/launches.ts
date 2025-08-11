@@ -139,7 +139,8 @@ export async function listExplore() {
       soft_cap,
       hard_cap,
       logo_url,
-      token_name
+      token_name,
+      pool_address
     `)
     .neq('status', 'draft')
     .order('start_at', { ascending: false, nullsFirst: false });
