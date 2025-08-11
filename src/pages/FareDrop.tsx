@@ -212,6 +212,9 @@ const friendly = (e: any): string => {
   // ---------------------------
   // editing helpers
   // ---------------------------
+  const insufficientBalance =
+  !!selected && totalAmountWei > 0n && totalAmountWei > selected.balance;
+
   function setEntry(i: number, patch: Partial<Entry>) {
     setEntries((prev) => prev.map((row, idx) => (idx === i ? { ...row, ...patch } : row)));
   }
@@ -370,29 +373,23 @@ async function onSubmit(e: React.FormEvent) {
   const canProceedStep2 =
     !!inputMode && filteredValid.length > 0 && !anyInvalidAddr && !anyInvalidAmt && totalAmountWei > 0n;
 
-const buttonLabel = (() => {
-  if (!isConnected) return "Connect wallet to continue";
-  if (!selected) return loadingDetect ? "Detecting tokens…" : "Select a token";
-  if (!inputMode) return "Choose recipient input method";
-
-  // Nothing added yet after choosing a mode
-  if (!hasAnyAddr && !hasAnyAmt) return "Add Recipient Wallets & Amounts";
-
-  // Validation errors first
-  if (anyInvalidAddr) return "Fix invalid addresses";
-  if (anyInvalidAmt)  return "Fix invalid amounts";
-
-  // Pairing guidance
-  if (hasAddrNoAmt)   return `Add an amount of $${selected.symbol} to send`;
-  if (hasAmtNoAddr)   return "Don't forget to add a recipient wallet";
-
-  // If all good but total is zero (edge cases)
-  if (totalAmountWei === 0n) return `Add an amount of $${selected.symbol} to send`;
-
-  return "Send Airdrop";
-})();
-
-
+    const buttonLabel = (() => {
+        if (!isConnected) return "Connect wallet to continue";
+        if (!selected) return loadingDetect ? "Detecting tokens…" : "Select a token";
+        if (!inputMode) return "Choose recipient input method";
+      
+        if (!hasAnyAddr && !hasAnyAmt) return "Add Recipient Wallets & Amounts";
+        if (anyInvalidAddr) return "Fix invalid addresses";
+        if (anyInvalidAmt)  return "Fix invalid amounts";
+        if (hasAddrNoAmt)   return `Add an amount of $${selected.symbol} to send`;
+        if (hasAmtNoAddr)   return "Don't forget to add a recipient wallet";
+      
+        if (totalAmountWei === 0n) return `Add an amount of $${selected.symbol} to send`;
+        if (insufficientBalance)   return `Insufficient ${selected.symbol} balance for airdrop`;
+      
+        return "Send Airdrop";
+      })();
+      
   // ---------------------------
   // UI (theme-matched)
   // ---------------------------
@@ -690,6 +687,7 @@ const buttonLabel = (() => {
             anyInvalidAddr ||
             anyInvalidAmt ||
             totalAmountWei === 0n ||
+            insufficientBalance ||
             erc20Pending
           }
           title={buttonLabel}
@@ -698,7 +696,7 @@ const buttonLabel = (() => {
             padding: 12,
             borderRadius: "var(--radius)",
             border: "none",
-            background: (!isConnected || !selected || !inputMode || anyInvalidAddr || anyInvalidAmt || totalAmountWei === 0n)
+            background: (!isConnected || !selected || !inputMode || anyInvalidAddr || anyInvalidAmt || totalAmountWei === 0n || insufficientBalance)
               ? "#777"
               : "var(--fl-gold)",
             color: "#000",
