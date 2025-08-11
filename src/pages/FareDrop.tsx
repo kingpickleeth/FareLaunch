@@ -120,7 +120,7 @@ export default function FareDrop() {
   
       setLoadingDetect(true);
       try {
-        const res = await fetch(`https://farelaunch.com/api/sim/balances?address=${address}&chain_ids=33139`);
+        const res = await fetch(`/api/sim/balances?address=${address}&chain_ids=33139`);
         const ct = res.headers.get('content-type') || '';
         const rawText = await res.text();
   
