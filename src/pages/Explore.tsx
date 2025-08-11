@@ -27,7 +27,22 @@ function useDebounced<T>(value: T, ms = 150) {
   return v;
 }
 
-// --- New: simple pagination bar
+// Narrow screen helper (<= 675px)
+function useIsNarrow(threshold = 675) {
+  const [narrow, setNarrow] = useState(
+    typeof window !== 'undefined' ? window.innerWidth <= threshold : false
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width:${threshold}px)`);
+    const onChange = () => setNarrow(mq.matches);
+    onChange();
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, [threshold]);
+  return narrow;
+}
+
+// Pagination bar
 function PaginationBar({
   page,
   totalPages,
@@ -108,39 +123,63 @@ const PAGE_SIZE = 10;
 export default function Explore() {
   const [rows, setRows] = useState<Row[]>([]);
   const [q, setQ] = useState('');
-  const [status, setStatus] = useState<StatusFilter>('all');
+  // MULTI-SELECT: keep a Set of selected filters (includes 'all' special)
+  const [selected, setSelected] = useState<Set<StatusFilter>>(new Set(['all']));
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string>('');
   const [page, setPage] = useState(1);
 
   const debouncedQ = useDebounced(q, 150);
+  const isNarrow = useIsNarrow(675);
 
   useEffect(() => {
     setLoading(true);
     listExplore()
-      .then((r) => {
-        // Debug once:
-        // console.table((r as any[]).map(x => ({ id: x.id, name: x.name, status: x.status, logo_url: x.logo_url })));
-        setRows(r as Row[]);
-      })
+      .then((r) => setRows(r as Row[]))
       .catch((e) => setErr(e?.message ?? String(e)))
       .finally(() => setLoading(false));
   }, []);
 
-  // Reset to page 1 when filters/search change
+  // Reset page when search or filters change
   useEffect(() => {
     setPage(1);
-  }, [debouncedQ, status]);
+  }, [debouncedQ, Array.from(selected).sort().join(',')]);
+
+  // Click handler for chips
+  function toggleFilter(opt: StatusFilter) {
+    setSelected((prev) => {
+      // Clicking "all" => only "all" selected
+      if (opt === 'all') return new Set<StatusFilter>(['all']);
+
+      const next = new Set(prev);
+      // If "all" was selected, drop it before toggling others
+      if (next.has('all')) next.delete('all');
+
+      if (next.has(opt)) next.delete(opt);
+      else next.add(opt);
+
+      // If none selected, fall back to "all"
+      if (next.size === 0) return new Set<StatusFilter>(['all']);
+      return next;
+    });
+  }
 
   const filtered = useMemo(() => {
     const s = debouncedQ.trim().toLowerCase();
-    return rows.filter(r => {
-      if (status !== 'all' && r.status !== status) return false;
+
+    return rows.filter((r) => {
+      // Status filter
+      if (!selected.has('all')) {
+        if (!selected.has(r.status as StatusFilter)) return false;
+      }
+      // Search filter
       if (!s) return true;
-      return (r.name ?? '').toLowerCase().includes(s)
-          || (r.token_symbol ?? '').toLowerCase().includes(s);
+      return (
+        (r.name ?? '').toLowerCase().includes(s) ||
+        (r.token_symbol ?? '').toLowerCase().includes(s)
+      );
     });
-  }, [rows, debouncedQ, status]);
+  }, [rows, debouncedQ, selected]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(Math.max(page, 1), totalPages);
@@ -172,23 +211,23 @@ export default function Explore() {
         />
       </div>
 
-      {/* Status filters + top-right pagination */}
+      {/* Status filters + top-right pagination (hidden on narrow) */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {STATUS_FILTERS.map((opt) => {
-            const active = status === opt;
+            const isActive = selected.has(opt);
             return (
               <button
                 key={opt}
-                onClick={() => setStatus(opt)}
+                onClick={() => toggleFilter(opt)}
                 className="buttonfilter"
                 style={{
                   padding: '6px 12px',
                   borderRadius: 999,
-                  background: active
+                  background: isActive
                     ? 'var(--chip-active-bg, var(--fl-purple))'
                     : 'var(--chip-bg, transparent)',
-                  color: active
+                  color: isActive
                     ? 'var(--chip-active-fg, #ffffff)'
                     : 'var(--chip-fg, var(--fl-purple))',
                   border: '1px solid var(--chip-border, var(--fl-purple))',
@@ -198,10 +237,10 @@ export default function Explore() {
                   transition: 'all 0.15s ease',
                 }}
                 onMouseEnter={(e) => {
-                  if (!active) e.currentTarget.style.background = 'var(--chip-hover-bg, rgba(0,0,0,.08))';
+                  if (!isActive) e.currentTarget.style.background = 'var(--chip-hover-bg, rgba(0,0,0,.08))';
                 }}
                 onMouseLeave={(e) => {
-                  if (!active) e.currentTarget.style.background = 'var(--chip-bg, transparent)';
+                  if (!isActive) e.currentTarget.style.background = 'var(--chip-bg, transparent)';
                 }}
               >
                 {opt}
@@ -210,13 +249,15 @@ export default function Explore() {
           })}
         </div>
 
-        {/* Top-right pagination */}
-        <PaginationBar
-          page={safePage}
-          totalPages={totalPages}
-          onPageChange={setPage}
-          align="right"
-        />
+        {/* Top-right pagination (desktop/tablet only) */}
+        {!isNarrow && (
+          <PaginationBar
+            page={safePage}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            align="right"
+          />
+        )}
       </div>
 
       {filtered.length === 0 ? (
@@ -316,7 +357,7 @@ export default function Explore() {
             ))}
           </div>
 
-          {/* Bottom pagination (centered) */}
+          {/* Bottom pagination (always visible) */}
           <PaginationBar
             page={safePage}
             totalPages={totalPages}

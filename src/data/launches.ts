@@ -138,7 +138,8 @@ export async function listExplore() {
       end_at,
       soft_cap,
       hard_cap,
-      logo_url
+      logo_url,
+      token_name
     `)
     .neq('status', 'draft')
     .order('start_at', { ascending: false, nullsFirst: false });
