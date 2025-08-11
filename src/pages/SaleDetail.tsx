@@ -1,5 +1,5 @@
 // src/pages/SaleDetail.tsx
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getLaunch } from '../data/launches';
 import { salePhase, countdown } from '../utils/time';
@@ -181,7 +181,7 @@ useEffect(() => {
   }, [publicClient, row?.chain_tx_hash, row?.pool_address, row?.id]);  
 
   // ticker (re-render every second)
-  const [tick, setTick] = useState(0);
+  const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((x) => x + 1), 1000);
     return () => clearInterval(t);
@@ -197,26 +197,6 @@ useEffect(() => {
       .finally(() => setLoading(false));
   }, [id]);
 
-  // Update Supabase status when computed phase differs from DB row.status
-  const lastPhaseSentRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!row?.id) return;
-
-    const newPhase = salePhase(Date.now(), row.start_at, row.end_at); // 'upcoming' | 'active' | 'ended' | 'tba'
-    if (!newPhase || newPhase === 'tba') return;
-    if (newPhase === row.status) return;
-    if (newPhase === lastPhaseSentRef.current) return;
-
-    let cancelled = false;
-    (async () => {
-      await supabase.from('launches').update({ status: newPhase }).eq('id', row.id);
-      lastPhaseSentRef.current = newPhase;
-      if (!cancelled) setRow(prev => (prev ? { ...prev, status: newPhase } : prev));
-    })();
-
-    return () => { cancelled = true; };
-  }, [row?.id, row?.start_at, row?.end_at, row?.status, tick]);
-
   // ---- Early returns ----
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
@@ -231,6 +211,10 @@ useEffect(() => {
     phase === 'upcoming' ? countdown(row.start_at)
     : phase === 'active' ? countdown(row.end_at)
     : null;
+// Use DB status as source of truth for the badge, fallback to computed phase
+const statusToShow =
+  (row.status as string | undefined) ??
+  (phase && phase !== 'tba' ? phase : 'created');
 
   // quote + formatting
   const quote: string = row.quote ?? 'WAPE';
@@ -288,15 +272,15 @@ useEffect(() => {
 
   // Themed status badge
  // Replace your badgeStyle block with this:
-const badgeStyle: React.CSSProperties = (() => {
-  switch (phase) {
+ const badgeStyle: React.CSSProperties = (() => {
+  switch (statusToShow) {
     case 'active':
       return { background: 'var(--badge-success-bg)', color: 'var(--success)' };
     case 'upcoming':
       return { background: 'var(--badge-info-bg)', color: 'var(--info)' };
     case 'ended':
       return { background: 'var(--badge-muted-bg)', color: 'var(--muted)' };
-    // 'tba' and anything else
+    case 'created':
     default:
       return { background: 'var(--badge-warning-bg)', color: 'var(--warning)' };
   }
@@ -331,10 +315,9 @@ const badgeStyle: React.CSSProperties = (() => {
       {/* Status + countdown + progress */}
       <div className="card" style={{ padding: 12, display: 'grid', gap: 10 }}>
         <div className="meta-line">
-          <span className="badge" style={{ ...badgeStyle, padding: '2px 8px', borderRadius: 999, textTransform: 'capitalize' }}>
-            {phase}
-          </span>
-
+        <span className="badge" style={{ ...badgeStyle, padding: '2px 8px', borderRadius: 999, textTransform: 'capitalize' }}>
+  {statusToShow}
+</span>
           <span className="meta-text">
             Presale Window:{' '}
             <b>
