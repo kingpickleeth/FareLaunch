@@ -95,9 +95,6 @@ export default function FareDrop() {
   const shortAddr = (addr: `0x${string}`) =>
     addr.slice(0, 8) + "…" + addr.slice(-6);
 
-  const pretty = (n: bigint, decimals: number) => {
-    try { return formatUnits(n, decimals); } catch { return "0"; }
-  };
   const toCleanNumberText = (s: string) => s.replace(/,/g, "").trim();
   const withCommas = (s: string) => {
     const [whole, frac] = s.split(".");
@@ -674,7 +671,10 @@ const buttonLabel = (() => {
         }}
       >
         <div>Total: <b>{withCommas(String(totalAmountHuman))} {selected.symbol}</b></div>
-        <div style={{ opacity: .8 }}>Your balance: <b>{pretty(selected.balance, selected.decimals)} {selected.symbol}</b></div>
+        <div style={{ opacity: .8 }}>
+  Your balance: <b>{prettyWhole(selected.balance, selected.decimals)} {selected.symbol}</b>
+</div>
+
       </div>
     )}
   </div>
