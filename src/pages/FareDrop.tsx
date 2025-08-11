@@ -34,7 +34,6 @@ export default function FareDrop() {
   const { writeContractAsync, isPending: erc20Pending } = useWriteContract();
   const { sendTransactionAsync } = useSendTransaction();
   const tokenKey = (t: TokenMeta) => `${t.mode}:${t.address}`;
-  const shortAddr = (a: string) => a.length > 12 ? `${a.slice(0,6)}…${a.slice(-4)}` : a;
   const ModeButton = ({
     active, onClick, children,
   }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
@@ -81,7 +80,6 @@ export default function FareDrop() {
     const w = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     return frac ? `${w}.${frac}` : w;
   };
-  const placeholderAmt = `Amount${selected?.symbol ? ` of $${selected.symbol}` : ""}`;
 
   // live validation
   const validatedEntries = useMemo(
@@ -122,7 +120,7 @@ export default function FareDrop() {
   
       setLoadingDetect(true);
       try {
-        const res = await fetch(`/api/sim/balances?address=${address}&chain_ids=33139`);
+        const res = await fetch(`https://farelaunch.com/api/sim/balances?address=${address}&chain_ids=33139`);
         const ct = res.headers.get('content-type') || '';
         const rawText = await res.text();
   
@@ -291,7 +289,6 @@ export default function FareDrop() {
   // ---------------------------
   // CTA label / disabled
   // ---------------------------
-  const canProceedStep1 = !!selected;
   const canProceedStep2 =
     !!inputMode && filteredValid.length > 0 && !anyInvalidAddr && !anyInvalidAmt && totalAmountWei > 0n;
 
