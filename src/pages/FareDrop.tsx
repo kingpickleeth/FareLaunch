@@ -446,12 +446,12 @@ async function onSubmit(e: React.FormEvent) {
     }}
   >
     <div style={{ fontWeight: 800, color: "var(--text)" }}>
-      {selected.symbol} {selected.name ? <span style={{ opacity: .75 }}>· {selected.name}</span> : null}
+     ${selected.symbol} {selected.name ? <span style={{ opacity: .75 }}>· {selected.name}</span> : null}
     </div>
 
     {/* Balance: no decimals */}
     <div style={{ fontSize: 12, opacity: .9 }}>
-      Balance: <b>{prettyWhole(selected.balance, selected.decimals)}</b> · Decimals: <b>{selected.decimals}</b>
+      Balance: <b>{prettyWhole(selected.balance, selected.decimals)}</b> 
     </div>
 
     {/* Address: only for ERC-20; short + link to ApeScan */}
