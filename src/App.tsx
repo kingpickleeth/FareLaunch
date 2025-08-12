@@ -42,10 +42,7 @@ function useTheme() {
   }, []);
 
   return { theme, setTheme, toggle: () => setTheme(t => (t === 'dark' ? 'light' : 'dark')) };
-}
-
-function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
-  // Simple bulb icon that “lights up” in light mode
+}function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
   const isLight = theme === 'light';
   return (
     <button
@@ -53,47 +50,87 @@ function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }
       aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
       title={`Switch to ${isLight ? 'dark' : 'light'} mode`}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        border: '1px solid var(--border)',
-        background: 'var(--btn-bg)',
-        color: 'var(--text)',
+        appearance: 'none',
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
         cursor: 'pointer',
-        transition: 'transform .12s ease',
       }}
-      onMouseDown={e => (e.currentTarget.style.transform = 'scale(0.97)')}
-      onMouseUp={e => (e.currentTarget.style.transform = 'scale(1)')}
     >
-      <svg width="22" height="22" viewBox="0 0 24 24" role="img" aria-hidden="true">
-        {/* Bulb */}
-        <path
-          d="M9 18h6v1a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2v-1Z"
-          fill="currentColor"
-          opacity=".85"
+      {/* Track */}
+      <div
+        style={{
+          position: 'relative',
+          width: 64,
+          height: 34,
+          borderRadius: 20,
+          border: '1px solid var(--border)',
+          background: isLight
+            ? 'linear-gradient(180deg, var(--fl-surface) 0%, rgba(0,0,0,0.15) 100%)'
+            : 'linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(0,0,0,0.3) 100%)',
+          boxShadow: isLight
+            ? 'inset 0 1px 3px rgba(0,0,0,.25)'
+            : '0 0 4px rgba(255,255,255,0.15), inset 0 1px 3px rgba(0,0,0,.6)',
+          transition: 'background .2s ease, box-shadow .2s ease',
+        }}
+      >
+        {/* Moon icon */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 8,
+            top: 7,
+            color: 'var(--fl-gold)', // GOLD
+            transition: 'opacity .2s ease',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79Z" />
+          </svg>
+        </div>
+
+        {/* Sun icon */}
+        <div
+          style={{
+            position: 'absolute',
+            right: 8,
+            top: 7,
+            color: 'var(--fl-gold)', // GOLD
+            transition: 'opacity .2s ease',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" />
+            <path
+              d="M12 1v3M12 20v3M4.22 4.22 6.34 6.34M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78 6.34 17.66M17.66 6.34l2.12-2.12"
+              stroke="currentColor"
+              strokeWidth="2"
+              fill="none"
+            />
+          </svg>
+        </div>
+
+        {/* Thumb */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 3,
+            left: isLight ? 34 : 3,
+            width: 28,
+            height: 28,
+            borderRadius: 16,
+            background: isLight ? 'var(--fl-gold)' : '#fff',
+            boxShadow: isLight
+              ? '0 2px 6px rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.15)'
+              : '0 2px 6px rgba(0,0,0,.8), 0 0 6px rgba(255,255,255,0.6), inset 0 0 0 1px rgba(255,255,255,0.3)',
+            transition: 'left .18s ease, background .18s ease, box-shadow .18s ease',
+          }}
         />
-        <path
-          d="M12 3a7 7 0 0 0-4.95 11.95c.44.44.95 1.36.95 2.05h8c0-.69.51-1.61.95-2.05A7 7 0 0 0 12 3Z"
-          fill="currentColor"
-          opacity={isLight ? '1' : '.6'}
-        />
-        {/* Little “glow” lines only in light mode */}
-        {isLight && (
-          <>
-            <path d="M12 0v2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M21 12h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M1 12H3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M18.364 5.636 19.778 4.22" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            <path d="M4.222 19.778 5.636 18.364" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </>
-        )}
-      </svg>
+      </div>
     </button>
   );
 }
+
 
 const PUBLIC_ROUTES = new Set<string>(['/']);
 
@@ -362,9 +399,6 @@ backdropFilter:'blur(8px)', zIndex:2000}}>
   }}
 >Dashboard</NavLink>
 
-  {/* THEME TOGGLE */}
-  <ThemeToggle theme={theme} onToggle={toggle} />
-
 
       <div style={{ marginLeft: 8 }}>
         <ProfileButton onConnect={openConnectModal} />
@@ -373,7 +407,6 @@ backdropFilter:'blur(8px)', zIndex:2000}}>
   ) : (
     // ===== MOBILE: show hamburger =====
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <ThemeToggle theme={theme} onToggle={toggle} />
       <button
         aria-label="Toggle menu"
         aria-expanded={menuOpen}
@@ -566,10 +599,37 @@ backdropFilter:'blur(8px)', zIndex:2000}}>
   <Outlet />
 </main>
 
+<footer style={{ padding: '24px', color: 'var(--muted)', fontSize: 12 }}>
+  <div
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 12,
+      flexWrap: 'nowrap',       // 👈 don’t wrap
+      width: '100%',
+      minWidth: 0,              // enable flex text truncation
+    }}
+  >
+    <div
+      style={{
+        flex: '1 1 auto',
+        minWidth: 0,            // 👈 required for ellipsis
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        opacity: 0.9,
+      }}
+    >
+      © {new Date().getFullYear()} Farelaunch — Launch right. Launch fair.
+    </div>
 
-      <footer style={{ padding: '24px', color: 'var(--muted)', fontSize: 12 }}>
-        © {new Date().getFullYear()} Farelaunch — Launch right. Launch fair.
-      </footer>
+    {/* Right side toggle; never drops below on mobile */}
+    <div style={{ flex: '0 0 auto' }}>
+      <ThemeToggle theme={theme} onToggle={toggle} />
+    </div>
+  </div>
+</footer>
+
     </div>
   );
 }
