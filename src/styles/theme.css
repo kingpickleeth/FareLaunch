@@ -898,3 +898,15 @@ input[type="range"]::-moz-range-thumb {
 @media (prefers-reduced-motion: reduce) {
   .nav-indicator { transition: none; }
 }
+/* global.css */
+html { -webkit-text-size-adjust: 100%; }
+
+/* iOS-only selector; harmless elsewhere */
+@supports (-webkit-touch-callout: none) {
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 16px; /* prevents zoom on focus */
+  }
+}
