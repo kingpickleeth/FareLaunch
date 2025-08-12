@@ -42,87 +42,91 @@ function useTheme() {
   }, []);
 
   return { theme, setTheme, toggle: () => setTheme(t => (t === 'dark' ? 'light' : 'dark')) };
-}function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
+}
+function ThemeToggle({ theme, onToggle }: { theme: Theme; onToggle: () => void }) {
   const isLight = theme === 'light';
+
+  // geometry (keep even numbers to avoid subpixel blur)
+  const TRACK_W = 60;
+  const TRACK_H = 32;
+  const PAD = 2;          // inner padding (left/right/top/bottom)
+  const THUMB = TRACK_H - PAD * 2; // 28
+
   return (
     <button
       onClick={onToggle}
       aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
       title={`Switch to ${isLight ? 'dark' : 'light'} mode`}
-      style={{
-        appearance: 'none',
-        border: 'none',
-        background: 'transparent',
-        padding: 0,
-        cursor: 'pointer',
-      }}
+      style={{ appearance: 'none', border: 0, background: 'transparent', padding: 0, cursor: 'pointer' }}
     >
       {/* Track */}
       <div
         style={{
           position: 'relative',
-          width: 64,
-          height: 34,
-          borderRadius: 20,
+          width: TRACK_W,
+          height: TRACK_H,
+          borderRadius: TRACK_H / 2,
           border: '1px solid var(--border)',
           background: isLight
-            ? 'linear-gradient(180deg, var(--fl-surface) 0%, rgba(0,0,0,0.15) 100%)'
-            : 'linear-gradient(180deg, rgba(255,255,255,0.12) 0%, rgba(0,0,0,0.3) 100%)',
+            ? 'linear-gradient(180deg, var(--fl-surface) 0%, rgba(0,0,0,0.1) 100%)'
+            : 'linear-gradient(180deg, rgba(255,255,255,0.14) 0%, rgba(0,0,0,0.3) 100%)',
           boxShadow: isLight
             ? 'inset 0 1px 3px rgba(0,0,0,.25)'
-            : '0 0 4px rgba(255,255,255,0.15), inset 0 1px 3px rgba(0,0,0,.6)',
+            : '0 0 6px rgba(255,255,255,0.22), inset 0 1px 3px rgba(0,0,0,.7)',
           transition: 'background .2s ease, box-shadow .2s ease',
         }}
       >
-        {/* Moon icon */}
+        {/* Moon (left) */}
         <div
           style={{
             position: 'absolute',
-            left: 8,
-            top: 7,
-            color: 'var(--fl-gold)', // GOLD
-            transition: 'opacity .2s ease',
+            left: PAD + 6, // 8px from edge
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: 'var(--fl-gold)',
+            lineHeight: 0,
+            pointerEvents: 'none',
+            userSelect: 'none',
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 1 0 9.79 9.79Z" />
           </svg>
         </div>
 
-        {/* Sun icon */}
+        {/* Sun (right) */}
         <div
           style={{
             position: 'absolute',
-            right: 8,
-            top: 7,
-            color: 'var(--fl-gold)', // GOLD
-            transition: 'opacity .2s ease',
+            right: PAD + 6, // 8px from edge
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: 'var(--fl-gold)',
+            lineHeight: 0,
+            pointerEvents: 'none',
+            userSelect: 'none',
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
             <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" />
-            <path
-              d="M12 1v3M12 20v3M4.22 4.22 6.34 6.34M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78 6.34 17.66M17.66 6.34l2.12-2.12"
-              stroke="currentColor"
-              strokeWidth="2"
-              fill="none"
-            />
+            <path d="M12 1v3M12 20v3M4.22 4.22 6.34 6.34M17.66 17.66l2.12 2.12M1 12h3M20 12h3M4.22 19.78 6.34 17.66M17.66 6.34l2.12-2.12" stroke="currentColor" strokeWidth="2" fill="none"/>
           </svg>
         </div>
 
-        {/* Thumb */}
+        {/* Thumb (perfectly centered) */}
         <div
           style={{
             position: 'absolute',
-            top: 3,
-            left: isLight ? 34 : 3,
-            width: 28,
-            height: 28,
-            borderRadius: 16,
+            top: '50%',
+            left: isLight ? `calc(100% - ${PAD}px - ${THUMB}px)` : `${PAD}px`,
+            width: THUMB,
+            height: THUMB,
+            transform: 'translateY(-50%)',
+            borderRadius: THUMB / 2,
             background: isLight ? 'var(--fl-gold)' : '#fff',
             boxShadow: isLight
               ? '0 2px 6px rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.15)'
-              : '0 2px 6px rgba(0,0,0,.8), 0 0 6px rgba(255,255,255,0.6), inset 0 0 0 1px rgba(255,255,255,0.3)',
+              : '0 2px 6px rgba(0,0,0,.85), 0 0 8px var(--fl-gold), inset 0 0 0 1px rgba(255,255,255,0.3)',
             transition: 'left .18s ease, background .18s ease, box-shadow .18s ease',
           }}
         />
