@@ -31,19 +31,22 @@ function IconWrap({
   label: string;
 }) {
 // In SaleDetail.tsx – replace IconWrap's `common` style:
+// in IconWrap's common styles
 const common: React.CSSProperties = {
-  width: 36,                 // was 28
-  height: 36,                // was 28
+  width: 36,
+  height: 36,
   display: 'inline-grid',
   placeItems: 'center',
-  borderRadius: 10,          // a bit rounder
+  borderRadius: 10,
   border: '1px solid var(--card-border)',
-  background: 'var(--fl-surface)',
-  boxShadow: '0 4px 10px rgba(0,0,0,.15)',   // adds separation in light/dark
-  opacity: disabled ? 0.35 : 1,              // stronger grey-out, full when enabled
+  background: 'var(--fl-purple)',   // better contrast on light theme too
+  boxShadow: '0 4px 10px rgba(0,0,0,.18)',
+  color: '#FFFFFF',
+  opacity: disabled ? 0.55 : 1,     // clearer disabled vs enabled
   cursor: disabled ? 'not-allowed' : 'pointer',
   transition: 'transform .12s ease, box-shadow .12s ease',
 };
+
   if (disabled || !href) {
     return (
       <span title={label} aria-label={label} style={common}>
@@ -455,43 +458,58 @@ const twitterHref = normalizeTwitter(row.twitter);
           ) : (
             <div className="sale-logo placeholder" />
           )}
+<div className="sale-title" style={{ flex: 1, minWidth: 0 }}>
+  {/* Name + symbol */}
+  <div
+    className="h1"
+    style={{
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      flexWrap: 'wrap',          // allow wrapping on small screens
+      minWidth: 0,
+    }}
+  >
+    <span
+      style={{
+        flex: '0 1 auto',
+        whiteSpace: 'nowrap',     // keep name on one line
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: '100%',
+      }}
+    >
+      {row.token_name ?? 'Untitled'}
+    </span>
+    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>
+      ({row.token_symbol ?? '—'})
+    </span>
 
-          <div className="sale-title" style={{ flex: 1, minWidth: 0 }}>
-            {/* Name + symbol + icons */}
-            <div className="h1 break-anywhere" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ flex: '0 1 auto' }}>{row.token_name ?? 'Untitled'}</span>
-              <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>
-                ({row.token_symbol ?? '—'})
-              </span>
-              <span style={{ flex: 1 }} />
-              {/* Icons to the right of the symbol */}
-              <div style={{ display: 'flex', gap: 8 }}>
-                <IconWrap href={websiteHref} label="Website" disabled={!websiteHref}>
-                  <GlobeIcon />
-                </IconWrap>
-                <IconWrap href={twitterHref} label="Twitter / X" disabled={!twitterHref}>
-                  <TwitterIcon />
-                </IconWrap>
-                {/* Telegram: greyed out for now */}
-                <IconWrap label="Telegram (soon)" disabled>
-                  <TelegramIcon />
-                </IconWrap>
-              </div>
-            </div>
+    {/* push icons right when space allows; otherwise they wrap under */}
+    <span style={{ marginLeft: 'auto' }} />
 
-            {/* Creator line */}
-            <div className="sale-creator" style={{ marginTop: 2 }}>
-              by <span className="break-anywhere">{row.creator_wallet ?? '—'}</span>
-            </div>
+    {/* Icons */}
+    <div style={{ display: 'flex', gap: 10, color: 'var(--fl-gold)' }}>
+      <IconWrap href={websiteHref} label="Website" disabled={!websiteHref}>
+        <GlobeIcon />
+      </IconWrap>
+      <IconWrap href={twitterHref} label="Twitter / X" disabled={!twitterHref}>
+        <TwitterIcon />
+      </IconWrap>
+      <IconWrap label="Telegram (soon)" disabled>
+        <TelegramIcon />
+      </IconWrap>
+    </div>
+  </div>
 
-            {/* Description directly under the token name */}
-            <div
-              className="break-anywhere"
-              style={{ marginTop: 8, opacity: 0.9, lineHeight: 1.4, wordBreak: 'break-word' }}
-            >
-              {row.description || '—'}
-            </div>
-          </div>
+  {/* Description under title */}
+  <div
+    className="break-anywhere"
+    style={{ marginTop: 8, opacity: 0.9, lineHeight: 1.4, wordBreak: 'break-word' }}
+  >
+    {row.description || '—'}
+  </div>
+</div>
         </div>
       </div>
 
@@ -529,42 +547,49 @@ const twitterHref = normalizeTwitter(row.twitter);
           </div>
         )}
 
-        <div className="meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
-          <div>
-            Soft Cap: <b>{softStr}</b>
-          </div>
-          <div>
-            Hard Cap: <b>{hardStr}</b>
-          </div>
-          <div>
-            Raised: <b>{raisedStr}</b>
-          </div>
-          <div>
-            Quote: <b>{quote}</b>
-          </div>
-        </div>
+<div className="meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
+  <div>Soft Cap: <b>{softStr}</b></div>
+  <div>Hard Cap: <b>{hardStr}</b></div>
+  <div>Raised:   <b>{raisedStr}</b></div>
+</div>
 
-        {typeof chain.userContrib === 'bigint' && isConnected && (
-          <div className="meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
-            <div>
-              Your Contribution:{' '}
-              <b>
-                {Number(formatUnits(chain.userContrib, QUOTE_DECIMALS)).toLocaleString()} {quote}
-              </b>
-            </div>
-          </div>
-        )}
+{typeof chain.userContrib === 'bigint' && isConnected && (
+  <div className="meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
+    <div>
+      Your Contribution:{' '}
+      <b>{Number(formatUnits(chain.userContrib, QUOTE_DECIMALS)).toLocaleString()} WAPE</b>
+    </div>
+  </div>
+)}
 
-        <div>
-          Presale Address:{' '}
-          <b>
-            <code className="break-anywhere">{row.pool_address || '—'}</code>
-          </b>
-        </div>
+{/* Progress bar now comes here */}
+<div className="progress-outer">
+  <div className="progress-inner" style={{ width: `${pct}%` }} />
+</div>
 
-        <div className="progress-outer">
-          <div className="progress-inner" style={{ width: `${pct}%` }} />
-        </div>
+{/* Creator now lives here */}
+<div  style={{ marginTop: 4 }}>
+  Creator Address: <b><a className="break-anywhere"><code>{row.creator_wallet ?? '—'}</code></a></b>
+</div>
+
+{/* Presale Address (linked) */}
+<div style={{ marginTop: 2 }}>
+  Presale Address:{' '}
+  {row.pool_address ? (
+    <b>
+      <a
+        className="break-anywhere"
+        href={`https://apescan.io/address/${row.pool_address}`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        <code>{row.pool_address}</code>
+      </a>
+    </b>
+  ) : (
+    <b><code>—</code></b>
+  )}
+</div>
       </div>
 
       {/* Tokenomics / LP (on-chain) */}
