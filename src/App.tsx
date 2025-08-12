@@ -123,7 +123,20 @@ export default function App() {
   const isPublic = PUBLIC_ROUTES.has(pathname);
   const { openConnectModal } = useConnectModal();
   const { theme, toggle } = useTheme();
+  const closeTimer = useRef<number | null>(null);
 
+  const openMenu = () => {
+    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
+    setToolsOpen(true);
+  };
+  const scheduleClose = () => {
+    if (closeTimer.current) window.clearTimeout(closeTimer.current);
+    closeTimer.current = window.setTimeout(() => setToolsOpen(false), 150);
+  };
+  const cancelClose = () => {
+    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null; }
+  };
+  
   // dropdown state
   const [toolsOpen, setToolsOpen] = useState(false);
   const toolsWrapRef = useRef<HTMLDivElement | null>(null);
@@ -134,7 +147,24 @@ const [isMobile, setIsMobile] = useState<boolean>(() =>
 const [menuOpen, setMenuOpen] = useState(false);
 const [toolsMobileOpen, setToolsMobileOpen] = useState(false);
 const navRef = useRef<HTMLDivElement | null>(null);
+const mainRef = useRef<HTMLElement | null>(null);   // ✅ add this
 const [navH, setNavH] = useState(0);
+useEffect(() => {
+  const navEl = navRef.current;
+  const scroller = mainRef.current || document.documentElement; // fallback
+
+  if (!navEl || !scroller) return;
+
+  const onScroll = () => {
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    const t = max > 0 ? (scroller.scrollTop / max) : 0;
+    navEl.style.setProperty('--p', `${Math.round(t * 100)}%`);
+  };
+
+  onScroll();
+  scroller.addEventListener('scroll', onScroll, { passive: true });
+  return () => scroller.removeEventListener('scroll', onScroll);
+}, []);
 
 useEffect(() => {
   const measure = () => {
@@ -194,15 +224,17 @@ useEffect(() => {
   
 <nav ref={navRef}
 style={{
+  position: 'relative', 
 display:'flex', justifyContent:'space-between', alignItems:'center',
 padding:'16px 24px', background:'var(--nav-bg)',
-backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}}>
+backdropFilter:'blur(8px)', zIndex:2000}}>
  {/* Brand */}
 {/* Brand */}
 <Link
   to="/"
   aria-label="Go to homepage"
   style={{
+    position: 'relative',
     display: 'flex',
     gap: 12,
     alignItems: 'center',
@@ -223,17 +255,17 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
     }}
   />
 
-  <div
-    style={{
-      fontFamily: 'var(--font-head)',
-      fontWeight: 800,
-      color: 'var(--fl-gold)',
-      fontSize: isMobile ? 30 : 30,
-      lineHeight: 1,
-    }}
-  >
-    FareLaunch
-  </div>
+<div
+  className="brand-glow"
+  style={{
+    fontFamily: 'var(--font-head)',
+    fontWeight: 800,
+    fontSize: isMobile ? 30 : 30,
+    lineHeight: 1,
+  }}
+>
+  FareLaunch
+</div>
 
   <span className="navsubtitle" style={{ fontSize: 12, color: 'var(--muted)', opacity: .9 }}>
     {' '}on ApeChain // Camelot
@@ -245,92 +277,90 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
   {!isMobile ? (
     // ===== DESKTOP: your original block unchanged =====
     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-      <NavLink to="/" style={({ isActive }) => (isActive ? linkActive : linkIdle)}>Explore</NavLink>
+     <NavLink
+  to="/"
+  className={({ isActive }) => `navbtn ${isActive ? 'is-active' : ''}`}
+  onMouseDown={(e) => {
+    const t = e.currentTarget as HTMLElement;
+    const r = t.getBoundingClientRect();
+    t.style.setProperty('--rx', `${e.clientX - r.left}px`);
+    t.style.setProperty('--ry', `${e.clientY - r.top}px`);
+    t.classList.add('do-ripple');
+    // clear the ripple class after the anim
+    setTimeout(() => t.classList.remove('do-ripple'), 420);
+  }}
+>
+  Explore
+</NavLink>
+
 
       {/* Tools link + hover dropdown (no button) */}
       <div
-        ref={toolsWrapRef}
-        style={{ position: 'relative' }}
-        onMouseEnter={() => setToolsOpen(true)}
-        onMouseLeave={() => setToolsOpen(false)}
-      >
-        <NavLink
-          to="/tools"
-          style={({ isActive }) => (isActive ? linkActive : linkIdle)}
-        >
-          Tools ▾
-        </NavLink>
-
-        {toolsOpen && (
-  <div
-    style={{
-      position: 'absolute',
-      top: 'calc(100% + 6px)',
-      left: 0,
-      background: 'var(--menu-panel-bg, var(--fl-surface))',
-      border: '1px solid var(--panel-border, var(--fl-border, rgba(255,255,255,.08)))',
-      borderRadius: 12,
-      minWidth: 180,
-      padding: 6,
-      display: 'grid',
-      gap: 4,
-      boxShadow: 'var(--shadow)',
-      zIndex: 100
-    }}
-  >
-        {/* ✅ NEW: Fair Launch Simulator */}
-        <NavLink
-      to="/simulator"
-      style={({ isActive }) => ({
-        ...linkIdle,
-        display: 'block',
-        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
-      })}
-    >
-     Launch Simulator
-    </NavLink>
-    <NavLink
-      to="/launch"
-      style={({ isActive }) => ({
-        ...linkIdle,
-        display: 'block',
-        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
-      })}
-    >
-      Create FareLaunch
-    </NavLink>
-    <NavLink
-  to="/launch-erc20"
-  style={({ isActive }) => ({
-    ...linkIdle,
-    display: 'block',
-    background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
-  })}
+  ref={toolsWrapRef}
+  style={{ position: 'relative' }}
+  onMouseEnter={openMenu}
+  onMouseLeave={scheduleClose}
+  onKeyDown={(e) => { if (e.key === 'Escape') setToolsOpen(false); }}
+  className="tools-wrap"
 >
-  Create ERC20
-</NavLink>
+  <NavLink
+    to="/tools"
+    className={({ isActive }) => `navbtn ${isActive ? 'is-active' : ''}`}
+    onMouseDown={(e) => {
+      const t = e.currentTarget as HTMLElement;
+      const r = t.getBoundingClientRect();
+      t.style.setProperty('--rx', `${e.clientX - r.left}px`);
+      t.style.setProperty('--ry', `${e.clientY - r.top}px`);
+      t.classList.add('do-ripple');
+      setTimeout(() => t.classList.remove('do-ripple'), 420);
+    }}
+    
+    aria-haspopup="true"
+    aria-expanded={toolsOpen}
+  >
+    Tools ▾
+  </NavLink>
+{/* Always render; toggle visibility via class */}
+<div
+    className={`menu-card ${toolsOpen ? 'show' : ''}`}
+    role="menu"
+    aria-hidden={!toolsOpen}
+    onMouseEnter={cancelClose}   // keep open when entering popover
+    onMouseLeave={scheduleClose} // close only after leaving popover
+  >
+  <NavLink to="/simulator" className="menu-item" role="menuitem">
+    Launch Simulator
+  </NavLink>
 
+  <NavLink to="/launch" className="menu-item" role="menuitem">
+    Create FareLaunch
+  </NavLink>
 
-    <NavLink
-      to="/locker"
-      style={({ isActive }) => ({
-        ...linkIdle,
-        display: 'block',
-        background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent'
-      })}
-    >
-      Liquidity Locker
-    </NavLink>
-    <NavLink to="/faredrop" style={({ isActive }) => ({ ...linkIdle, display: 'block', background: isActive ? 'var(--item-active-bg, rgba(0,0,0,.08))' : 'transparent' })}>
-  FareDrop
-</NavLink>
+  <NavLink to="/launch-erc20" className="menu-item" role="menuitem">
+    Create ERC20
+  </NavLink>
 
-  </div>
-)}
+  <NavLink to="/locker" className="menu-item" role="menuitem">
+    Liquidity Locker
+  </NavLink>
+
+  <NavLink to="/faredrop" className="menu-item" role="menuitem">
+    FareDrop
+  </NavLink>
+</div>
 
       </div>
 
-      <NavLink to="/me" style={({ isActive }) => (isActive ? linkActive : linkIdle)}>Dashboard</NavLink>
+      <NavLink to="/me" className={({ isActive }) => `navbtn ${isActive ? 'is-active' : ''}`}  onMouseDown={(e) => {
+    const t = e.currentTarget as HTMLElement;
+    const r = t.getBoundingClientRect();
+    t.style.setProperty('--rx', `${e.clientX - r.left}px`);
+    t.style.setProperty('--ry', `${e.clientY - r.top}px`);
+    t.classList.add('do-ripple');
+    // clear the ripple class after the anim
+    setTimeout(() => t.classList.remove('do-ripple'), 420);
+  }}
+>Dashboard</NavLink>
 
   {/* THEME TOGGLE */}
   <ThemeToggle theme={theme} onToggle={toggle} />
@@ -363,6 +393,7 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
       </button>
     </div>
   )}
+   <div className="nav-underline" />
 </nav>
 {isMobile && menuOpen && (
   <div
@@ -518,9 +549,23 @@ backdropFilter:'blur(8px)',borderBottom:'1px solid var(--fl-gold)', zIndex:2000}
     </div>
   </div>
 )}
-   <main style={{ padding:'24px', flex:'1 1 auto', minHeight:0, overflowY:'auto',
-   width:'100%', maxWidth:1200, margin:'0 auto' }}><Outlet />
-      </main>
+<main
+  ref={mainRef}
+  /* ✅ attach */
+  style={{
+    padding:'24px',
+    flex:'1 1 auto',
+    minHeight:0,
+    overflowY:'auto',
+    width:'100%',
+    maxWidth:1200,
+    margin:'0 auto'
+  }}
+>
+
+  <Outlet />
+</main>
+
 
       <footer style={{ padding: '24px', color: 'var(--muted)', fontSize: 12 }}>
         © {new Date().getFullYear()} Farelaunch — Launch right. Launch fair.

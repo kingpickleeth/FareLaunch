@@ -657,3 +657,244 @@ input[type="range"]::-moz-range-thumb {
     padding-right: 12px !important;
   }
 }
+/* Brand glow -------------------------------------------------------------- */
+/* Brand glow (softer) ----------------------------------------------------- */
+.brand-glow {
+  color: var(--fl-gold);
+  text-shadow:
+    0 0 4px rgba(255, 184, 46, 0.35),
+    0 0 10px rgba(255, 184, 46, 0.25),
+    0 0 16px rgba(255, 184, 46, 0.15);
+  transition: text-shadow 0.25s ease, transform 0.25s ease;
+}
+
+.brand-glow:hover,
+.brand-glow:focus-visible {
+  text-shadow:
+    0 0 5px rgba(255, 184, 46, 0.45),
+    0 0 12px rgba(255, 184, 46, 0.35),
+    0 0 18px rgba(255, 184, 46, 0.2);
+  transform: translateY(-1px);
+}
+/* Nav underline that reacts to scroll ------------------------------------ */
+.nav-underline {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    rgba(255,184,46,0.10) 0%,
+    rgba(255,184,46,0.45) 8%,
+    rgba(255,184,46,0.85) 20%,
+    rgba(255,184,46,0.55) 32%,
+    rgba(255,184,46,0.10) 50%,
+    rgba(255,184,46,0.55) 68%,
+    rgba(255,184,46,0.85) 80%,
+    rgba(255,184,46,0.45) 92%,
+    rgba(255,184,46,0.10) 100%);
+  background-size: 200% 100%;
+  background-position: var(--p, 0%) 50%;
+  filter: drop-shadow(0 0 6px rgba(255,184,46,0.25));
+  transition: opacity .2s ease;
+  opacity: .95;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-underline { background-position: 50% 50% !important; }
+}
+/* === Premium nav buttons ============================================== */
+.navbtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--text);
+  background: transparent;
+  transition:
+    transform .16s cubic-bezier(.2,.8,.2,1),
+    background .18s ease,
+    box-shadow .18s ease,
+    color .18s ease;
+  outline: none;
+}
+
+/* gentle hover surface */
+.navbtn:hover {
+  background: color-mix(in srgb, var(--fl-gold) 24%, transparent);
+  box-shadow: 0 6px 22px rgba(0,0,0,.12);
+  transform: translateY(-1px);
+}
+
+/* active route style (pill + underline) */
+.navbtn.is-active {
+  background: color-mix(in srgb, var(--fl-gold) 32%, transparent);
+  box-shadow: 0 4px 16px rgba(0,0,0,.18);
+}
+
+/* underline that animates in */
+.navbtn::after {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 4px;
+  height: 2px;
+  border-radius: 2px;
+  background:
+    linear-gradient(90deg,
+      rgba(255,184,46,.1), rgba(255,184,46,.8), rgba(255,184,46,.1));
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform .18s ease-out, opacity .18s ease-out;
+  opacity: 0;
+}
+.navbtn:hover::after,
+.navbtn:focus-visible::after,
+.navbtn.is-active::after {
+  transform: scaleX(1);
+  opacity: .95;
+}
+
+/* crisp focus ring for keyboard users */
+.navbtn:focus-visible {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--fl-gold) 80%, transparent),
+    0 6px 22px rgba(0,0,0,.16);
+  background: color-mix(in srgb, var(--fl-gold) 24%, transparent);
+}
+
+/* press feedback */
+.navbtn:active { transform: translateY(0); }
+
+/* subtle ripple on press (uses --rx/--ry set via JS) */
+.navbtn::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120px 120px at var(--rx,50%) var(--ry,50%),
+      rgba(255,184,46,.18), transparent 55%);
+  opacity: 0;
+  transform: scale(.85);
+  transition: opacity .28s ease, transform .28s ease;
+}
+.navbtn.do-ripple::before {
+  opacity: 1;
+  transform: scale(1.1);
+  transition: opacity .38s ease, transform .38s ease;
+}
+
+/* motion safety */
+@media (prefers-reduced-motion: reduce) {
+  .navbtn,
+  .navbtn::after,
+  .navbtn::before { transition: none; }
+}
+/* === Tools dropdown card =============================================== */
+.menu-card {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 220px;
+  display: grid;
+  gap: 4px;
+
+  background: var(--menu-panel-bg, var(--fl-surface));
+  border: 1px solid var(--panel-border, var(--fl-border, rgba(255,255,255,.08)));
+  border-radius: 14px;
+  box-shadow:
+    0 8px 30px rgba(0,0,0,.30),
+    0 2px 8px rgba(0,0,0,.18);
+  padding: 8px;
+
+  transform-origin: 16px top;
+  transform: translateY(6px) scale(.98);
+  opacity: 0;
+  pointer-events: none;
+
+  transition:
+    transform 160ms cubic-bezier(.2,.8,.2,1),
+    opacity 140ms ease,
+    box-shadow 160ms ease;
+  z-index: 100;
+}
+
+/* visible state */
+.menu-card.show {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* caret */
+.menu-card::before {
+  content: "";
+  position: absolute;
+  top: -7px; left: 14px;
+  width: 12px; height: 12px;
+  background: inherit;
+  border-left: 1px solid var(--panel-border, rgba(255,255,255,.08));
+  border-top: 1px solid var(--panel-border, rgba(255,255,255,.08));
+  transform: rotate(45deg);
+}
+
+/* dropdown items reuse navbtn feel but simplified */
+.menu-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  text-decoration: none;
+  color: var(--text);
+  transition: background .14s ease, transform .12s ease;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: color-mix(in srgb, var(--fl-gold) 24%, transparent);
+  transform: translateY(-1px);
+}
+.menu-item:active { transform: translateY(0); }
+/* Make the wrapper create a small interactive bridge below it */
+.tools-wrap { position: relative; }
+.tools-wrap::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: 100%;            /* exactly under the trigger area */
+  height: 8px;          /* match or exceed your visual gap */
+  pointer-events: auto; /* important: counts as hover area */
+  background: transparent;
+}
+/* Sliding indicator under the primary nav group */
+.navgroup {
+  position: relative;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.nav-indicator {
+  position: absolute;
+  bottom: 2px;          /* sits inside the pills */
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    rgba(255,184,46,.2), rgba(255,184,46,.9), rgba(255,184,46,.2));
+  box-shadow: 0 0 10px rgba(255,184,46,.35);
+  transform: translateX(var(--ix,0px));
+  width: var(--iw,0px);
+  opacity: var(--io, 0);          /* hidden until measured */
+  transition:
+    transform 220ms cubic-bezier(.2,.8,.2,1),
+    width 220ms cubic-bezier(.2,.8,.2,1),
+    opacity 160ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-indicator { transition: none; }
+}
