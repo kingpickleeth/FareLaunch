@@ -3,6 +3,62 @@ import { useEffect, useMemo, useState } from 'react';
 import type { WizardData } from '../../types/wizard';
 import AllowlistUploader from '../AllowlistUploader';
 import { isAddress, makeMerkle } from '../../utils/merkle';
+// add near top of file (below imports)
+function ensureSwitchStyles() {
+  const id = 'allowlist-toggle-styles';
+  if (typeof document === 'undefined' || document.getElementById(id)) return;
+  const s = document.createElement('style');
+  s.id = id;
+  s.textContent = `
+    /* Container */
+    .allowlist-toggle{
+      display:flex; align-items:center; gap:12px;
+      /* prevent iOS zoom on focus */
+      font-size:16px;
+    }
+    /* Native checkbox styled as a switch (fixed box, no overflow) */
+    .allowlist-toggle > input[type="checkbox"]{
+      -webkit-appearance:none; appearance:none;
+      position:relative; outline:none;
+      width:52px; height:30px; flex:0 0 52px;
+      border-radius:999px;
+      background: var(--chip-bg, var(--input-bg));
+      border:1px solid var(--card-border);
+      cursor:pointer; user-select:none; touch-action:manipulation;
+    }
+    /* Track shadow (optional) */
+    .allowlist-toggle > input[type="checkbox"]::before{
+      content:''; position:absolute; inset:0; border-radius:inherit;
+      box-shadow: inset 0 0 0 0 rgba(0,0,0,0.06);
+    }
+    /* Thumb */
+    .allowlist-toggle > input[type="checkbox"]::after{
+      content:''; position:absolute; top:3px; left:3px;
+      width:24px; height:24px; border-radius:50%;
+      background: var(--surface, #fff);
+      box-shadow: 0 2px 6px rgba(0,0,0,.15);
+      transition: transform .16s ease;
+    }
+    /* Checked state */
+    .allowlist-toggle > input[type="checkbox"]:checked{
+      background: var(--fl-purple, #6c5ce7);
+      border-color: var(--fl-purple, #6c5ce7);
+    }
+    .allowlist-toggle > input[type="checkbox"]:checked::after{
+      transform: translateX(22px);
+    }
+    /* Focus ring for a11y */
+    .allowlist-toggle > input[type="checkbox"]:focus-visible{
+      box-shadow: 0 0 0 3px color-mix(in oklab, var(--fl-purple, #6c5ce7) 30%, transparent);
+    }
+    /* Text block */
+    .allowlist-toggle__text{
+      display:flex; flex-direction:column; line-height:1.25;
+    }
+    .allowlist-toggle__text > span{ color: var(--muted); font-size:12px; }
+  `;
+  document.head.appendChild(s);
+}
 
 type Props = {
   value: WizardData;
@@ -14,6 +70,7 @@ type Props = {
 type Mode = 'upload' | 'paste';
 
 export default function StepAllowlist({ value, onChange, onNext, onBack }: Props) {
+  ensureSwitchStyles(); // injects once; safe on hot reload
   const [enabled, setEnabled] = useState<boolean>(!!value.allowlist?.enabled);
   const [mode, setMode] = useState<Mode>('upload');
 
