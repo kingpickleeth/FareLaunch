@@ -49,6 +49,7 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
+  const [placeAbove, setPlaceAbove] = useState(false);
 
   const now = new Date();
   const valDate = parseLocal(value);
@@ -123,7 +124,8 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
   const dtpPopoverStyle: React.CSSProperties = {
     position: "absolute",
     zIndex: 20,
-    top: "calc(100% + 8px)",
+    top: placeAbove ? undefined : "calc(100% + 8px)",
+    bottom: placeAbove ? "calc(100% + 8px)" : undefined,
     right: 0,
     minWidth: 320,
     padding: 12,
@@ -133,6 +135,8 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
     color: "var(--text)",
     boxShadow: "0 10px 30px rgba(0,0,0,.35)",
     animation: "dtpIn .12s ease-out",
+    maxHeight: "70vh",
+    overflow: "auto",
   };
   const inputStyle: React.CSSProperties = {
     background: "var(--fl-bg)", border: "1px solid var(--border)", color: "var(--text)",
@@ -152,7 +156,22 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
     if (justClosedRef.current) return;
     setOpen((v) => !v);
   };
-
+  useEffect(() => {
+    if (!open) return;
+    // Measure after it renders
+    requestAnimationFrame(() => {
+      const anchor = anchorRef.current;
+      const pop = popRef.current;
+      if (!anchor || !pop) return;
+      const rect = anchor.getBoundingClientRect();
+      const popH = pop.offsetHeight || 360;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const need = popH + 12;
+      setPlaceAbove(spaceBelow < need && spaceAbove > spaceBelow);
+    });
+  }, [open]);
+  
   useEffect(() => {
     const styleTagId = "dtp-keyframe-style";
     if (typeof document !== "undefined" && !document.getElementById(styleTagId)) {
@@ -393,6 +412,9 @@ async function fetchAllPairs(): Promise<SubgraphPair[]> {
     skip += pageSize;
   }
   return all;
+}
+function toTwoDecString(x: number) {
+  return x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
 }
 
 function fmt2(n: string | number) {
@@ -642,6 +664,7 @@ export default function Locker() {
   const { address, isConnected } = useAccount();
   const pc = usePublicClient();
   const { writeContractAsync, isPending } = useWriteContract();
+  const [refreshing, setRefreshing] = useState(false);
 
   // Tabs: "lock" | "manage"
   const [tab, setTab] = useState<"lock" | "manage">("lock");
@@ -677,6 +700,9 @@ export default function Locker() {
       .btn-primary { background: var(--fl-gold); color: #000; }
       .btn-primary:not([disabled]):hover, .btn-primary:not([disabled]):focus-visible { background: #e6a800; transform: translateY(-1px); }
       .btn-secondary { border: 1px solid var(--border); background: transparent; color: var(--text); font-weight: 700; padding: 10px 12px; border-radius: 12px; cursor: pointer; }
+      .btn-secondary:active { transform: translateY(1px) scale(.98); }
++     .spin { display:inline-block; animation: sp 1s linear infinite; }
++     @keyframes sp { to { transform: rotate(360deg); } }
       input, textarea, select { background: var(--fl-bg); border: 1px solid var(--border); color: var(--text); border-radius: 12px; padding: 10px 12px; outline: none; width: 100%; }
       .tool-title { margin: 0 0 12px; }
       @media (max-width: 560px) { .two-col { grid-template-columns: 1fr !important; } }
@@ -782,7 +808,33 @@ export default function Locker() {
     setUserLPs(have);
     if (!selectedLP && have[0]) setSelectedLP(have[0].lpAddress);
   }
-
+  async function refreshAll() {
+    if (!pc || !address) return;
+    try {
+      setRefreshing(true);
+      // Re-pull user LP list
+      await discoverMyLPs();
+      // Re-read balances/allowance for the selected LP, if any
+      if (selectedLP) {
+        const info = await detectPair(pc, selectedLP as Address);
+        setPair(info);
+        if (info?.type === "erc20-v2") {
+          const [bal, allowance] = await Promise.all([
+            pc.readContract({ address: selectedLP as Address, abi: ERC20_ABI, functionName: "balanceOf", args: [address] }) as Promise<bigint>,
+            pc.readContract({ address: selectedLP as Address, abi: ERC20_ABI, functionName: "allowance", args: [address, LOCKER_ADDRESS] }) as Promise<bigint>,
+          ]);
+          setLpBalance(bal);
+          setLpAllowance(allowance);
+        } else {
+          setLpBalance(0n);
+          setLpAllowance(0n);
+        }
+      }
+    } finally {
+      setRefreshing(false);
+    }
+  }
+  
   // Auto discover when user connects (and API key exists)
   useEffect(() => {
     if (isConnected && graphKey) discoverMyLPs();
@@ -971,9 +1023,16 @@ export default function Locker() {
           <Card title="1) Select LP token">
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <button type="button" className="btn-secondary" onClick={discoverMyLPs}>
-                  {userLPs.length ? "Refresh my LPs" : "Load my LPs"}
-                </button>
+              <button
+  type="button"
+  className="btn-secondary"
+  onClick={refreshAll}
+  disabled={refreshing}
+  aria-busy={refreshing}
+  title="Reload your LP list and balances"
+>
+  {refreshing ? <span className="spin">⟳</span> : "⟳"} {userLPs.length ? "Refresh my LPs" : "Load my LPs"}
+</button>
               </div>
 
               <div>
@@ -1069,45 +1128,62 @@ export default function Locker() {
               ) : (
                 <>
                   <Row>
-                    <div>
-                      <div style={{ marginBottom: 6 }}>Amount to lock</div>
-                      <input
-                        inputMode="decimal"
-                        placeholder={pair ? `0.00 (max ${lpBalanceHuman})` : "0.00"}
-                        value={amountText}
-                        onChange={(e) => setAmountText(e.target.value)}
-                        style={{
-                          borderColor:
-                            pair && amountWei > lpBalance ? "var(--fl-danger)" : "var(--border)",
-                        }}
-                      />
-                      <div className="muted" style={{ marginTop: 4 }}>
-                        Balance: {lpBalanceHuman} {pair?.lpSymbol || ""}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <span>Beneficiary</span>
-                        <button
-                          type="button"
-                          className="btn-secondary"
-                          onClick={() => address && setBeneficiary(address as Address)}
-                          title="Use your connected wallet address"
-                          style={{ padding: "6px 10px" }}
-                        >
-                          Use my wallet
-                        </button>
-                      </div>
-                      <input
-                        placeholder="0x… address that can withdraw after unlock"
-                        value={beneficiary}
-                        onChange={(e) => setBeneficiary(e.target.value as Address)}
-                        style={{
-                          borderColor: beneficiary && !isBeneficiaryValid ? "var(--fl-danger)" : "var(--border)",
-                        }}
-                      />
-                      <div className="muted" style={{ marginTop: 4 }}>Typically your team multi-sig.</div>
-                    </div>
+                  <div>
+  <div style={{ marginBottom: 6 }}>Amount to lock</div>
+
+  {/* input + Max inline */}
+  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+    <input
+      inputMode="decimal"
+      placeholder={pair ? `0.00 (max ${lpBalanceHuman})` : "0.00"}
+      value={amountText}
+      onChange={(e) => setAmountText(e.target.value)}
+      style={{
+        borderColor: pair && amountWei > lpBalance ? "var(--fl-danger)" : "var(--border)",
+      }}
+    />
+    <button
+      type="button"
+      className="btn-secondary"
+      onClick={() => {
+        if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return;
+        // Use the real on-chain balance for precision, but display as <= 2 decimals in the input
+        const human = Number(formatUnits(lpBalance, pair.lpDecimals));
+        setAmountText(toTwoDecString(human));
+      }}
+      title="Use your full LP balance"
+    >
+      Max
+    </button>
+  </div>
+
+  <div className="muted" style={{ marginTop: 4 }}>
+    Balance: {lpBalanceHuman} {pair?.lpSymbol || ""}
+  </div>
+</div>
+<div>
+  <div style={{ marginBottom: 6 }}>Beneficiary</div>
+
+  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
+    <input
+      placeholder="0x… address that can withdraw"
+      value={beneficiary}
+      onChange={(e) => setBeneficiary(e.target.value as Address)}
+    />
+    <button
+      type="button"
+      className="btn-secondary"
+      onClick={() => { if (address) setBeneficiary(address as Address); }}
+      title="Use your connected wallet address"
+    >
+      Use my wallet
+    </button>
+  </div>
+
+  <div className="muted" style={{ marginTop: 4 }}>
+    This will be the owner of the liquidity lock. 
+  </div>
+</div>
                   </Row>
 
                   <div style={{ marginTop: 8 }}>
@@ -1200,7 +1276,10 @@ export default function Locker() {
                       padding: 12,
                       background: "var(--fl-bg)",
                       display: "grid",
-                      gap: 6,
+                      gap: 8,
+                      // 🔽 Clearly mark past/withdrawn
+                      opacity: L.withdrawn ? 0.45 : 1,
+                      filter: L.withdrawn ? "grayscale(1)" : "none",
                     }}
                   >
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
