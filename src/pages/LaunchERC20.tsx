@@ -78,6 +78,10 @@ export default function LaunchERC20() {
   const [status, setStatus] = useState<string | null>(null);
 
   // ---- formatting helpers (match FareDrop vibe) ----
+function shortAddr(a?: string) {
+  return a && a.length > 10 ? `${a.slice(0, 6)}…${a.slice(-4)}` : a || "";
+}
+
   const withCommas = (s: string) => {
     const [w, f] = s.split(".");
     const whole = (w || "").replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -369,7 +373,11 @@ export default function LaunchERC20() {
             active={distributionType === "single"}
             onClick={() => setDistributionType("single")}
             title="Mint to myself"
-            subtitle={<span className="muted">{address || "Connect wallet"}</span>}
+            subtitle={
+              <span className="muted" title={address || "Connect wallet"}>
+                {address ? shortAddr(address) : "Connect wallet"}
+              </span>
+            }            
           />
           <DistCard
             active={distributionType === "multi"}
