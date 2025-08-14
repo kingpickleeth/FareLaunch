@@ -413,8 +413,15 @@ async function fetchAllPairs(): Promise<SubgraphPair[]> {
   }
   return all;
 }
-function toTwoDecString(x: number) {
-  return x.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+function floorDisplay2FromWei(amount: bigint, decimals: number): string {
+  if (decimals <= 2) {
+    const s = formatUnits(amount, decimals);
+    return Number(s).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  const scale = 10n ** BigInt(decimals - 2);            // keep 2 dp in integer math
+  const floored = (amount / scale) * scale;             // floor (never rounds up)
+  const s = formatUnits(floored, decimals);
+  return Number(s).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function fmt2(n: string | number) {
@@ -727,8 +734,8 @@ export default function Locker() {
 
   const lpBalanceHuman = useMemo(() => {
     if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return "0.00";
-    try { return fmt2(Number(formatUnits(lpBalance, pair.lpDecimals))); } catch { return "0.00"; }
-  }, [lpBalance, pair]);
+    try { return floorDisplay2FromWei(lpBalance, pair.lpDecimals); } catch { return "0.00"; }
+  }, [lpBalance, pair]);  
 
   const unlockAtTs = useMemo(() => {
     const d = unlockAtISO ? new Date(unlockAtISO) : null;
@@ -992,7 +999,7 @@ export default function Locker() {
       padding: "10px 14px",
       borderRadius: 12,
       border: "1px solid var(--border)",
-      background: active ? "rgba(255,184,46,0.12)" : "var(--fl-bg)",
+      background: active ? "rgba(255,184,46,0.24)" : "var(--fl-bg)",
       color: "var(--text)",
       fontWeight: 800,
       boxShadow: active ? "0 2px 10px rgba(0,0,0,.15)" : "none",
@@ -1137,7 +1144,21 @@ export default function Locker() {
       inputMode="decimal"
       placeholder={pair ? `0.00 (max ${lpBalanceHuman})` : "0.00"}
       value={amountText}
-      onChange={(e) => setAmountText(e.target.value)}
+      onChange={(e) => {
+        const v = e.target.value;
+        setAmountText(v);
+        if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return;
+        try {
+          const wei = parseUnits((v || "0").replace(/,/g, "").trim() || "0", pair.lpDecimals);
+          if (wei > lpBalance) {
+            // snap to exact balance (avoids “exceeds” while typing)
+            const exact = formatUnits(lpBalance, pair.lpDecimals);
+            setAmountText(exact);
+          }
+        } catch {
+          /* ignore parse errors while typing */
+        }
+      }}      
       style={{
         borderColor: pair && amountWei > lpBalance ? "var(--fl-danger)" : "var(--border)",
       }}
@@ -1147,10 +1168,9 @@ export default function Locker() {
       className="btn-secondary"
       onClick={() => {
         if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return;
-        // Use the real on-chain balance for precision, but display as <= 2 decimals in the input
-        const human = Number(formatUnits(lpBalance, pair.lpDecimals));
-        setAmountText(toTwoDecString(human));
-      }}
+        const exact = formatUnits(lpBalance, pair.lpDecimals); // precise string
+        setAmountText(exact);                                  // do not round; let parseUnits handle it
+      }}      
       title="Use your full LP balance"
     >
       Max
