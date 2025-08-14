@@ -6,17 +6,14 @@ import { isAddress, makeMerkle } from '../../utils/merkle';
 // add near top of file (below imports)
 function ensureSwitchStyles() {
   const id = 'allowlist-toggle-styles';
-  if (typeof document === 'undefined' || document.getElementById(id)) return;
-  const s = document.createElement('style');
-  s.id = id;
-  s.textContent = `
-    /* Container */
+  if (typeof document === 'undefined') return;
+  const css = `
     .allowlist-toggle{
       display:flex; align-items:center; gap:12px;
-      /* prevent iOS zoom on focus */
+      /* prevent iOS zoom */
       font-size:16px;
     }
-    /* Native checkbox styled as a switch (fixed box, no overflow) */
+
     .allowlist-toggle > input[type="checkbox"]{
       -webkit-appearance:none; appearance:none;
       position:relative; outline:none;
@@ -25,39 +22,48 @@ function ensureSwitchStyles() {
       background: var(--chip-bg, var(--input-bg));
       border:1px solid var(--card-border);
       cursor:pointer; user-select:none; touch-action:manipulation;
+      transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease;
     }
-    /* Track shadow (optional) */
-    .allowlist-toggle > input[type="checkbox"]::before{
-      content:''; position:absolute; inset:0; border-radius:inherit;
-      box-shadow: inset 0 0 0 0 rgba(0,0,0,0.06);
-    }
-    /* Thumb */
+
+    /* Thumb — perfectly centered vertically */
     .allowlist-toggle > input[type="checkbox"]::after{
-      content:''; position:absolute; top:3px; left:3px;
+      content:''; position:absolute;
+      left:3px; top:50%; transform: translate(0,-50%);
       width:24px; height:24px; border-radius:50%;
       background: var(--surface, #fff);
+      border: 2px solid #fff;            /* persistent white ring */
       box-shadow: 0 2px 6px rgba(0,0,0,.15);
-      transition: transform .16s ease;
+      transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
     }
+
     /* Checked state */
     .allowlist-toggle > input[type="checkbox"]:checked{
       background: var(--fl-purple, #6c5ce7);
-      border-color: var(--fl-purple, #6c5ce7);
+      border-color: var(--input-bg);
     }
     .allowlist-toggle > input[type="checkbox"]:checked::after{
-      transform: translateX(22px);
+      transform: translate(22px,-50%);   /* keep vertical centering when moved */
+      border-color: #fff;                /* keep the white outline visible on purple */
     }
+
     /* Focus ring for a11y */
     .allowlist-toggle > input[type="checkbox"]:focus-visible{
       box-shadow: 0 0 0 3px color-mix(in oklab, var(--fl-purple, #6c5ce7) 30%, transparent);
     }
-    /* Text block */
+
     .allowlist-toggle__text{
       display:flex; flex-direction:column; line-height:1.25;
     }
     .allowlist-toggle__text > span{ color: var(--muted); font-size:12px; }
   `;
-  document.head.appendChild(s);
+  const existing = document.getElementById(id) as HTMLStyleElement | null;
+  if (existing) existing.textContent = css;
+  else {
+    const s = document.createElement('style');
+    s.id = id;
+    s.textContent = css;
+    document.head.appendChild(s);
+  }
 }
 
 type Props = {
