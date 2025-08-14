@@ -242,6 +242,34 @@ export default function LaunchERC20() {
           outline: none;
           width: 100%;
         }
+          /* put this inside your <style> block */
+.dist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 560px) {
+  .dist-grid { grid-template-columns: 1fr; }
+}
+
+/* let cards shrink within the grid and keep borders inside width */
+.dist-card {
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* truncate long subtitle (wallet address) instead of overflowing */
+.dist-card .muted {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* tiny safety: let recipient columns also shrink */
+.rec-row > div { min-width: 0; }
+
         .error { color: var(--fl-danger, #c62828); font-size: 12px; margin-top: 4px; }
         .btn {
           padding: 12px;
@@ -277,7 +305,7 @@ export default function LaunchERC20() {
         @media (max-width: 560px) { .rec-row { grid-template-columns: 1fr; } }
       `}</style>
 
-      <h1 className="tool-title">Launch Your ERC-20 Token</h1>
+      <h1 className="tool-title">Launch An ERC-20 Token</h1>
 
       {/* SINGLE FORM WRAPS EVERYTHING to prevent focus loss */}
       <form onSubmit={handleLaunch}>
@@ -335,22 +363,22 @@ export default function LaunchERC20() {
 
         {/* STEP 4: Distribution */}
         {nameOk && symbolOk && supplyOk && (
-          <Card title="4) Distribution">
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              <DistCard
-                active={distributionType === "single"}
-                onClick={() => setDistributionType("single")}
-                title="Mint to myself"
-                subtitle={<span className="muted">{address || "Connect wallet"}</span>}
-              />
-              <DistCard
-                active={distributionType === "multi"}
-                onClick={() => setDistributionType("multi")}
-                title="Multiple wallets"
-                subtitle="Split supply across recipients"
-              />
-            </div>
-          </Card>
+        <Card title="4) Distribution">
+        <div className="dist-grid">
+          <DistCard
+            active={distributionType === "single"}
+            onClick={() => setDistributionType("single")}
+            title="Mint to myself"
+            subtitle={<span className="muted">{address || "Connect wallet"}</span>}
+          />
+          <DistCard
+            active={distributionType === "multi"}
+            onClick={() => setDistributionType("multi")}
+            title="Multiple wallets"
+            subtitle="Split supply across recipients"
+          />
+        </div>
+      </Card>      
         )}
 
         {/* STEP 5: Recipients */}
