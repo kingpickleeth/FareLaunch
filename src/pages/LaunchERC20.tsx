@@ -1,9 +1,40 @@
 import { useMemo, useState } from "react";
-import { useAccount, useWriteContract } from "wagmi";
+import { useAccount, useWriteContract, useChainId, useSwitchChain } from "wagmi";
 import { parseUnits, isAddress, formatUnits } from "viem";
 import { FACTORY_ABI } from "../lib/factoryAbi";
 
-const FACTORY_ADDRESS = "0x072700cCF5177b30BCB5fac3B6c652a0c8b9460a" as `0x${string}`;
+// --- chain + factory wiring (ApeChain + Abstract) ----------------------------
+const APECHAIN_ID = Number(import.meta.env.VITE_APECHAIN_ID || 0);     // you already set this in wallet.tsx env
+const ABSTRACT_ID = Number(import.meta.env.VITE_ABSTRACT_ID || 2741);  // default 2741
+
+// Prefer per-chain factory addresses (so you can deploy the same factory on Abstract)
+const FACTORY_ADDRESS_APECHAIN =
+  (import.meta.env.VITE_FACTORY_ADDRESS_APECHAIN as `0x${string}`) ||
+  ("0x072700cCF5177b30BCB5fac3B6c652a0c8b9460a" as `0x${string}`);
+
+const FACTORY_ADDRESS_ABSTRACT =
+  (import.meta.env.VITE_FACTORY_ADDRESS_ABSTRACT as `0x${string}`) ||
+  ("0x20b51F79FE88845B4c338fEa0b960494dc36D00a" as `0x${string}`); // <-- replace after you deploy on Abstract
+
+type TargetChain = typeof APECHAIN_ID | typeof ABSTRACT_ID;
+
+function factoryFor(chainId: TargetChain): `0x${string}` {
+  return chainId === ABSTRACT_ID ? FACTORY_ADDRESS_ABSTRACT : FACTORY_ADDRESS_APECHAIN;
+}
+// Optional logos (set your own in .env later)
+const APECHAIN_LOGO =
+  import.meta.env.VITE_APECHAIN_LOGO ||
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' rx='10' fill='%23282c34'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui' font-size='18' fill='%23FFB82E'>APE</text></svg>";
+
+const ABSTRACT_LOGO =
+  import.meta.env.VITE_ABSTRACT_LOGO ||
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48'><rect width='48' height='48' rx='10' fill='%23282c34'/><text x='50%25' y='56%25' dominant-baseline='middle' text-anchor='middle' font-family='system-ui' font-size='18' fill='%23A7C7FF'>ABS</text></svg>";
+
+const CHAIN_META: Record<number, { label: string; logo: string }> = {
+  [APECHAIN_ID]: { label: "ApeChain", labelShort: "ApeChain", logo: APECHAIN_LOGO } as any,
+  [ABSTRACT_ID]: { label: "Abstract", labelShort: "Abstract", logo: ABSTRACT_LOGO } as any,
+} as any;
+
 
 type DistType = "single" | "multi" | null;
 
@@ -64,7 +95,18 @@ const DistCard: React.FC<{
 export default function LaunchERC20() {
   const { address, isConnected } = useAccount();
   const { writeContractAsync, isPending } = useWriteContract();
+  const walletChainId = useChainId();
+  const { switchChainAsync, isPending: switching } = useSwitchChain();
 
+
+  // NEW: picker for target chain (defaults to current wallet chain if it’s one of ours)
+  const initialTarget =
+    walletChainId === ABSTRACT_ID || walletChainId === APECHAIN_ID ? walletChainId : APECHAIN_ID;
+  const [targetChainId, setTargetChainId] = useState<TargetChain>(initialTarget);
+
+  const mismatch =
+    isConnected &&
+    (walletChainId === 0 || (walletChainId !== 0 && walletChainId !== targetChainId));
   // ---- state ----
   const [name, setName] = useState("");
   const [symbol, setSymbol] = useState("");
@@ -219,10 +261,11 @@ function shortAddr(a?: string) {
 
     try {
       const txHash = await writeContractAsync({
-        address: FACTORY_ADDRESS,
+        address: factoryFor(targetChainId),          // ✅ per-chain factory
         abi: FACTORY_ABI,
         functionName: "createToken",
         args: [name.trim(), symbol.trim(), decimals, website.trim(), finalRecipients, finalAmounts],
+        chainId: targetChainId,                      // ✅ route to ApeChain or Abstract
       });
       setStatus(`Transaction sent: ${txHash}`);
     } catch (err: any) {
@@ -235,6 +278,94 @@ function shortAddr(a?: string) {
   return (
     <div className="tool-container fdl-pad" style={{ maxWidth: 640, margin: "0 auto" }}>
       <style>{`
+      /* Chain picker */
+.chain-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+.chain-opt {
+  --ring: 0 0 0 0 rgba(0,0,0,0);
+  display: grid;
+  grid-template-columns: 44px 1fr auto;    /* logo | meta | button */
+  grid-template-areas: "logo meta cta";
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.16));
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background .12s ease;
+  box-shadow: var(--shadow), var(--ring);
+  min-width: 0; /* avoid overflow */
+}
+.chain-opt:hover { transform: translateY(-1px); }
+.chain-opt.active {
+  border-color: var(--fl-gold);
+  background:
+    radial-gradient(120px 60px at 20% 0%, rgba(255,184,46,.15), transparent),
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.2));
+  box-shadow: 0 0 0 1px rgba(255,184,46,.25), var(--shadow);
+}
+/* Logo cell */
+.chain-opt .logo {
+  grid-area: logo;
+  width: 44px; height: 44px;
+  border-radius: 12px; overflow: hidden;
+  display: grid; place-items: center;
+  background: #101217; border: 1px solid var(--border);
+}
+.chain-opt .logo img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Text cell */
+.chain-opt .meta { grid-area: meta; display: grid; gap: 2px; min-width: 0; }
+.chain-opt .meta .title { font-weight: 800; }
+.chain-opt .meta .sub { font-size: 12px; opacity: .8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* CTA button cell */
+.chain-opt .cta { grid-area: cta; justify-self: end; }
+
+/* Hide native radio */
+.chain-opt input[type="radio"] { display: none; }
+
+/* Small screens: stack the CTA under the text, shrink the logo */
+@media (max-width: 520px) {
+  .chain-opt {
+    grid-template-columns: 36px 1fr;      /* logo | meta */
+    grid-template-areas:
+      "logo meta"
+      "cta  cta";
+    gap: 10px;
+  }
+  .chain-opt .logo { width: 36px; height: 36px; border-radius: 10px; }
+  .chain-opt .cta { justify-self: end; }
+}
+
+/* Tiny screens: allow 1-up cards with comfortable padding */
+@media (max-width: 360px) {
+  .chain-grid { grid-template-columns: 1fr; }
+}
+
+/* Tiny button */
+.btn-sm {
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  white-space: nowrap;
+}
+.btn-sm.primary { background: var(--fl-gold); color: #000; border-color: var(--fl-gold); }
+.btn-sm[disabled] { opacity: .6; cursor: not-allowed; }
+.btn-sm.primary {
+  background: var(--fl-gold);
+  color: #000;
+  border-color: var(--fl-gold);
+}
+.btn-sm[disabled] { opacity: .6; cursor: not-allowed; }
+
         .tool-title { margin: 0 0 12px; }
         .muted { opacity: .8; font-size: 12px; }
         input, textarea, select {
@@ -314,6 +445,79 @@ function shortAddr(a?: string) {
       {/* SINGLE FORM WRAPS EVERYTHING to prevent focus loss */}
       <form onSubmit={handleLaunch}>
         {/* STEP 1: Name */}
+        {/* 0) Target chain */}
+        <Card title="Which chain do you want to launch a token on?">
+  <div className="chain-grid">
+    {/* ApeChain option */}
+    <label
+      className={`chain-opt ${targetChainId === APECHAIN_ID ? "active" : ""}`}
+      onClick={() => setTargetChainId(APECHAIN_ID)}
+    >
+      <input type="radio" name="targetChain" checked={targetChainId === APECHAIN_ID} readOnly />
+      <div className="logo">
+        <img src={CHAIN_META[APECHAIN_ID].logo} alt="ApeChain" width={44} height={44} />
+      </div>
+      <div className="meta">
+        <div className="title">ApeChain</div>
+        <div className="sub">Deploy your ERC-20 to ApeChain</div>
+      </div>
+      {isConnected && walletChainId !== APECHAIN_ID && (
+        <div className="cta">
+          <button
+            type="button"
+            className="btn-sm"
+            onClick={async (e) => {
+              e.preventDefault();
+              try { await switchChainAsync({ chainId: APECHAIN_ID }); } catch {}
+            }}
+            disabled={switching}
+            title="Switch wallet network to ApeChain"
+          >
+            {switching && targetChainId === APECHAIN_ID ? "Switching…" : "Switch"}
+          </button>
+        </div>
+      )}
+    </label>
+
+    {/* Abstract option */}
+    <label
+      className={`chain-opt ${targetChainId === ABSTRACT_ID ? "active" : ""}`}
+      onClick={() => setTargetChainId(ABSTRACT_ID)}
+    >
+      <input type="radio" name="targetChain" checked={targetChainId === ABSTRACT_ID} readOnly />
+      <div className="logo">
+        <img src={CHAIN_META[ABSTRACT_ID].logo} alt="Abstract" width={44} height={44} />
+      </div>
+      <div className="meta">
+        <div className="title">Abstract</div>
+        <div className="sub">Deploy your ERC-20 to Abstract</div>
+      </div>
+      {isConnected && walletChainId !== ABSTRACT_ID && (
+        <div className="cta">
+          <button
+            type="button"
+            className="btn-sm"
+            onClick={async (e) => {
+              e.preventDefault();
+              try { await switchChainAsync({ chainId: ABSTRACT_ID }); } catch {}
+            }}
+            disabled={switching}
+            title="Switch wallet network to Abstract"
+          >
+            {switching && targetChainId === ABSTRACT_ID ? "Switching…" : "Switch"}
+          </button>
+        </div>
+      )}
+    </label>
+  </div>
+
+  {mismatch && (
+    <div className="error" style={{ marginTop: 10 }}>
+      Your wallet is on a different network. Click <b>Switch</b> above or use your wallet’s network switcher.
+    </div>
+  )}
+</Card>
+
         <Card title="1) Token name">
           <input
             placeholder="My Token"

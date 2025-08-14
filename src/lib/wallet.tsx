@@ -30,13 +30,30 @@ const APECHAIN = defineChain({
   },
 });
 
+/* ✅ NEW: Abstract (EVM L2) */
+const ABSTRACT = defineChain({
+  id: Number(import.meta.env.VITE_ABSTRACT_ID || 2741),
+  name: import.meta.env.VITE_ABSTRACT_NAME || 'Abstract',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: [import.meta.env.VITE_ABSTRACT_RPC || 'https://api.mainnet.abs.xyz'] },
+    public:  { http: [import.meta.env.VITE_ABSTRACT_RPC || 'https://api.mainnet.abs.xyz'] },
+  },
+  blockExplorers: {
+    default: { name: 'ABScan', url: import.meta.env.VITE_ABSTRACT_EXPLORER || 'https://abscan.org' },
+  },
+});
+
 // ---- Wagmi + RainbowKit config (v2 style) ----
 const config = getDefaultConfig({
   appName: 'FareLaunch',
   projectId: import.meta.env.VITE_WC_PROJECT_ID || 'missing_project_id',
-  chains: [APECHAIN],
+  /* ✅ Add ABSTRACT here */
+  chains: [APECHAIN, ABSTRACT],
   transports: {
     [APECHAIN.id]: http(APECHAIN.rpcUrls.default.http[0]),
+    /* ✅ Transport for Abstract */
+    [ABSTRACT.id]: http(ABSTRACT.rpcUrls.default.http[0]),
   },
   ssr: false,
 });
