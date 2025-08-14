@@ -2,6 +2,13 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { WizardData } from '../../types/wizard';
 
 /* ---------- tiny utils ---------- */
+function bumpAbove(x: number) {
+  // pick a tiny increment based on decimals of x (up to 6)
+  const s = String(x);
+  const dec = s.includes('.') ? Math.min(6, s.split('.')[1].length || 0) : 0;
+  const step = dec ? Math.pow(10, -dec) : 1;
+  return +(x + step).toFixed(dec || 0);
+}
 function pad(n: number) { return String(n).padStart(2, '0'); }
 function fmtLocal(date: Date) {
   const y = date.getFullYear();
@@ -435,16 +442,11 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
   const minPerWalletPlaceholder = 'Enter a per-wallet minimum > 0 $WAPE';
   // live clamp: don’t allow typing below thresholds
   function onHardCapChange(v: string) {
-    if (!softCapOk) { setHardCap(''); return; }
-    const n = toNum(v);
-    if (!Number.isFinite(n)) { setHardCap(v); return; }
-    setHardCap(String(Math.max(n, scNum)));
-  }
+    setHardCap(v);                // ← no clamping here
+  }  
   function onMaxPerWalletChange(v: string) {
     if (!minOk) { setMaxPerWallet(''); return; }
-    const n = toNum(v);
-    if (!Number.isFinite(n)) { setMaxPerWallet(v); return; }
-    setMaxPerWallet(String(Math.max(n, minNum + Number.EPSILON))); // keep > min
+    setMaxPerWallet(v);           // ← no clamping here
   }
 
   const nextIssue = useMemo(() => {
@@ -583,22 +585,23 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 >
 
               <div style={{ opacity: softCapOk ? 1 : 0.5 }}>
-                <input
-                  type="number"
-                  step="any"
-                  min={softCapOk ? scNum : undefined}
-                  value={hardCap}
-                  onChange={(e) => onHardCapChange(e.target.value)}
-                  onBlur={(e) => {
-                    const v = toNum(e.target.value);
-                    if (!softCapOk) { setHardCap(''); return; }
-                    if (!Number.isFinite(v) || v < scNum) setHardCap(String(scNum));
-                  }}
-                  placeholder={hardCapPlaceholder}
-                  style={inputStyle}
-                  inputMode="decimal"
-                  disabled={!softCapOk}
-                />
+              <input
+  type="number"
+  step="any"
+  min={softCapOk ? scNum : undefined}
+  value={hardCap}
+  onChange={(e) => onHardCapChange(e.target.value)}    // free typing
+  onBlur={(e) => {
+    const v = toNum(e.target.value);
+    if (!softCapOk) { setHardCap(''); return; }
+    if (!Number.isFinite(v) || v < scNum) setHardCap(String(scNum));  // clamp here
+    else setHardCap(String(v));
+  }}
+  placeholder={hardCapPlaceholder}
+  style={inputStyle}
+  inputMode="decimal"
+  disabled={!softCapOk}
+/>
               </div>
             </Field>
 
@@ -653,11 +656,15 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
   type="number"
   step="any"
   value={maxPerWallet}
-  onChange={(e) => onMaxPerWalletChange(e.target.value)}
+  onChange={(e) => onMaxPerWalletChange(e.target.value)}   // free typing
   onBlur={(e) => {
     const v = toNum(e.target.value);
     if (!minOk) { setMaxPerWallet(''); return; }
-    if (!Number.isFinite(v) || v <= minNum) setMaxPerWallet(String(minNum + 1)); // bump above min
+    if (!Number.isFinite(v) || v <= minNum) {
+      setMaxPerWallet(String(bumpAbove(minNum)));           // strictly greater
+    } else {
+      setMaxPerWallet(String(v));
+    }
   }}
   placeholder={maxPerWalletPlaceholder}
   style={{ ...inputStyle, ...(minOk ? {} : { opacity: 0.5, pointerEvents: 'none' }) }}
