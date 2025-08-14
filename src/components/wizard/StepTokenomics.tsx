@@ -193,17 +193,6 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
       ? Math.max(0, remainingAfterLP - keptTokens)
       : NaN;
 
-  const keptPctOfTotal =
-    totalSupplyOk && Number.isFinite(keptTokens) && totalSupply > 0
-      ? (keptTokens / totalSupply) * 100
-      : NaN;
-
-  const salePctOfTotal =
-    totalSupplyOk && Number.isFinite(tokensForSale) && totalSupply > 0
-      ? (tokensForSale / totalSupply) * 100
-      : NaN;
-
-
   /* ---------------- staged gating & validation ----------------
      Order of guidance (first failure becomes CTA label):
      1) total supply
@@ -489,9 +478,7 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                       <b>{keepVal}%</b>
                       <span style={{ opacity: 0.7 }}> &nbsp;·&nbsp; </span>
                       <b>{Number.isFinite(keptTokens) ? keptTokens.toLocaleString() : '-'}</b> {ticker}
-                      <span style={{ color: 'var(--muted)' }}>
-                        {' '}({Number.isFinite(keptPctOfTotal) ? keptPctOfTotal.toFixed(2) : '-'}%)
-                      </span>
+                    
                     </>
                   }
                 />
@@ -500,9 +487,6 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                   value={
                     <>
                       <b>{Number.isFinite(tokensForSale) ? tokensForSale.toLocaleString() : '-'}</b> {ticker}
-                      <span style={{ color: 'var(--muted)' }}>
-                        {' '}({Number.isFinite(salePctOfTotal) ? salePctOfTotal.toFixed(2) : '-'}%)
-                      </span>
                     </>
                   }
                 />
