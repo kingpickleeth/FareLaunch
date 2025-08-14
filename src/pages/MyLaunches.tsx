@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAccount } from 'wagmi';
 import { listByCreator } from '../data/launches';
@@ -15,11 +15,15 @@ type Row = {
   updated_at: string | null;
 };
 
+type SortKey = 'status' | 'start_at' | 'end_at';
+type SortConfig = { key: SortKey; direction: 'asc' | 'desc' } | null;
+
 export default function MyLaunches() {
   const { address, isConnected } = useAccount();
   const nav = useNavigate();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [err, setErr] = useState<string>('');
+  const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
   useEffect(() => {
     if (!isConnected) return;
@@ -39,7 +43,37 @@ export default function MyLaunches() {
     });
   };
 
- 
+  const requestSort = (key: SortKey) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!rows) return [];
+    if (!sortConfig) return rows;
+    const sorted = [...rows].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      // Handle dates
+      if (sortConfig.key === 'start_at' || sortConfig.key === 'end_at') {
+        const aTime = aVal ? new Date(aVal).getTime() : 0;
+        const bTime = bVal ? new Date(bVal).getTime() : 0;
+        return sortConfig.direction === 'asc' ? aTime - bTime : bTime - aTime;
+      }
+      // Handle status (string)
+      if (typeof aVal === 'string' && typeof bVal === 'string') {
+        return sortConfig.direction === 'asc'
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+      return 0;
+    });
+    return sorted;
+  }, [rows, sortConfig]);
+
   if (!isConnected) {
     return (
       <div className="card" style={{ padding: 16 }}>
@@ -73,24 +107,39 @@ export default function MyLaunches() {
         </button>
       </div>
 
-      {rows.length === 0 ? (
+      {sortedRows.length === 0 ? (
         <div className="card" style={{ padding: 16, color: 'var(--muted)' }}>
           You have no launches yet. Click “New Launch” to start.
         </div>
       ) : (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-          {/* Header (hidden on mobile via your CSS) */}
+          {/* Header */}
           <div className="launch-header">
             <div>Project</div>
-            <div>Status</div>
-            <div>Start</div>
-            <div>End</div>
+            <div
+              style={{ cursor: 'pointer' }}
+              onClick={() => requestSort('status')}
+            >
+              Status {sortConfig?.key === 'status' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+            </div>
+            <div
+              style={{ cursor: 'pointer' }}
+              onClick={() => requestSort('start_at')}
+            >
+              Start {sortConfig?.key === 'start_at' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+            </div>
+            <div
+              style={{ cursor: 'pointer' }}
+              onClick={() => requestSort('end_at')}
+            >
+              End {sortConfig?.key === 'end_at' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : ''}
+            </div>
             <div className="center">Actions</div>
           </div>
 
-          {/* Rows with spacing between them */}
+          {/* Rows */}
           <div style={{ display: 'grid', gap: 8, padding: '8px' }}>
-            {rows.map((r) => (
+            {sortedRows.map((r) => (
               <div
                 key={r.id}
                 className="launch-row"
