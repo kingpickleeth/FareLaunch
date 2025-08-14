@@ -99,7 +99,7 @@
     --fl-danger: #D93030;
   
     /* Surfaces & text */
-    --fl-bg:      #F7F8FA;
+    --fl-bg:      #e9f0ff;
     --fl-surface: #FFFFFF;
     --fl-text:    #1B1F27;
     --fl-white:   #FFFFFF;
@@ -115,7 +115,7 @@
     --link-active-bg: rgba(0,0,0,.06);
   
     /* UI surfaces */
-    --nav-bg: rgba(255,255,255,.78);
+    --nav-bg: #e9f0ff;
     --scrim: rgba(0,0,0,.40);
   
     /* Form + card tokens */
