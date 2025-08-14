@@ -380,12 +380,6 @@ const PAIRS_QUERY = `
 `;
 type SubgraphToken = { id: string; symbol: string; decimals: string };
 type SubgraphPair = { id: string; token0: SubgraphToken; token1: SubgraphToken };
-function safeUnits(value: bigint, decimals: number | undefined, dp = 6) {
-  if (decimals == null) return value.toString();
-  const n = Number(formatUnits(value, decimals));
-  if (!Number.isFinite(n)) return "0";
-  return n.toLocaleString(undefined, { maximumFractionDigits: dp });
-}
 
 async function fetchAllPairs(): Promise<SubgraphPair[]> {
   const all: SubgraphPair[] = [];
@@ -1197,9 +1191,6 @@ export default function Locker() {
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
                 {myLocks.map((L) => {
-                  const now = Date.now();
-                  const unlocked = now >= Number(L.unlockAt) * 1000;
-                  const timeLeft = fmtTimeLeft(now, Number(L.unlockAt));
                   return (
                     <div
                     key={L.id}
