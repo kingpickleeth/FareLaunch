@@ -153,7 +153,13 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
   const valDate = parseLocal(value);
   const minDate = parseLocal(min) ?? now;
   const maxDate = parseLocal(max) ?? addMonths(now, 2);
-
+  const justClosedRef = useRef(false);
+  const closePopover = () => {
+    setOpen(false);
+    justClosedRef.current = true;
+    // clear on next frame so normal clicks work again
+    requestAnimationFrame(() => { justClosedRef.current = false; });
+  };
   function commit(next: Date) {
     next.setSeconds(0, 0);
     onChange(fmtLocal(clampDate(next, minDate, maxDate)));
@@ -222,19 +228,36 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
   }
   function setMinute(m: number) { const next = new Date(active); next.setMinutes(m, 0, 0); commit(next); }
 
-  const toggleOpen = () => { if (!disabled) setOpen((v) => !v); };
+  const toggleOpen = () => {
+    if (disabled) return;
+    if (justClosedRef.current) return; // ignore the synthetic click from <label>
+    setOpen((v) => !v);
+  };
 
   return (
     <div ref={anchorRef} style={{ position: 'relative', width: '100%', opacity: disabled ? 0.6 : 1 }}>
-      <button type="button" onClick={toggleOpen} className="dtp-input" style={dtpInputStyle} disabled={disabled}>
+      <button
+        type="button"
+        onClick={toggleOpen}
+        className="dtp-input"
+        style={dtpInputStyle}
+        disabled={disabled}
+      >
         <span style={{ opacity: value ? 1 : 0.6 }}>
           {value ? display(parseLocal(value)) : (placeholder ?? 'Select date & time')}
         </span>
         <span aria-hidden>📅</span>
       </button>
 
+
       {open && (
-        <div ref={popRef} style={dtpPopoverStyle} className="dtp-popover">
+  <div
+    ref={popRef}
+    style={dtpPopoverStyle}
+    className="dtp-popover"
+    onMouseDown={(e) => e.stopPropagation()}
+    onClick={(e) => e.stopPropagation()}
+  >
           {/* Header */}
           <div style={popHeaderStyle}>
             <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} style={navBtnStyle} aria-label="Previous month">‹</button>
@@ -299,11 +322,24 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
               </span>
             </div>
           </div>
-
           <div style={popFooterStyle}>
-            <div style={{ fontSize: 12, opacity: 0.75 }}>Local: <strong>{display(parseLocal(value))}</strong></div>
-            <button type="button" className="button button-primary" onClick={() => setOpen(false)} style={{ padding: '8px 10px' }}>Done</button>
-          </div>
+        <div style={{ fontSize: 12, opacity: 0.75 }}>
+          Local: <strong>{display(parseLocal(value))}</strong>
+        </div>
+        <button
+          type="button"
+          className="button button-primary"
+          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onClick={() => {
+            closePopover();
+            // optional: blur the trigger so focus doesn’t bounce back
+            (anchorRef.current?.querySelector('.dtp-input') as HTMLButtonElement | null)?.blur?.();
+          }}
+          style={{ padding: '8px 10px' }}
+        >
+          Done
+        </button>
+      </div>
         </div>
       )}
     </div>
@@ -389,12 +425,14 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
   const softCapOk = Number.isFinite(scNum) && scNum > 0;
   const hardCapOk =
   Number.isFinite(hcNum) && Number.isFinite(scNum) && hcNum >= scNum && hcNum > 0;
-  const minOk = Number.isFinite(minNum) && minNum >= 0;
-  const maxOk = Number.isFinite(maxNum) && maxNum >= minNum && maxNum > 0;
+  const minOk = Number.isFinite(minNum) && minNum > 0;                 // strictly > 0
+  const maxOk = Number.isFinite(maxNum) && maxNum > minNum;            // strictly greater than min  
 
   const hardCapPlaceholder = softCapOk ? `Enter an amount greater than ${scNum} $WAPE` : 'enter soft cap first';
-  const maxPerWalletPlaceholder = minOk ? `Enter a limit higher than ${minNum} $WAPE` : 'enter per-wallet min first';
-
+  const maxPerWalletPlaceholder = minOk
+  ? `Enter a per-wallet max higher than ${minNum} $WAPE`
+  : 'enter per-wallet min first';
+  const minPerWalletPlaceholder = 'Enter a per-wallet minimum > 0 $WAPE';
   // live clamp: don’t allow typing below thresholds
   function onHardCapChange(v: string) {
     if (!softCapOk) { setHardCap(''); return; }
@@ -406,17 +444,17 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
     if (!minOk) { setMaxPerWallet(''); return; }
     const n = toNum(v);
     if (!Number.isFinite(n)) { setMaxPerWallet(v); return; }
-    setMaxPerWallet(String(Math.max(n, minNum)));
+    setMaxPerWallet(String(Math.max(n, minNum + Number.EPSILON))); // keep > min
   }
 
   const nextIssue = useMemo(() => {
     if (!scheduleReady) return 'Set a valid start and end time';
     if (!softCapOk) return 'Enter a valid soft cap (> 0)';
     if (!hardCapOk) return 'Enter a valid hard cap (≥ soft cap)';
-    if (!minOk) return 'Enter a valid per-wallet minimum (≥ 0)';
-    if (!maxOk) return 'Enter a valid per-wallet maximum (≥ min)';
+    if (!minOk) return 'Enter a valid per-wallet minimum (> 0)';       // ← changed
+    if (!maxOk) return 'Enter a valid per-wallet maximum (> min)';     // ← changed
     return null;
-  }, [scheduleReady, softCapOk, hardCapOk, minOk, maxOk]);
+  }, [scheduleReady, softCapOk, hardCapOk, minOk, maxOk]);  
 
   const valid = nextIssue === null;
 
@@ -578,21 +616,26 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
   }
 >
 
-              <input
-                type="number"
-                step="any"
-                min={0}
-                value={minPerWallet}
-                onChange={(e) => setMinPerWallet(e.target.value)}
-                onBlur={(e) => {
-                  const v = toNum(e.target.value);
-                  if (!Number.isFinite(v) || v < 0) setMinPerWallet('0');
-                  else setMinPerWallet(String(v));
-                }}
-                placeholder="e.g. 0.2"
-                style={inputStyle}
-                inputMode="decimal"
-              />
+<input
+  type="number"
+  step="any"
+  min={0}
+  value={minPerWallet}
+  onChange={(e) => setMinPerWallet(e.target.value)}
+  onBlur={(e) => {
+    const v = toNum(e.target.value);
+    if (!Number.isFinite(v) || v <= 0) {
+      setMinPerWallet('');                  // force them to enter > 0
+    } else {
+      setMinPerWallet(String(v));
+      // if max is now invalid (<= min), clear it so the user is prompted again
+      if (Number.isFinite(maxNum) && maxNum <= v) setMaxPerWallet('');
+    }
+  }}
+  placeholder={minPerWalletPlaceholder}      // ← use the new placeholder
+  style={inputStyle}
+  inputMode="decimal"
+/>
             </Field>
 
             {/* Per-wallet Max (greyed/disabled until Min valid; live clamp to ≥ min) */}
@@ -606,22 +649,22 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 >
 
               <div style={{ opacity: minOk ? 1 : 0.5 }}>
-                <input
-                  type="number"
-                  step="any"
-                  min={minOk ? minNum : undefined}
-                  value={maxPerWallet}
-                  onChange={(e) => onMaxPerWalletChange(e.target.value)}
-                  onBlur={(e) => {
-                    const v = toNum(e.target.value);
-                    if (!minOk) { setMaxPerWallet(''); return; }
-                    if (!Number.isFinite(v) || v < minNum) setMaxPerWallet(String(minNum));
-                  }}
-                  placeholder={maxPerWalletPlaceholder}
-                  style={inputStyle}
-                  inputMode="decimal"
-                  disabled={!minOk}
-                />
+              <input
+  type="number"
+  step="any"
+  value={maxPerWallet}
+  onChange={(e) => onMaxPerWalletChange(e.target.value)}
+  onBlur={(e) => {
+    const v = toNum(e.target.value);
+    if (!minOk) { setMaxPerWallet(''); return; }
+    if (!Number.isFinite(v) || v <= minNum) setMaxPerWallet(String(minNum + 1)); // bump above min
+  }}
+  placeholder={maxPerWalletPlaceholder}
+  style={{ ...inputStyle, ...(minOk ? {} : { opacity: 0.5, pointerEvents: 'none' }) }}
+  inputMode="decimal"
+  disabled={!minOk}
+  aria-disabled={!minOk}
+/>
               </div>
             </Field>
           </div>
