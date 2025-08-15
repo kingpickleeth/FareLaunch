@@ -119,7 +119,7 @@ function ProgressBar({ value }: { value: number }) {
         style={{
           width: `${value}%`,
           height: '100%',
-          background: 'var(--progress-bar)', // Primary token
+          background: 'var(--progress-bar)',
           transition: 'width .25s ease'
         }}
       />
@@ -272,6 +272,8 @@ export default function Explore() {
     return toNumber(r.raised);
   }
 
+  const totalCount = sorted.length;
+
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
 
@@ -281,6 +283,8 @@ export default function Explore() {
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap:'wrap' }}>
         <div className="h2">Explore</div>
         <input
+          type="search"
+          aria-label="Search launches by name or symbol"
           placeholder="Search name or symbol"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -294,163 +298,174 @@ export default function Explore() {
         />
       </div>
 
-      {/* Filters + top-right pagination (hidden on narrow) */}
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {(['all','upcoming','active','finalized','failed'] as StatusFilter[]).map((opt) => {
-            const isActive = selected.has(opt);
-            return (
-              <button
-                key={opt}
-                onClick={() => toggleFilter(opt)}
-                className={`buttonfilter${isActive ? ' is-active' : ''}`}
-                aria-pressed={isActive}
-                style={{ padding: '6px 12px', borderRadius: 999, fontWeight: 600, textTransform: 'capitalize', cursor: 'pointer' }}
-              >
-                {opt}
-              </button>
-            );
-          })}
-        </div>
+     {/* Filters + results + top-right pagination (hidden on narrow) */}
+<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+  <div role="group" aria-label="Filter by status" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
 
-        {!isNarrow && (
-          <PaginationBar page={safePage} totalPages={totalPages} onPageChange={setPage} align="right" />
-        )}
-      </div>
+    {(['all','upcoming','active','finalized','failed'] as StatusFilter[]).map((opt) => {
+      const isActive = selected.has(opt);
+      return (
+        <button
+          key={opt}
+          onClick={() => toggleFilter(opt)}
+          className={`buttonfilter${isActive ? ' is-active' : ''}`}
+          aria-pressed={isActive}
+          style={{ padding: '6px 12px', borderRadius: 999, fontWeight: 600, textTransform: 'capitalize', cursor: 'pointer' }}
+        >
+          {opt}
+        </button>
+      );
+    })}
+
+    {/* live results count—sits on the same row as the chips */}
+    <span
+      role="status"
+      aria-live="polite"
+      style={{ color: 'var(--muted)', fontSize: 12, marginLeft: 4 }}
+    >
+      · {totalCount} result{totalCount === 1 ? '' : 's'}
+    </span>
+  </div>
+
+  {!isNarrow && (
+    <PaginationBar page={safePage} totalPages={totalPages} onPageChange={setPage} align="right" />
+  )}
+</div>
 
       {filtered.length === 0 ? (
         <div style={{ color: 'var(--muted)' }}>No launches match your filters.</div>
       ) : (
         <>
+     
           {/* Grid (only 10 per page) */}
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', containIntrinsicSize: '1px 120px' }}>
-          {pageRows.map((r) => {
-  const isActive   = r.status === 'active';
-  const isUpcoming = r.status === 'upcoming';
-  const isFinal    = r.status === 'finalized';
-  const isFailed   = r.status === 'failed';
-  const isEnded    = r.status === 'ended';
+            {pageRows.map((r) => {
+              const isActive   = r.status === 'active';
+              const isUpcoming = r.status === 'upcoming';
+              const isFinal    = r.status === 'finalized';
+              const isFailed   = r.status === 'failed';
+              const isEnded    = r.status === 'ended';
 
-  const dateLabel =
-    isActive ? `Ends: ${fmtWhen(r.end_at)}`
-    : isUpcoming ? `Starts: ${fmtWhen(r.start_at)}`
-    : (isFinal || isFailed || isEnded) ? `Ended: ${fmtWhen(r.end_at || r.start_at)}`
-    : fmtWhen(r.start_at);
+              const dateLabel =
+                isActive ? `Ends: ${fmtWhen(r.end_at)}`
+                : isUpcoming ? `Starts: ${fmtWhen(r.start_at)}`
+                : (isFinal || isFailed || isEnded) ? `Ended: ${fmtWhen(r.end_at || r.start_at)}`
+                : fmtWhen(r.start_at);
 
-  const raised = getRaisedLive(r);
-  const hard   = getHard(r);
-  const percent = hard > 0 ? Math.round(Math.max(0, Math.min(100, (raised / hard) * 100))) : 0;
+              const raised = getRaisedLive(r);
+              const hard   = getHard(r);
+              const percent = hard > 0 ? Math.round(Math.max(0, Math.min(100, (raised / hard) * 100))) : 0;
 
-  // NEW: one accent per card (semantic)
-  const accentVar =
-    isActive   ? 'var(--success)'
-    : isUpcoming ? 'var(--info)'
-    : isFailed   ? 'var(--fl-danger)'
-    : /* finalized/ended/default */ 'var(--badge-muted-border, var(--border))';
+              // One accent per card (semantic)
+              const accentVar =
+                isActive   ? 'var(--success)'
+                : isUpcoming ? 'var(--info)'
+                : isFailed   ? 'var(--fl-danger)'
+                : /* finalized/ended/default */ 'var(--badge-muted-border, var(--border))';
 
-  return (
-    <Link
-      key={r.id}
-      to={`/sale/${r.id}`}
-      className="card"
-      style={{
-        padding: 12,
-        textDecoration: 'none',
-        color: 'inherit',
-        background: 'var(--card-bg, var(--fl-surface))',
-        border: '1px solid var(--card-border, var(--border))',
-        borderRadius: 'var(--radius)',
-        boxShadow: 'var(--shadow)',
-        display: 'flex', alignItems: 'center', gap: 12,
-        position: 'relative',                           // enable stripe
-        transition: 'box-shadow .2s ease, transform .05s ease',
-        ['--card-accent' as any]: accentVar            // expose for children if needed
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow =
-          `0 8px 20px color-mix(in srgb, ${accentVar} 22%, transparent), var(--shadow)`;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = 'var(--shadow)';
-      }}
-    >
-      {/* status stripe */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
-          background: accentVar, borderTopLeftRadius: 'var(--radius)', borderBottomLeftRadius: 'var(--radius)'
-        }}
-      />
+              return (
+                <Link
+                  key={r.id}
+                  to={`/sale/${r.id}`}
+                  className="card"
+                  style={{
+                    padding: 12,
+                    textDecoration: 'none',
+                    color: 'inherit',
+                    background: 'var(--card-bg, var(--fl-surface))',
+                    border: '1px solid var(--card-border, var(--border))',
+                    borderRadius: 'var(--radius)',
+                    boxShadow: 'var(--shadow)',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    position: 'relative',
+                    transition: 'box-shadow .2s ease, transform .05s ease',
+                    ['--card-accent' as any]: accentVar
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.boxShadow =
+                      `0 8px 20px color-mix(in srgb, ${accentVar} 22%, transparent), var(--shadow)`;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.boxShadow = 'var(--shadow)';
+                  }}
+                >
+                  {/* status stripe */}
+                  <div
+                    aria-hidden
+                    style={{
+                      position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
+                      background: accentVar, borderTopLeftRadius: 'var(--radius)', borderBottomLeftRadius: 'var(--radius)'
+                    }}
+                  />
 
-      {r.logo_url ? (
-        <img
-          src={r.logo_url!}
-          onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://dengdefense.xyz/taxi.svg'; }}
-          alt={`${r.token_symbol ?? r.token_name ?? 'Token'} logo`}
-          width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
-          style={{
-            width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0,
-            border: `2px solid color-mix(in srgb, ${accentVar} 55%, transparent)` // subtle avatar ring
-          }}
-        />
-      ) : (
-        <img
-          src="https://dengdefense.xyz/taxi.svg" alt="" width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
-          style={{
-            width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0,
-            border: `2px solid color-mix(in srgb, ${accentVar} 55%, transparent)`
-          }}
-        />
-      )}
+                  {r.logo_url ? (
+                    <img
+                      src={r.logo_url!}
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://dengdefense.xyz/taxi.svg'; }}
+                      alt={`${r.token_symbol ?? r.token_name ?? 'Token'} logo`}
+                      width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
+                      style={{
+                        width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0,
+                        border: `2px solid color-mix(in srgb, ${accentVar} 55%, transparent)`
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src="https://dengdefense.xyz/taxi.svg" alt="" width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
+                      style={{
+                        width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0,
+                        border: `2px solid color-mix(in srgb, ${accentVar} 55%, transparent)`
+                      }}
+                    />
+                  )}
 
-      <div style={{ display: 'grid', gap: 4, width: '100%' }}>
-        {/* Title + badge (keep neutral text; badge carries status color) */}
-        <div style={{ fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-          {r.token_name ?? 'Untitled'}
-          <span style={{ color: 'var(--muted)' }}>({r.token_symbol ?? '—'})</span>
-          <StatusBadge s={r.status} />
-        </div>
+                  <div style={{ display: 'grid', gap: 4, width: '100%' }}>
+                    {/* Title + badge */}
+                    <div style={{ fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                      {r.token_name ?? 'Untitled'}
+                      <span style={{ color: 'var(--muted)' }}>({r.token_symbol ?? '—'})</span>
+                      <StatusBadge s={r.status} />
+                    </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)', color: 'var(--muted)' }}>
-          <span>{dateLabel}</span>
-        </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)', color: 'var(--muted)' }}>
+                      <span>{dateLabel}</span>
+                    </div>
 
-        <div style={{ fontFamily: 'var(--font-data)' }}>
-          {isActive ? (
-            <div style={{ display: 'grid', gap: 6 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
-                <span>Raised: {fmtNum(raised)} $WAPE</span>
-                <span>{hard > 0 ? `${percent}%` : '—'}</span>
-              </div>
-              <ProgressBar value={percent} />
-            </div>
-          ) : isUpcoming ? (
-            <div style={{ color: 'var(--muted)' }}>
-              Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
-            </div>
-          ) : isFinal ? (
-            <div style={{ color: 'var(--muted)' }}>
-              Raised: {fmtNum(raised)} $WAPE • Hard: {fmtNum(hard)}
-            </div>
-          ) : isFailed ? (
-            <div style={{ color: 'var(--muted)' }}>
-              Raised: {fmtNum(raised)} APE {hard > 0 ? `(${percent}%)` : ''}
-            </div>
-          ) : isEnded ? (
-            <div style={{ color: 'var(--muted)' }}>
-              Raised: {fmtNum(raised)} APE • Hard: {fmtNum(hard)}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--muted)' }}>
-              Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
-            </div>
-          )}
-        </div>
-      </div>
-    </Link>
-  );
-})}
+                    <div style={{ fontFamily: 'var(--font-data)' }}>
+                      {isActive ? (
+                        <div style={{ display: 'grid', gap: 6 }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
+                            <span>Raised: {fmtNum(raised)} $WAPE</span>
+                            <span>{hard > 0 ? `${percent}%` : '—'}</span>
+                          </div>
+                          <ProgressBar value={percent} />
+                        </div>
+                      ) : isUpcoming ? (
+                        <div style={{ color: 'var(--muted)' }}>
+                          Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
+                        </div>
+                      ) : isFinal ? (
+                        <div style={{ color: 'var(--muted)' }}>
+                          Raised: {fmtNum(raised)} $WAPE • Hard: {fmtNum(hard)}
+                        </div>
+                      ) : isFailed ? (
+                        <div style={{ color: 'var(--muted)' }}>
+                          Raised: {fmtNum(raised)} APE {hard > 0 ? `(${percent}%)` : ''}
+                        </div>
+                      ) : isEnded ? (
+                        <div style={{ color: 'var(--muted)' }}>
+                          Raised: {fmtNum(raised)} APE • Hard: {fmtNum(hard)}
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--muted)' }}>
+                          Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
 
           {/* Bottom pagination (always visible) */}
