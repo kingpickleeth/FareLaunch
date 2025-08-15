@@ -34,6 +34,34 @@ type TokenMeta = {
   balance: bigint;
 };
 
+/* ------- tiny inline icons (no extra deps) ------- */
+function IconList() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"
+        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function IconClipboard() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"
+        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <rect x="8" y="2" width="8" height="4" rx="1" fill="none" stroke="currentColor" strokeWidth="2"/>
+    </svg>
+  );
+}
+function IconFileUp() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"
+        fill="none" stroke="currentColor" strokeWidth="2" />
+      <path d="M14 2v6h6M12 18v-6M9 15l3-3 3 3" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export default function FareDrop() {
   const { address, isConnected } = useAccount();
   const publicClient = usePublicClient();
@@ -45,11 +73,14 @@ export default function FareDrop() {
   const tokenKey = (t: TokenMeta) => `${t.mode}:${t.address}`;
 
   const ModeButton = ({
-    active, onClick, children,
-  }: { active: boolean; onClick: () => void; children: React.ReactNode }) => (
+    active, onClick, children, id
+  }: { active: boolean; onClick: () => void; children: React.ReactNode; id?: string }) => (
     <button
       type="button"
       onClick={onClick}
+      id={id}
+      role="tab"
+      aria-selected={active}
       className={`buttonfilter${active ? " is-active" : ""}`}
       aria-pressed={active}
       style={{
@@ -57,6 +88,9 @@ export default function FareDrop() {
         borderRadius: 999,
         fontWeight: 700,
         cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
         transition: "background .15s ease, color .15s ease, border-color .15s ease",
       }}
     >
@@ -200,7 +234,8 @@ export default function FareDrop() {
     const clean = value.replace(/[^\d.]/g, "");
     if ((clean.match(/\./g) || []).length > 1) return;
     const [w, f = ""] = clean.split(".");
-    const formatted = withCommas(w) + (f ? `.${f}` : "");
+    const fClamped = selected ? f.slice(0, Math.max(0, selected.decimals)) : f; // clamp decimals to token precision
+    const formatted = withCommas(w) + (fClamped ? `.${fClamped}` : "");
     setEntry(i, { amount: formatted });
   }
   function addRow() {
@@ -235,6 +270,16 @@ export default function FareDrop() {
     }));
     setEntries(parsed.length ? parsed : [{ address: "", amount: "" }]);
   }
+
+  // duplicate detection (quiet warning)
+  const lowerValid = useMemo(
+    () => filteredValid.map(e => ({ ...e, address: (e.address as string).toLowerCase() as `0x${string}` })),
+    [filteredValid]
+  );
+  const dupCount = useMemo(
+    () => (lowerValid.length - new Set(lowerValid.map(e => e.address)).size),
+    [lowerValid]
+  );
 
   // ---------------------------
   // submit (batch)
@@ -361,7 +406,23 @@ export default function FareDrop() {
 
       {/* STEP 1: token picker */}
       <div className="card" style={{ border: "1px solid var(--border)", padding: 16, display: "grid", gap: 12, marginBottom: 16 }}>
-        <div style={{ fontWeight: 800, color: "var(--role-accent)" }}>1) Select a token from your wallet</div>
+        {/* neutral title + gold number pill */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span aria-hidden
+            style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 22, height: 22, borderRadius: 999,
+              background: "color-mix(in srgb, var(--fl-gold) 18%, transparent)",
+              border: "1px solid var(--fl-gold)", color: "var(--fl-gold)",
+              fontWeight: 900, fontSize: 12
+            }}
+          >
+            1
+          </span>
+          <span style={{ fontWeight: 800, color: "var(--text)" }}>
+            Select a token from your wallet
+          </span>
+        </div>
 
         {detectErr && <div style={{ color: "var(--fl-danger)" }}>{detectErr}</div>}
         {loadingDetect && <div style={{ opacity: .8 }}>Detecting balances…</div>}
@@ -417,7 +478,7 @@ export default function FareDrop() {
                   href={`https://apescan.io/address/${selected.address}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: "var(--link-color)", textDecoration: "none", fontWeight: 700 }}
+                  style={{ color: "var(--fl-gold)", textDecoration: "none", fontWeight: 700 }}
                   title={selected.address as string}
                 >
                   {shortAddr(selected.address as `0x${string}`)}
@@ -433,16 +494,35 @@ export default function FareDrop() {
       {/* STEP 2: recipients */}
       {selected && (
         <div className="card" style={{ border: "1px solid var(--border)", padding: 16, display: "grid", gap: 14, marginBottom: 16 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-            <div style={{ fontWeight: 800, color: "var(--role-accent)" }}>2) Add recipients</div>
-            <div style={{ fontSize: 12, color: "var(--muted)" }}>Token: <b>{selected.symbol}</b></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span aria-hidden
+              style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                width: 22, height: 22, borderRadius: 999,
+                background: "color-mix(in srgb, var(--fl-gold) 18%, transparent)",
+                border: "1px solid var(--fl-gold)", color: "var(--fl-gold)",
+                fontWeight: 900, fontSize: 12
+              }}
+            >
+              2
+            </span>
+            <span style={{ fontWeight: 800, color: "var(--text)" }}>
+              Add recipients
+            </span>
+            <span style={{ fontSize: 12, color: "var(--muted)" }}> · Token: <b>{selected.symbol}</b></span>
           </div>
 
           {/* Segmented control */}
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <ModeButton active={inputMode === "line"}  onClick={() => setInputMode("line")}>Line by line</ModeButton>
-            <ModeButton active={inputMode === "paste"} onClick={() => setInputMode("paste")}>Paste list</ModeButton>
-            <ModeButton active={inputMode === "csv"}   onClick={() => setInputMode("csv")}>Upload CSV</ModeButton>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }} role="tablist" aria-label="Recipient input method">
+            <ModeButton active={inputMode === "line"}  onClick={() => setInputMode("line")}  id="tab-line">
+              <IconList /> <span>Line by line</span>
+            </ModeButton>
+            <ModeButton active={inputMode === "paste"} onClick={() => setInputMode("paste")} id="tab-paste">
+              <IconClipboard /> <span>Paste list</span>
+            </ModeButton>
+            <ModeButton active={inputMode === "csv"}   onClick={() => setInputMode("csv")}   id="tab-csv">
+              <IconFileUp /> <span>Upload CSV</span>
+            </ModeButton>
           </div>
 
           {/* LINE BY LINE */}
@@ -457,6 +537,7 @@ export default function FareDrop() {
                       placeholder="0xabc…"
                       value={r.address}
                       onChange={(e) => setEntry(i, { address: e.target.value })}
+                      aria-invalid={!!(r.address && !r.validAddr)}
                       style={{
                         width: "100%",
                         padding: 12,
@@ -482,6 +563,7 @@ export default function FareDrop() {
                       placeholder={`Amount${selected?.symbol ? ` of ${selected.symbol}` : ""}`}
                       value={r.amount}
                       onChange={(e) => onAmountChange(i, e.target.value)}
+                      aria-invalid={!!(r.amount && !r.validAmt)}
                       style={{
                         width: "100%",
                         padding: 12,
@@ -513,6 +595,7 @@ export default function FareDrop() {
                 placeholder={`0xAddress1, 100\n0xAddress2, 250\n0xAddress3, 400`}
                 value={pasteText}
                 onChange={(e) => setPasteText(e.target.value)}
+                aria-invalid={false}
                 style={{
                   width: "100%",
                   padding: 12,
@@ -571,10 +654,18 @@ export default function FareDrop() {
                 padding: 10,
               }}
             >
-              <div>Total: <b>{withCommas(String(totalAmountHuman))} {selected.symbol}</b></div>
+              <div>
+                Total: <b>{withCommas(String(totalAmountHuman))} {selected.symbol}</b>
+                {" · "}Recipients: <b>{filteredValid.length}</b>
+              </div>
               <div style={{ opacity: .8 }}>
                 Your balance: <b>{prettyWhole(selected.balance, selected.decimals)} {selected.symbol}</b>
               </div>
+              {dupCount > 0 && (
+                <div style={{ color: "var(--fl-danger)" }}>
+                  {dupCount} duplicate recipient{dupCount > 1 ? "s" : ""} detected; duplicates will each receive funds.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -602,7 +693,11 @@ export default function FareDrop() {
         </button>
       </form>
 
-      {status && <div style={{ marginTop: 12, color: "var(--text)" }}>{status}</div>}
+      {status && (
+        <div role="status" aria-live="polite" style={{ marginTop: 12, color: "var(--text)" }}>
+          {status}
+        </div>
+      )}
     </div>
   );
 }
