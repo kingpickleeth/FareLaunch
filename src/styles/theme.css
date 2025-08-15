@@ -1274,3 +1274,28 @@ input:focus, textarea:focus { border-color: var(--role-primary); box-shadow: var
   font-weight: 700;
   box-shadow: inset 3px 0 0 var(--fl-gold); /* subtle left accent */
 }
+/* Base input primitive (local to this page) */
+.fdl-input {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--input-border, var(--border));
+  background: var(--fl-bg);
+  color: var(--text);
+  border-radius: var(--input-radius, var(--radius, 12px));
+  outline: none;
+  transition: border-color .12s ease, box-shadow .12s ease, background .12s ease;
+  font: inherit;
+}
+
+/* Focus & placeholder */
+.fdl-input:focus {
+  border-color: var(--fl-gold);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fl-gold) 24%, transparent);
+  background: color-mix(in srgb, var(--fl-gold) 6%, var(--fl-bg));
+}
+.fdl-input::placeholder { opacity: .65; }
+
+/* Prevent mobile auto-zoom (keep >=16px) */
+@media (max-width: 480px) { .fdl-input { font-size: 16px; } }
