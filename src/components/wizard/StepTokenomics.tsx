@@ -1,7 +1,21 @@
 import { useMemo, useState, useEffect } from 'react';
 import type { WizardData } from '../../types/wizard';
 
-/* ---------- tiny utils (mirroring Step 2) ---------- */
+/* ──────────────────────────────────────────────────────────────
+   Step header chip (gold chip)
+   ────────────────────────────────────────────────────────────── */
+function StepHeader({ n, children }: { n: number; children: React.ReactNode }) {
+  return (
+    <div className="stepheader">
+      <span aria-hidden className="stepchip">{n}</span>
+      <span className="steptitle">{children}</span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Tiny utils
+   ────────────────────────────────────────────────────────────── */
 function toNum(s: unknown): number {
   if (s === null || s === undefined) return NaN;
   const str = String(s).replace(/,/g, '').trim();
@@ -15,7 +29,9 @@ function formatNumberDisplay(v: unknown): string {
   return Number.isFinite(n) ? n.toLocaleString() : toStr(v);
 }
 
-/* ---------- Info tooltip (from Step 2) ---------- */
+/* ──────────────────────────────────────────────────────────────
+   Info tooltip (theme aware)
+   ────────────────────────────────────────────────────────────── */
 function ensureTooltipCSS() {
   const tipId = 'fl-tooltip-styles';
   const css = `
@@ -56,7 +72,6 @@ function InfoIcon({ text }: { text: string }) {
   useEffect(() => { ensureTooltipCSS(); }, []);
   const [open, setOpen] = useState(false);
   const [placement, setPlacement] = useState<'right' | 'left'>('right');
-
   return (
     <span
       className="fl-info"
@@ -67,7 +82,7 @@ function InfoIcon({ text }: { text: string }) {
           const el = document.querySelector('.fl-tip') as HTMLElement | null;
           if (!el) return;
           const r = el.getBoundingClientRect();
-          if (r.right + 16 > vw) setPlacement('left'); else setPlacement('right');
+          setPlacement(r.right + 16 > vw ? 'left' : 'right');
         }, 0);
       }}
       onMouseLeave={() => setOpen(false)}
@@ -120,18 +135,22 @@ function InfoIcon({ text }: { text: string }) {
   );
 }
 
-/* ---------- Field + Required (like Step 2) ---------- */
+/* ──────────────────────────────────────────────────────────────
+   Field + Required
+   ────────────────────────────────────────────────────────────── */
 function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   return (
     <label style={{ display: 'grid', gap: 6 }}>
-      <div>{label}</div>
+      {label != null && label !== false ? <div>{label}</div> : null}
       {children}
     </label>
   );
 }
 function Required() { return <span style={{ color: 'red' }}>*</span>; }
 
-/* ---------- styles (mirroring Step 2) ---------- */
+/* ──────────────────────────────────────────────────────────────
+   Styles
+   ────────────────────────────────────────────────────────────── */
 const inputStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
   border: '1px solid var(--input-border)',
@@ -140,13 +159,78 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px',
   outline: 'none',
   width: '100%',
+  boxSizing: 'border-box',
 };
-const rangeStyle: React.CSSProperties = {
-  accentColor: 'var(--fl-purple)' as any,
-  width: '100%',
-};
+const rangeStyle: React.CSSProperties = { accentColor: 'var(--fl-purple)' as any, width: '100%' };
 
-/* ---------- props ---------- */
+function injectLocalCSSOnce() {
+  const id = 'wizard-tokenomics-css';
+  if (typeof document === 'undefined' || document.getElementById(id)) return;
+  const s = document.createElement('style');
+  s.id = id;
+  s.textContent = `
+    .wizard-card { padding: 16px; display: grid; gap: 20px; max-width: 100%; }
+
+    .stepheader { display:flex; align-items:center; gap:8px; }
+    .stepchip {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:22px; height:22px; border-radius:999px;
+      background: color-mix(in srgb, var(--fl-gold) 18%, transparent);
+      border:1px solid var(--fl-gold); color: var(--fl-gold);
+      font-weight:900; font-size:12px;
+    }
+    .steptitle { font-weight:800; color: var(--text); display:inline-flex; align-items:center; gap:6px; }
+
+    .slider-block { max-width: 420px; width: 100%; }
+    .slider-meta { display:flex; align-items:center; gap:8px; margin-top:6px; font-family: var(--font-data); }
+
+    /* Lock chips */
+    .lock-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .lock-row .button.lock-chip{
+      border:1px solid var(--border) !important;
+      background:transparent !important;
+      color:var(--text) !important;
+      border-radius:999px;
+      padding:8px 12px;
+      font-weight:800;
+      box-shadow:var(--shadow-sm,0 1px 2px rgba(0,0,0,.05));
+      transition:background .15s ease,border-color .15s ease,color .15s ease,transform .05s ease;
+    }
+    @media (hover:hover){
+      .lock-row .button.lock-chip:hover{
+        background:color-mix(in srgb,var(--btn-bg) 60%,transparent) !important;
+      }
+    }
+    .lock-row .button.lock-chip:focus-visible{
+      outline:none;
+      box-shadow:0 0 0 2px color-mix(in srgb,var(--fl-purple) 22%, transparent);
+    }
+    .lock-row .button.lock-chip.is-active{
+      background:var(--fl-purple) !important;
+      border-color:var(--fl-purple) !important;
+      color:#fff !important;
+      box-shadow:0 2px 12px color-mix(in srgb,var(--fl-purple) 24%, transparent);
+    }
+
+    .pct-narrow { max-width: 220px; width: 100%; }
+
+    .review-head { display:flex; align-items:center; justify-content:space-between; }
+    .review-pill { font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid var(--card-border); background:var(--input-bg); color:var(--muted); }
+    .review-grid { border-top:1px dashed var(--card-border); padding-top:10px; display:grid; gap:8px; font-family: var(--font-data); }
+
+    .wizard-cta-row { display:flex; justify-content:space-between; gap:12px; }
+    @media (max-width:640px){
+      .wizard-cta-row > .button { width:100%; }
+      .slider-block { max-width:100%; }
+      .pct-narrow { max-width:100%; }
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Props
+   ────────────────────────────────────────────────────────────── */
 type Props = {
   value: WizardData;
   onChange: (next: WizardData) => void;
@@ -155,16 +239,15 @@ type Props = {
 };
 
 export default function StepTokenomics({ value, onChange, onNext, onBack }: Props) {
+  useEffect(() => { injectLocalCSSOnce(); }, []);
+
   /* ---------------- state ---------------- */
-  const [supply, setSupply] = useState<string>(toStr(value.token.totalSupply)); // user-entered string
-  // sliders start at 0 and require "touch"
+  const [supply, setSupply] = useState<string>(toStr(value.token.totalSupply));
   const [tokenPctToLP, setTokenPctToLP] = useState<number>(0);
   const [raisePctToLP, setRaisePctToLP] = useState<number>(0);
   const [tokenPctTouched, setTokenPctTouched] = useState<boolean>(false);
   const [raisePctTouched, setRaisePctTouched] = useState<boolean>(false);
-  // lock initially unselected; appears only after both sliders touched
   const [lockDays, setLockDays] = useState<30 | 90 | 180 | 365 | undefined>(undefined);
-  // keep shows only after lock selected
   const [keepPct, setKeepPct] = useState<number | ''>('');
   const [keepTouched, setKeepTouched] = useState<boolean>(false);
 
@@ -193,14 +276,7 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
       ? Math.max(0, remainingAfterLP - keptTokens)
       : NaN;
 
-  /* ---------------- staged gating & validation ----------------
-     Order of guidance (first failure becomes CTA label):
-     1) total supply
-     2) tokens→LP slider must be moved (touch) & valid (0–100)
-     3) raise→LP slider must be moved (touch) & valid (0–100)
-     4) lock selection required
-     5) keep % required (0–100)
-  ------------------------------------------------------------- */
+  /* ---------------- gating ---------------- */
   const lockOk = lockDays === 30 || lockDays === 90 || lockDays === 180 || lockDays === 365;
 
   const nextIssue = useMemo(() => {
@@ -246,19 +322,15 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
 
   /* ---------------- render ---------------- */
   return (
-    <div className="card" style={{ padding: 16, display: 'grid', gap: 20 }}>
-      <div className="h2">Tokenomics</div>
+    <div className="card wizard-card">
+      {/* 1) Total Supply (title holds the info icon) */}
+      <StepHeader n={1}>
+        Total Supply <Required />
+        <InfoIcon text="The total fixed supply of your token." />
+      </StepHeader>
 
-      {/* 1) Supply */}
       <section style={{ display: 'grid', gap: 12 }}>
-        <Field
-          label={
-            <>
-              Total Supply <Required />
-              <InfoIcon text={`The total fixed supply of your token.`} />
-            </>
-          }
-        >
+        <Field label={null}>
           <input
             value={toStr(supply)}
             onChange={(e) => setSupply(e.target.value)}
@@ -277,12 +349,13 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
         </Field>
       </section>
 
-      {/* 2) % sliders — only after supply valid */}
+      {/* 2) Liquidity Pool Setup — only after supply valid */}
       {totalSupplyOk && (
         <>
-          {/* % of TOKENS to LP */}
+          <StepHeader n={2}>Liquidity Pool Setup</StepHeader>
+
           <section style={{ display: 'grid', gap: 12 }}>
-            <div className="h2" style={{ fontSize: 20 }}>% of Tokens → LP</div>
+            {/* % of TOKENS to LP (no yellow title) */}
             <Field
               label={
                 <>
@@ -291,7 +364,7 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                 </>
               }
             >
-              <div style={{ maxWidth: 360 }}>
+              <div className="slider-block">
                 <input
                   type="range"
                   min={0}
@@ -301,15 +374,7 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                   onChange={(e) => { setTokenPctToLP(Number(e.target.value)); setTokenPctTouched(true); }}
                   style={rangeStyle}
                 />
-                <div
-                  style={{
-                    fontFamily: 'var(--font-data)',
-                    display: 'flex',
-                    gap: 8,
-                    alignItems: 'center',
-                    marginTop: 6,
-                  }}
-                >
+                <div className="slider-meta">
                   <span>{tokenPctToLP}%</span>
                   <span style={{ opacity: 0.9 }}>
                     &nbsp;→&nbsp; <b>{lpTokensHint}</b>
@@ -317,11 +382,8 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                 </div>
               </div>
             </Field>
-          </section>
 
-          {/* % of RAISE to LP */}
-          <section style={{ display: 'grid', gap: 12 }}>
-            <div className="h2" style={{ fontSize: 20 }}>% of Raise → LP</div>
+            {/* % of RAISE to LP (no yellow title) */}
             <Field
               label={
                 <>
@@ -330,7 +392,7 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                 </>
               }
             >
-              <div style={{ maxWidth: 360 }}>
+              <div className="slider-block">
                 <input
                   type="range"
                   min={0}
@@ -340,88 +402,83 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                   onChange={(e) => { setRaisePctToLP(Number(e.target.value)); setRaisePctTouched(true); }}
                   style={rangeStyle}
                 />
-                <div style={{ fontFamily: 'var(--font-data)', marginTop: 6 }}>
-                  {raisePctToLP}% of the raised $WAPE
-                </div>
+                <div className="slider-meta">{raisePctToLP}% of the raised $WAPE</div>
               </div>
             </Field>
           </section>
         </>
       )}
 
-      {/* 3) Lock — only after BOTH sliders have been touched */}
+      {/* 3) Liquidity Pool Lock — after BOTH sliders touched */}
       {totalSupplyOk && tokenPctTouched && raisePctTouched && (
-        <section style={{ display: 'grid', gap: 12 }}>
-          <div className="h2" style={{ fontSize: 20 }}>
-            Lock Liquidity For: <Required />
+        <>
+          <StepHeader n={3}>
+            Liquidity Pool Lock <Required />
             <InfoIcon text="How long your LP tokens remain locked in the locker. Longer locks build trust." />
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {[30, 90, 180, 365].map((d) => {
-              const active = lockDays === d;
-              return (
-                <button
-                  key={d}
-                  type="button"
-                  className="button"
-                  onClick={() => setLockDays(d as 30 | 90 | 180 | 365)}
-                  style={{
-                    background: active ? 'var(--fl-purple)' : 'var(--btn-bg)',
-                    color: active
-                      ? 'var(--chip-active-fg, #ffffff)'
-                      : 'var(--chip-fg, var(--fl-purple))',
-                    border: '1px solid var(--border)',
-                  }}
-                  aria-pressed={active}
-                >
-                  {d} days
-                </button>
-              );
-            })}
-          </div>
-        </section>
+          </StepHeader>
+
+          <section style={{ display: 'grid', gap: 12 }}>
+            <div className="lock-row">
+              {[30, 90, 180, 365].map((d) => {
+                const active = lockDays === d;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    className={`button lock-chip${active ? ' is-active' : ''}`}
+                    onClick={() => setLockDays(d as 30 | 90 | 180 | 365)}
+                    aria-pressed={active}
+                  >
+                    {d} days
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </>
       )}
 
-      {/* 4) Keep % — only after lock picked */}
+      {/* 4) % of Remaining Tokens to Hold — after lock picked */}
       {totalSupplyOk && tokenPctTouched && raisePctTouched && lockOk && (
-        <section style={{ display: 'grid', gap: 12, maxWidth: 'min(360px, 100%)' }}>
-          <Field
-            label={
-              <>
-                % of remaining tokens to hold: <Required />
-                <InfoIcon text="After removing LP tokens, this % of the remainder is kept by the creator. The rest goes to the sale pool." />
-              </>
-            }
-          >
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={typeof keepPct === 'number' ? String(Math.max(0, Math.min(100, keepPct))) : ''}
-              onChange={(e) => {
-                setKeepTouched(true);
-                const digits = e.target.value.replace(/[^\d]/g, '');
-                const n = digits === '' ? NaN : Number(digits);
-                if (!Number.isFinite(n)) { setKeepPct(''); return; }
-                const clamped = Math.min(100, Math.max(0, n));
-                setKeepPct(clamped);
-              }}
-              onBlur={(e) => {
-                const n = Number(e.target.value);
-                if (!Number.isFinite(n) || n < 0) { setKeepPct(0); setKeepTouched(true); }
-                else if (n > 100) { setKeepPct(100); setKeepTouched(true); }
-              }}
-              placeholder="0 – 100"
-              style={inputStyle}
-            />
-            <small style={{ color: 'var(--muted)' }}>
-              Applies to the remainder <i>after</i> LP tokens. Set to 0% to route all remainder to sale.
-            </small>
-          </Field>
-        </section>
+        <>
+          <StepHeader n={4}>
+            % of Remaining Tokens to Hold <Required />
+            <InfoIcon text="After removing LP tokens, this % of the remainder is kept by the creator. The rest goes to the sale pool." />
+          </StepHeader>
+
+          <section style={{ display: 'grid', gap: 12, maxWidth: 'min(420px, 100%)' }}>
+            <Field label={null}>
+              <input
+                className="pct-narrow"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={typeof keepPct === 'number' ? String(Math.max(0, Math.min(100, keepPct))) : ''}
+                onChange={(e) => {
+                  setKeepTouched(true);
+                  const digits = e.target.value.replace(/[^\d]/g, '');
+                  const n = digits === '' ? NaN : Number(digits);
+                  if (!Number.isFinite(n)) { setKeepPct(''); return; }
+                  const clamped = Math.min(100, Math.max(0, n));
+                  setKeepPct(clamped);
+                }}
+                onBlur={(e) => {
+                  const n = Number(e.target.value);
+                  if (!Number.isFinite(n) || n < 0) { setKeepPct(0); setKeepTouched(true); }
+                  else if (n > 100) { setKeepPct(100); setKeepTouched(true); }
+                }}
+                placeholder="0 – 100"
+                style={inputStyle}
+              />
+              <small style={{ color: 'var(--muted)' }}>
+                Applies to the remainder <i>after</i> LP tokens. Set to 0% to route all remainder to sale.
+              </small>
+            </Field>
+          </section>
+        </>
       )}
 
-      {/* Review panel — themed clearer; only when we have supply */}
+      {/* Review panel */}
       {totalSupplyOk && (
         <section
           className="card"
@@ -434,21 +491,12 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
             gap: 10,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="review-head">
             <div style={{ fontWeight: 800, letterSpacing: 0.2 }}>Review</div>
-            <div style={{
-              fontSize: 12,
-              padding: '2px 8px',
-              borderRadius: 999,
-              border: '1px solid var(--card-border)',
-              background: 'var(--input-bg)',
-              color: 'var(--muted)'
-            }}>
-              Preview
-            </div>
+            <div className="review-pill">Preview</div>
           </div>
 
-          <div style={{ borderTop: '1px dashed var(--card-border)', paddingTop: 10, display: 'grid', gap: 8, fontFamily: 'var(--font-data)' }}>
+          <div className="review-grid">
             <Row label="Total Supply" value={<b>{formatNumberDisplay(supply)}</b>} />
             {tokenPctTouched && (
               <Row
@@ -462,12 +510,7 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                 }
               />
             )}
-            {raisePctTouched && (
-              <Row
-                label="% Raise → LP"
-                value={<b>{raisePctToLP}%</b>}
-              />
-            )}
+            {raisePctTouched && <Row label="% Raise → LP" value={<b>{raisePctToLP}%</b>} />}
             {lockOk && <Row label="Lock Duration" value={<b>{lockDays} days</b>} />}
             {keepTouched && keepOk && (
               <>
@@ -478,17 +521,12 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
                       <b>{keepVal}%</b>
                       <span style={{ opacity: 0.7 }}> &nbsp;·&nbsp; </span>
                       <b>{Number.isFinite(keptTokens) ? keptTokens.toLocaleString() : '-'}</b> {ticker}
-                    
                     </>
                   }
                 />
                 <Row
                   label="Tokens for Sale"
-                  value={
-                    <>
-                      <b>{Number.isFinite(tokensForSale) ? tokensForSale.toLocaleString() : '-'}</b> {ticker}
-                    </>
-                  }
+                  value={<><b>{Number.isFinite(tokensForSale) ? tokensForSale.toLocaleString() : '-'}</b> {ticker}</>}
                 />
               </>
             )}
@@ -497,14 +535,13 @@ export default function StepTokenomics({ value, onChange, onNext, onBack }: Prop
       )}
 
       {/* Nav */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-        <button className="button" onClick={onBack}>← Back</button>
+      <div className="wizard-cta-row">
+        <button className="button button-secondary" onClick={onBack}>← Back</button>
         <button
-          className="button button-primary"
+          className={`button ${valid ? 'button-primary' : ''}`}
           onClick={commitAndNext}
           disabled={!valid}
           title={nextIssue ?? 'All set'}
-          style={{ opacity: valid ? 1 : 0.6 }}
         >
           {valid ? 'Save & Continue' : nextIssue}
         </button>

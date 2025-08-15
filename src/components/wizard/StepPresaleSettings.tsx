@@ -3,7 +3,6 @@ import type { WizardData } from '../../types/wizard';
 
 /* ---------- tiny utils ---------- */
 function bumpAbove(x: number) {
-  // pick a tiny increment based on decimals of x (up to 6)
   const s = String(x);
   const dec = s.includes('.') ? Math.min(6, s.split('.')[1].length || 0) : 0;
   const step = dec ? Math.pow(10, -dec) : 1;
@@ -59,29 +58,29 @@ function toNum(s: unknown): number {
   return Number.isFinite(n) ? n : NaN;
 }
 
-/* ---------- compact popover (calendar + hour/min) ---------- */
-type DTPProps = {
-  value?: string;
-  min?: string; // inclusive
-  max?: string; // inclusive
-  onChange: (next: string) => void;
-  disabled?: boolean;
-  placeholder?: string;
-};
+/* ---------- gold number chip header ---------- */
+function StepHeader({ n, text }: { n: number; text: string }) {
+  return (
+    <div className="stepheader">
+      <span aria-hidden className="stepchip">{n}</span>
+      <span className="steptitle">{text}</span>
+    </div>
+  );
+}
+
+/* ---------- info tooltip ---------- */
 function InfoIcon({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
   const tipRef = useRef<HTMLDivElement | null>(null);
   const iconRef = useRef<HTMLSpanElement | null>(null);
   const [placement, setPlacement] = useState<'right' | 'left'>('right');
 
-  // Auto-flip when near the right edge
   useEffect(() => {
     if (!open || !tipRef.current || !iconRef.current) return;
     const tip = tipRef.current.getBoundingClientRect();
     const vw = window.innerWidth || document.documentElement.clientWidth;
     setPlacement(tip.right + 16 > vw ? 'left' : 'right');
   }, [open]);
-
 
   return (
     <span
@@ -111,10 +110,9 @@ function InfoIcon({ text }: { text: string }) {
         transition: 'color .12s ease, border-color .12s ease, background .12s ease',
       }}
       aria-label={text}
-      title="" // disable native title bubble
+      title=""
     >
       i
-
       {open && (
         <div
           ref={tipRef}
@@ -124,17 +122,13 @@ function InfoIcon({ text }: { text: string }) {
             position: 'absolute',
             zIndex: 40,
             top: '50%',
-            // positions use CSS class (right/left) below; keep here for TS types
-            left: undefined as unknown as number,
-            right: undefined as unknown as number,
-            transform: 'translateY(calc(-50% + 1px))', // subtle downward nudge so the arrow meets the "i"
+            transform: 'translateY(calc(-50% + 1px))',
             minWidth: 220,
             maxWidth: 360,
             padding: '10px 12px',
             borderRadius: 10,
             fontSize: 12,
             lineHeight: 1.45,
-            // THEME-AWARE colors: only variables, no hardcoded dark fallback
             background: 'var(--tooltip-bg, var(--popover-bg, var(--input-bg)))',
             color: 'var(--tooltip-text, var(--text))',
             border: '1px solid var(--tooltip-border, var(--card-border))',
@@ -151,22 +145,35 @@ function InfoIcon({ text }: { text: string }) {
   );
 }
 
+/* ---------- compact date-time popover ---------- */
+type DTPProps = {
+  value?: string;
+  min?: string; max?: string;
+  onChange: (next: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+};
 function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: DTPProps) {
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const popRef = useRef<HTMLDivElement | null>(null);
 
+  // NEW: click position in the viewport, and clamped screen position
+  const [clickPos, setClickPos] = useState<{ x: number; y: number } | null>(null);
+  const [screenPos, setScreenPos] = useState<{ x: number; y: number } | null>(null);
+
   const now = new Date();
   const valDate = parseLocal(value);
   const minDate = parseLocal(min) ?? now;
   const maxDate = parseLocal(max) ?? addMonths(now, 2);
+
   const justClosedRef = useRef(false);
   const closePopover = () => {
     setOpen(false);
     justClosedRef.current = true;
-    // clear on next frame so normal clicks work again
     requestAnimationFrame(() => { justClosedRef.current = false; });
   };
+
   function commit(next: Date) {
     next.setSeconds(0, 0);
     onChange(fmtLocal(clampDate(next, minDate, maxDate)));
@@ -186,6 +193,39 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
 
+  // ---- Center-at-click math -------------------------------------------------
+  useEffect(() => {
+    if (!open || !popRef.current || !clickPos) return;
+    const pad = 12;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const { width, height } = popRef.current.getBoundingClientRect();
+
+    // Clamp so the popover stays fully on-screen
+    const x = Math.min(vw - pad - width / 2, Math.max(pad + width / 2, clickPos.x));
+    const y = Math.min(vh - pad - height / 2, Math.max(pad + height / 2, clickPos.y));
+
+    setScreenPos({ x, y });
+  }, [open, clickPos]);
+
+  // Re-clamp on resize while open
+  useEffect(() => {
+    function onResize() {
+      if (!open || !popRef.current || !clickPos) return;
+      const pad = 12;
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const { width, height } = popRef.current.getBoundingClientRect();
+      setScreenPos({
+        x: Math.min(vw - pad - width / 2, Math.max(pad + width / 2, clickPos.x)),
+        y: Math.min(vh - pad - height / 2, Math.max(pad + height / 2, clickPos.y)),
+      });
+    }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [open, clickPos]);
+
+  // ---- Time grid logic (unchanged) -----------------------------------------
   const grid = useMemo(() => {
     const first = new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1);
     const startWeekday = (first.getDay() + 6) % 7; // Mon=0
@@ -207,11 +247,9 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
     commit(picked);
   }
 
-  // time controls (hour/min) with boundary disabling
   const active = valDate ?? minDate;
   const hours = active.getHours();
   const minutes = active.getMinutes();
-
   const isMinDay = sameYMD(active, minDate);
   const isMaxDay = sameYMD(active, maxDate);
   const minHour = isMinDay ? minDate.getHours() : 0;
@@ -228,24 +266,30 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
     const next = new Date(active);
     next.setHours(h, minutes, 0, 0);
     if (minuteDisabled(next.getMinutes(), h)) {
-      const safe = minuteSteps.find((mm) => !minuteDisabled(mm, h)) ?? (isMaxDay ? maxDate.getMinutes() : minDate.getMinutes());
+      const safe = minuteSteps.find(mm => !minuteDisabled(mm, h)) ?? (isMaxDay ? maxDate.getMinutes() : minDate.getMinutes());
       next.setMinutes(safe, 0, 0);
     }
     commit(next);
   }
   function setMinute(m: number) { const next = new Date(active); next.setMinutes(m, 0, 0); commit(next); }
 
-  const toggleOpen = () => {
+  // Toggle open; record click coordinates (viewport space)
+  const onTriggerMouseDown = (e: React.MouseEvent) => {
     if (disabled) return;
-    if (justClosedRef.current) return; // ignore the synthetic click from <label>
-    setOpen((v) => !v);
+    setClickPos({ x: e.clientX, y: e.clientY });
+  };
+  const onTriggerClick = () => {
+    if (disabled) return;
+    if (justClosedRef.current) return;
+    setOpen(v => !v);
   };
 
   return (
     <div ref={anchorRef} style={{ position: 'relative', width: '100%', opacity: disabled ? 0.6 : 1 }}>
       <button
         type="button"
-        onClick={toggleOpen}
+        onMouseDown={onTriggerMouseDown}
+        onClick={onTriggerClick}
         className="dtp-input"
         style={dtpInputStyle}
         disabled={disabled}
@@ -256,15 +300,22 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
         <span aria-hidden>📅</span>
       </button>
 
-
       {open && (
-  <div
-    ref={popRef}
-    style={dtpPopoverStyle}
-    className="dtp-popover"
-    onMouseDown={(e) => e.stopPropagation()}
-    onClick={(e) => e.stopPropagation()}
-  >
+        <div
+          ref={popRef}
+          className="dtp-popover"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          // KEY: fixed, centered at (clamped) click point
+          style={{
+            ...dtpPopoverStyle,
+            position: 'fixed',
+            left: screenPos?.x ?? 0,
+            top: screenPos?.y ?? 0,
+            right: 'auto',
+            transform: 'translate(-50%, -50%)', // center the popover on the point
+          }}
+        >
           {/* Header */}
           <div style={popHeaderStyle}>
             <button type="button" onClick={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))} style={navBtnStyle} aria-label="Previous month">‹</button>
@@ -279,7 +330,7 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
             ))}
           </div>
 
-          {/* Grid with strong greying for out-of-range */}
+          {/* Calendar grid */}
           <div style={gridStyle}>
             {grid.map((d, i) => {
               const inMonth = d.getMonth() === viewMonth.getMonth();
@@ -309,7 +360,7 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
             })}
           </div>
 
-          {/* Time (no seconds) */}
+          {/* Time */}
           <div style={timeRowStyle}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <label style={{ fontSize: 12, opacity: 0.8 }}>Time</label>
@@ -320,7 +371,7 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
               </select>
               <span>:</span>
               <select value={Math.floor(minutes / 5) * 5} onChange={(e) => setMinute(Number(e.target.value))} style={selectStyle}>
-                {minuteSteps.map((m) => (
+                {Array.from({ length: 12 }, (_, i) => i * 5).map((m) => (
                   <option key={m} value={m} disabled={minuteDisabled(m, hours)}>{pad(m)}</option>
                 ))}
               </select>
@@ -329,42 +380,110 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
               </span>
             </div>
           </div>
+
           <div style={popFooterStyle}>
-        <div style={{ fontSize: 12, opacity: 0.75 }}>
-          Local: <strong>{display(parseLocal(value))}</strong>
-        </div>
-        <button
-          type="button"
-          className="button button-primary"
-          onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-          onClick={() => {
-            closePopover();
-            // optional: blur the trigger so focus doesn’t bounce back
-            (anchorRef.current?.querySelector('.dtp-input') as HTMLButtonElement | null)?.blur?.();
-          }}
-          style={{ padding: '8px 10px' }}
-        >
-          Done
-        </button>
-      </div>
+            <div style={{ fontSize: 12, opacity: 0.75 }}>
+              Local: <strong>{display(parseLocal(value))}</strong>
+            </div>
+            <button
+              type="button"
+              className="button button-primary"
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onClick={() => {
+                closePopover();
+                (anchorRef.current?.querySelector('.dtp-input') as HTMLButtonElement | null)?.blur?.();
+              }}
+              style={{ padding: '8px 10px' }}
+            >
+              Done
+            </button>
+          </div>
         </div>
       )}
     </div>
   );
 }
 
+
+/* ---------- currency-suffix input ---------- */
+function CurrencyInput(props: React.InputHTMLAttributes<HTMLInputElement> & { suffix: string }) {
+  const { suffix, style, disabled, ...rest } = props;
+  return (
+    <div className="input-suffix-wrap" style={{ position: 'relative', width: '100%', opacity: disabled ? 0.6 : 1 }}>
+      <input {...rest} style={{ ...inputStyle, paddingRight: 72, ...style }} />
+      <span
+        className="input-suffix"
+        aria-hidden
+        style={{
+          position: 'absolute',
+          right: 12,
+          top: '50%',
+          transform: 'translateY(-50%)',
+          fontWeight: 700,
+          fontSize: 13,
+          color: 'var(--muted)',
+          pointerEvents: 'none',
+        }}
+      >
+        {suffix}
+      </span>
+    </div>
+  );
+}
+
 /* ---------- main step ---------- */
-type Props = {
+type PSProps = {
   value: WizardData;
   onChange: (next: WizardData) => void;
   onNext: () => void;
   onBack: () => void;
 };
 
-export default function StepPresaleSettings({ value, onChange, onNext, onBack }: Props) {
+export default function StepPresaleSettings({ value, onChange, onNext, onBack }: PSProps) {
+  /* one-time responsive CSS */
+  useEffect(() => {
+    const id = 'wizard-presale-css';
+    if (document.getElementById(id)) return;
+    const s = document.createElement('style');
+    s.id = id;
+    s.textContent = `
+      .wizard-card { padding: 16px; display: grid; gap: 16px; max-width: 100%; }
+
+      .stepheader { display:flex; align-items:center; gap:8px; }
+      .stepchip {
+        display:inline-flex; align-items:center; justify-content:center;
+        width:22px; height:22px; border-radius:999px;
+        background: color-mix(in srgb, var(--fl-gold) 18%, transparent);
+        border:1px solid var(--fl-gold); color: var(--fl-gold);
+        font-weight:900; font-size:12px;
+      }
+      .steptitle { font-weight:800; color: var(--text); }
+
+      .tokenomics-grid-3 {
+        display:grid; gap:12px;
+        grid-template-columns: minmax(160px, 220px) 1fr 1fr;
+        align-items:end;
+      }
+      .tokenomics-grid-2 { display:grid; gap:12px; grid-template-columns: 1fr 1fr; align-items:end; }
+
+      .duration-pill {
+        margin-top: 6px; padding: 10px 12px; border-radius: 12px;
+        border: 1px dashed var(--input-border);
+        background: var(--input-bg); color: var(--text); font-size: 13px;
+        display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      }
+
+      @media (max-width: 900px){ .tokenomics-grid-3 { grid-template-columns: 1fr; } }
+      @media (max-width: 720px){ .tokenomics-grid-2 { grid-template-columns: 1fr; } }
+    `;
+    document.head.appendChild(s);
+  }, []);
+
+  // date limits
   const now = new Date();
   const maxFuture = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
   const [quote] = useState<'WAPE'>((value.sale?.quote ?? 'WAPE') as 'WAPE');
+  const currencyTag = `$${quote}`;
 
   // schedule
   const [start, setStart] = useState<string>(value.sale?.start ? String(value.sale?.start) : '');
@@ -389,9 +508,9 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
   const startDate = parseLocal(start);
   const endDate = parseLocal(end);
 
-  // IMPORTANT: do NOT autofill end. Only clamp when the user HAS set an end.
+  // clamp only when end exists
   useEffect(() => {
-    if (!startDate || !endDate) return; // no auto-fill
+    if (!startDate || !endDate) return;
     const minE = new Date(startDate.getTime() + 60 * 1000);
     const maxE = parseLocal(maxEndStr)!;
     if (endDate.getTime() <= startDate.getTime() || endDate.getTime() > maxE.getTime()) {
@@ -430,33 +549,29 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
   const maxNum = toNum(maxPerWallet);
 
   const softCapOk = Number.isFinite(scNum) && scNum > 0;
-  const hardCapOk =
-  Number.isFinite(hcNum) && Number.isFinite(scNum) && hcNum >= scNum && hcNum > 0;
-  const minOk = Number.isFinite(minNum) && minNum > 0;                 // strictly > 0
-  const maxOk = Number.isFinite(maxNum) && maxNum > minNum;            // strictly greater than min  
+  const hardCapOk = Number.isFinite(hcNum) && Number.isFinite(scNum) && hcNum >= scNum && hcNum > 0;
+  const minOk = Number.isFinite(minNum) && minNum > 0;
+  const maxOk = Number.isFinite(maxNum) && maxNum > minNum;
 
-  const hardCapPlaceholder = softCapOk ? `Enter an amount greater than ${scNum} $WAPE` : 'enter soft cap first';
-  const maxPerWalletPlaceholder = minOk
-  ? `Enter a per-wallet max higher than ${minNum} $WAPE`
-  : 'enter per-wallet min first';
-  const minPerWalletPlaceholder = 'Enter a per-wallet minimum > 0 $WAPE';
-  // live clamp: don’t allow typing below thresholds
-  function onHardCapChange(v: string) {
-    setHardCap(v);                // ← no clamping here
-  }  
+  function onHardCapChange(v: string) { setHardCap(v); }
   function onMaxPerWalletChange(v: string) {
     if (!minOk) { setMaxPerWallet(''); return; }
-    setMaxPerWallet(v);           // ← no clamping here
+    setMaxPerWallet(v);
   }
+
+  // simpler placeholders (no currency, since suffix shows it)
+  const hardCapPlaceholder = softCapOk ? `Enter an amount greater than ${scNum}` : 'enter soft cap first';
+  const minPerWalletPlaceholder = 'Enter a per-wallet minimum > 0';
+  const maxPerWalletPlaceholder = minOk ? `Enter a per-wallet max higher than ${minNum}` : 'enter per-wallet min first';
 
   const nextIssue = useMemo(() => {
     if (!scheduleReady) return 'Set a valid start and end time';
     if (!softCapOk) return 'Enter a valid soft cap (> 0)';
     if (!hardCapOk) return 'Enter a valid hard cap (≥ soft cap)';
-    if (!minOk) return 'Enter a valid per-wallet minimum (> 0)';       // ← changed
-    if (!maxOk) return 'Enter a valid per-wallet maximum (> min)';     // ← changed
+    if (!minOk) return 'Enter a valid per-wallet minimum (> 0)';
+    if (!maxOk) return 'Enter a valid per-wallet maximum (> min)';
     return null;
-  }, [scheduleReady, softCapOk, hardCapOk, minOk, maxOk]);  
+  }, [scheduleReady, softCapOk, hardCapOk, minOk, maxOk]);
 
   const valid = nextIssue === null;
 
@@ -477,15 +592,13 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
     });
     onNext();
   }
-  const endPlaceholder = !start
-  ? "Enter a start date first"
-  : end
-    ? undefined // will show the formatted end date instead
-    : "Select end";
+
+  const endPlaceholder = !start ? 'Enter a start date first' : end ? undefined : 'Select end';
 
   return (
-    <div className="card" style={{ padding: 16, display: 'grid', gap: 20 }}>
-      <div className="h2">Presale Settings</div>
+    <div className="card wizard-card">
+      {/* 1 — Presale Settings */}
+      <StepHeader n={1} text="Presale Settings" />
 
       {/* Currency + Schedule */}
       <section style={{ display: 'grid', gap: 12 }}>
@@ -495,7 +608,6 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
             <small style={{ visibility: 'hidden' }}>placeholder</small>
           </Field>
 
-          {/* START */}
           <Field label={<>Presale Start <Required /></>}>
             <DateTimePopover
               value={start}
@@ -507,33 +619,32 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
             <small style={{ color: 'var(--muted)' }}>Must start within 60 days; not in the past.</small>
           </Field>
 
-          {/* END (no autofill) */}
-        <Field label={<>Presale End <Required /></>}>
-  <DateTimePopover
-    value={end}
-    min={minEndStr}
-    max={maxEndStr}
-    onChange={(next) => {
-      const s = parseLocal(start);
-      const chosen = parseLocal(next);
-      if (!s || !chosen) return setEnd(next);
-      const minE = new Date(s.getTime() + 60 * 1000);
-      const maxE = parseLocal(maxEndStr)!;
-      const fixed = clampDate(chosen, minE, maxE);
-      fixed.setSeconds(0, 0);
-      setEnd(fmtLocal(fixed));
-    }}
-    disabled={!start}
-    placeholder={endPlaceholder} // ← here
-  />
-  <small style={{ color: 'var(--muted)' }}>
-    End within 14 days of start, and within 60 days from today.
-  </small>
-</Field>
+          <Field label={<>Presale End <Required /></>}>
+            <DateTimePopover
+              value={end}
+              min={minEndStr}
+              max={maxEndStr}
+              onChange={(next) => {
+                const s = parseLocal(start);
+                const chosen = parseLocal(next);
+                if (!s || !chosen) return setEnd(next);
+                const minE = new Date(s.getTime() + 60 * 1000);
+                const maxE = parseLocal(maxEndStr)!;
+                const fixed = clampDate(chosen, minE, maxE);
+                fixed.setSeconds(0, 0);
+                setEnd(fmtLocal(fixed));
+              }}
+              disabled={!start}
+              placeholder={endPlaceholder}
+            />
+            <small style={{ color: 'var(--muted)' }}>
+              Presales cannot be longer than 14 days.
+            </small>
+          </Field>
         </div>
 
         {/* Duration preview */}
-        <div style={durationStyle}>
+        <div className="duration-pill">
           <span style={{ opacity: 0.8 }}>⏱️ Duration:</span>
           <strong>{startDate && endDate ? humanRange(startDate, endDate) || '—' : '—'}</strong>
           <span style={{ opacity: 0.6 }}>
@@ -542,22 +653,23 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
         </div>
       </section>
 
-      {/* Caps (only after valid dates) */}
+      {/* 2 — Purchase Caps (only after valid dates) */}
       {scheduleReady && (
         <section style={{ display: 'grid', gap: 12 }}>
-          <div className="h2" style={{ fontSize: 20 }}>Purchase Caps</div>
+          <StepHeader n={2} text="Purchase Caps" />
 
-          <div className="tokenomics-grid-3">
+          <div className="caps-grid">
             {/* Soft Cap */}
             <Field
-  label={
-    <>
-      Soft Cap ({quote}) <Required />
-      <InfoIcon text="This is the MINIMUM amount of money that must be raised for your token to launch. If it is not reached, all contributors are refunded at the end of the presale." />
-    </>
-  }
->
-              <input
+              label={
+                <>
+                  Soft Cap <Required />
+                  <InfoIcon text="This is the MINIMUM amount of money that must be raised for your token to launch. If it is not reached, all contributors are refunded at the end of the presale." />
+                </>
+              }
+            >
+              <CurrencyInput
+              style={inputStyle}
                 type="number"
                 step="any"
                 min={0}
@@ -569,109 +681,109 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
                   else setSoftCap(String(v));
                 }}
                 placeholder="e.g. 100"
-                style={inputStyle}
                 inputMode="decimal"
+                suffix={currencyTag}
               />
             </Field>
 
-            {/* Hard Cap (greyed & disabled until Soft Cap valid; live clamp to ≥ soft cap) */}
+            {/* Hard Cap */}
             <Field
-  label={
-    <>
-      Hard Cap ({quote}) <Required />
-      <InfoIcon text="This is the MAXIMUM amount of money your presale can raise. Once this amount is reached, the presale will end automatically." />
-    </>
-  }
->
-
-              <div style={{ opacity: softCapOk ? 1 : 0.5 }}>
-              <input
-  type="number"
-  step="any"
-  min={softCapOk ? scNum : undefined}
-  value={hardCap}
-  onChange={(e) => onHardCapChange(e.target.value)}    // free typing
-  onBlur={(e) => {
-    const v = toNum(e.target.value);
-    if (!softCapOk) { setHardCap(''); return; }
-    if (!Number.isFinite(v) || v < scNum) setHardCap(String(scNum));  // clamp here
-    else setHardCap(String(v));
-  }}
-  placeholder={hardCapPlaceholder}
-  style={inputStyle}
-  inputMode="decimal"
-  disabled={!softCapOk}
-/>
+              label={
+                <>
+                  Hard Cap <Required />
+                  <InfoIcon text="This is the MAXIMUM amount of money your presale can raise. Once this amount is reached, the presale will end automatically." />
+                </>
+              }
+            >
+            <div className="caps-field" style={{ opacity: softCapOk ? 1 : 0.5 }}>
+                <CurrencyInput
+                style={inputStyle}
+                  type="number"
+                  step="any"
+                  min={softCapOk ? scNum : undefined}
+                  value={hardCap}
+                  onChange={(e) => onHardCapChange(e.target.value)}
+                  onBlur={(e) => {
+                    const v = toNum(e.target.value);
+                    if (!softCapOk) { setHardCap(''); return; }
+                    if (!Number.isFinite(v) || v < scNum) setHardCap(String(scNum));
+                    else setHardCap(String(v));
+                  }}
+                  placeholder={hardCapPlaceholder}
+                  inputMode="decimal"
+                  disabled={!softCapOk}
+                  suffix={currencyTag}
+                />
               </div>
             </Field>
 
-            <div />
+            <div /> {/* spacer for wide screens */}
           </div>
 
-          <div className="tokenomics-grid-2">
-            {/* Per-wallet Min */}
+          <div className="caps-grid">
+          {/* Per-wallet Min */}
             <Field
-  label={
-    <>
-      Per-Wallet Min ({quote}) <Required />
-      <InfoIcon text="This is the MINIMUM amount of money that a contributer is required to spend on your token." />
-    </>
-  }
->
-
-<input
-  type="number"
-  step="any"
-  min={0}
-  value={minPerWallet}
-  onChange={(e) => setMinPerWallet(e.target.value)}
-  onBlur={(e) => {
-    const v = toNum(e.target.value);
-    if (!Number.isFinite(v) || v <= 0) {
-      setMinPerWallet('');                  // force them to enter > 0
-    } else {
-      setMinPerWallet(String(v));
-      // if max is now invalid (<= min), clear it so the user is prompted again
-      if (Number.isFinite(maxNum) && maxNum <= v) setMaxPerWallet('');
-    }
-  }}
-  placeholder={minPerWalletPlaceholder}      // ← use the new placeholder
-  style={inputStyle}
-  inputMode="decimal"
-/>
+              label={
+                < >
+                  Per-Wallet Min <Required />
+                  <InfoIcon text="This is the MINIMUM amount of money that a contributer is required to spend on your token." />
+                </>
+              }
+            >
+                  <div className="caps-field">
+              <CurrencyInput
+              style={inputStyle}
+                type="number"
+                step="any"
+                min={0}
+                value={minPerWallet}
+                onChange={(e) => setMinPerWallet(e.target.value)}
+                onBlur={(e) => {
+                  const v = toNum(e.target.value);
+                  if (!Number.isFinite(v) || v <= 0) {
+                    setMinPerWallet('');
+                  } else {
+                    setMinPerWallet(String(v));
+                    if (Number.isFinite(maxNum) && maxNum <= v) setMaxPerWallet('');
+                  }
+                }}
+                placeholder={minPerWalletPlaceholder}
+                inputMode="decimal"
+                suffix={currencyTag}
+              />
+                  </div>
             </Field>
 
-            {/* Per-wallet Max (greyed/disabled until Min valid; live clamp to ≥ min) */}
+            {/* Per-wallet Max */}
             <Field
-  label={
-    <>
-      Per-Wallet Max ({quote}) <Required />
-      <InfoIcon text="This is the total MAXIMUM amount that an individual contributor is allowed to spend on your token." />
-    </>
-  }
->
-
-              <div style={{ opacity: minOk ? 1 : 0.5 }}>
-              <input
-  type="number"
-  step="any"
-  value={maxPerWallet}
-  onChange={(e) => onMaxPerWalletChange(e.target.value)}   // free typing
-  onBlur={(e) => {
-    const v = toNum(e.target.value);
-    if (!minOk) { setMaxPerWallet(''); return; }
-    if (!Number.isFinite(v) || v <= minNum) {
-      setMaxPerWallet(String(bumpAbove(minNum)));           // strictly greater
-    } else {
-      setMaxPerWallet(String(v));
-    }
-  }}
-  placeholder={maxPerWalletPlaceholder}
-  style={{ ...inputStyle, ...(minOk ? {} : { opacity: 0.5, pointerEvents: 'none' }) }}
-  inputMode="decimal"
-  disabled={!minOk}
-  aria-disabled={!minOk}
-/>
+              label={
+                <>
+                  Per-Wallet Max <Required />
+                  <InfoIcon text="This is the total MAXIMUM amount that an individual contributor is allowed to spend on your token." />
+                </>
+              }
+            >
+    <div className="caps-field" style={{ opacity: minOk ? 1 : 0.5 }}>
+                <CurrencyInput
+                  type="number"
+                  step="any"
+                  value={maxPerWallet}
+                  onChange={(e) => onMaxPerWalletChange(e.target.value)}
+                  onBlur={(e) => {
+                    const v = toNum(e.target.value);
+                    if (!minOk) { setMaxPerWallet(''); return; }
+                    if (!Number.isFinite(v) || v <= minNum) {
+                      setMaxPerWallet(String(bumpAbove(minNum)));
+                    } else {
+                      setMaxPerWallet(String(v));
+                    }
+                  }}
+                  placeholder={maxPerWalletPlaceholder}
+                  inputMode="decimal"
+                  disabled={!minOk}
+                  aria-disabled={!minOk}
+                  suffix={currencyTag}
+                />
               </div>
             </Field>
           </div>
@@ -680,7 +792,7 @@ export default function StepPresaleSettings({ value, onChange, onNext, onBack }:
 
       {/* Nav */}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-        <button className="button" onClick={onBack}>← Back</button>
+        <button className="button button-secondary" onClick={onBack}>← Back</button>
         <button
           className="button button-primary"
           onClick={commitAndNext}
@@ -704,9 +816,9 @@ function Field({ label, children }: { label: React.ReactNode; children: React.Re
     </label>
   );
 }
-function Required() { return <span style={{ color: 'red' }}>*</span>; }
+function Required() { return <span style={{ color: 'var(--fl-danger, #c62828)' }}>*</span>; }
 
-/* ---------- styles ---------- */
+/* ---------- shared styles (theme vars) ---------- */
 const inputStyle: React.CSSProperties = {
   background: 'var(--input-bg)',
   border: '1px solid var(--input-border)',
@@ -715,6 +827,7 @@ const inputStyle: React.CSSProperties = {
   padding: '10px 12px',
   outline: 'none',
   width: '100%',
+  boxSizing: 'border-box',
 };
 
 const dtpInputStyle: React.CSSProperties = {
@@ -726,7 +839,6 @@ const dtpInputStyle: React.CSSProperties = {
   width: '100%',
   cursor: 'pointer',
 };
-
 const dtpPopoverStyle: React.CSSProperties = {
   position: 'absolute',
   zIndex: 10,
@@ -749,18 +861,6 @@ const cellStyle: React.CSSProperties = { border: '1px solid transparent', border
 const timeRowStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--card-border)' };
 const selectStyle: React.CSSProperties = { ...inputStyle, height: 36, padding: '6px 8px', width: 80 };
 const popFooterStyle: React.CSSProperties = { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 };
-const durationStyle: React.CSSProperties = {
-  marginTop: 6,
-  padding: '10px 12px',
-  borderRadius: 12,
-  border: '1px dashed var(--input-border)',
-  background: 'var(--input-bg)',
-  color: 'var(--text)',
-  fontSize: 13,
-  display: 'flex',
-  alignItems: 'center',
-  gap: 8,
-};
 
 /* one-time keyframe */
 const styleTagId = 'dtp-keyframe-style';
@@ -770,8 +870,8 @@ if (typeof document !== 'undefined' && !document.getElementById(styleTagId)) {
   style.innerHTML = `@keyframes dtpIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }`;
   document.head.appendChild(style);
 }
-// one-time tooltip styles (theme-aware + arrow + side positioning)
-// tooltip styles (theme-aware + arrow + side positioning) — upsert, not one-time
+
+/* one-time tooltip styles (theme-aware + arrow + side positioning) */
 const tipStyleId = 'fl-tooltip-styles';
 const tipCSS = `
   .fl-info:hover {
@@ -779,39 +879,43 @@ const tipCSS = `
     background: var(--tooltip-hover-bg, var(--input-bg));
     border-color: var(--input-border);
   }
-
   .fl-tip { position: relative; }
   .fl-tip::after {
     content: '';
     position: absolute;
     top: 50%;
     transform: translateY(-50%) rotate(45deg);
-    width: 12px;
-    height: 12px;
+    width: 12px; height: 12px;
     background: var(--tooltip-bg, var(--popover-bg, var(--input-bg)));
     border: 1px solid var(--tooltip-border, var(--card-border));
-    border-right: 0;
-    border-bottom: 0;
+    border-right: 0; border-bottom: 0;
     box-shadow: -2px 2px 6px rgba(0,0,0,.10);
   }
+    /* Compact two-up grid for money inputs */
+.caps-grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 340px)); /* same size for both columns */
+  gap: 12px 16px;
+  align-items: end;
+  justify-content: start;   /* don’t stretch to full row width */
+}
 
-  /* Right side placement (default) — bring bubble closer to the icon */
+/* Make the actual inputs respect the cap on desktop */
+.caps-grid .caps-field { max-width: 340px; width: 100%; }
+
+@media (max-width: 720px){
+  .caps-grid { grid-template-columns: 1fr; }   /* stack on mobile */
+  .caps-grid .caps-field { max-width: 100%; }
+}
+
   .fl-right { left: calc(100% + 4px); }
   .fl-right::after { left: -4px; }
-
-  /* Left side placement (auto-flip near screen edge) */
   .fl-left  { right: calc(100% + 4px); }
   .fl-left::after { right: -4px; transform: translateY(-50%) rotate(225deg); }
 `;
-
 if (typeof document !== 'undefined') {
   const existing = document.getElementById(tipStyleId) as HTMLStyleElement | null;
-  if (existing) {
-    existing.textContent = tipCSS;          // ✅ update existing styles
-  } else {
-    const s = document.createElement('style');
-    s.id = tipStyleId;
-    s.textContent = tipCSS;                  // ✅ first injection
-    document.head.appendChild(s);
+  if (existing) existing.textContent = tipCSS; else {
+    const s = document.createElement('style'); s.id = tipStyleId; s.textContent = tipCSS; document.head.appendChild(s);
   }
 }
