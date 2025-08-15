@@ -14,8 +14,8 @@ type Row = {
   soft_cap: string | null;
   hard_cap: string | null;
   logo_url?: string | null;
-  raised?: string | number | null;      // optional DB fallback
-  pool_address?: string | null;         // 👈 used for on-chain reads
+  raised?: string | number | null;
+  pool_address?: string | null;
 };
 
 const STATUS_FILTERS = ['all','upcoming','active','finalized','failed'] as const;
@@ -49,15 +49,12 @@ const POOL_ABI = [
 ] as const;
 
 // ---------- hooks/helpers ----------
-// Default status order: active > upcoming > finalized > ended > failed
 const STATUS_ORDER: Row['status'][] = [
-  'active', 'upcoming', 'finalized', 'ended', 'failed',
-  'created', 'draft' // just in case they ever appear
+  'active', 'upcoming', 'finalized', 'ended', 'failed', 'created', 'draft'
 ];
 const STATUS_WEIGHT: Record<Row['status'], number> = STATUS_ORDER
   .reduce((acc, s, i) => (acc[s] = i, acc), {} as Record<Row['status'], number>);
 
-// Date helpers
 function ts(val: string | null): number | null {
   if (!val) return null;
   const t = new Date(val).getTime();
@@ -102,10 +99,30 @@ function getHard(r: Row): number {
   return toNumber(r.hard_cap);
 }
 
+/** Progress bar bound to role tokens (no hardcoded hues) */
 function ProgressBar({ value }: { value: number }) {
   return (
-    <div style={{ width: '100%', height: 8, background: 'var(--track, var(--card-border, rgba(255,255,255,.15)))', borderRadius: 999, overflow: 'hidden' }}>
-      <div style={{ width: `${value}%`, height: '100%', background: 'var(--fl-purple)', transition: 'width .25s ease' }}/>
+    <div
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={value}
+      style={{
+        width: '100%',
+        height: 8,
+        background: 'var(--track, var(--card-border, rgba(255,255,255,.15)))',
+        borderRadius: 999,
+        overflow: 'hidden'
+      }}
+    >
+      <div
+        style={{
+          width: `${value}%`,
+          height: '100%',
+          background: 'var(--progress-bar)', // Primary token
+          transition: 'width .25s ease'
+        }}
+      />
     </div>
   );
 }
@@ -113,7 +130,16 @@ function ProgressBar({ value }: { value: number }) {
 function PaginationBar({
   page, totalPages, onPageChange, align = 'right',
 }: { page: number; totalPages: number; onPageChange: (p: number) => void; align?: 'left'|'center'|'right'; }) {
-  const base: React.CSSProperties = { padding: '6px 10px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--fl-surface)', color: 'var(--text)', cursor: 'pointer', opacity: 0.9, fontWeight: 600 };
+  const base: React.CSSProperties = {
+    padding: '6px 10px',
+    borderRadius: 10,
+    border: '1px solid var(--border)',
+    background: 'var(--fl-surface)',
+    color: 'var(--text)',
+    cursor: 'pointer',
+    opacity: 0.9,
+    fontWeight: 600
+  };
   const disabled: React.CSSProperties = { ...base, opacity: 0.4, cursor: 'not-allowed' };
   return (
     <div style={{ display: 'flex', justifyContent: align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -170,37 +196,35 @@ export default function Explore() {
       return (r.token_name ?? '').toLowerCase().includes(s) || (r.token_symbol ?? '').toLowerCase().includes(s);
     });
   }, [rows, debouncedQ, selected]);
-// Sort after filtering: by status group, then date rule
-const sorted = useMemo(() => {
-  return [...filtered].sort((a, b) => {
-    // 1) status group
-    const wa = STATUS_WEIGHT[a.status] ?? 999;
-    const wb = STATUS_WEIGHT[b.status] ?? 999;
-    if (wa !== wb) return wa - wb;
 
-    // 2) secondary by date:
-    // - upcoming: start_at ASC (soonest first, nulls last)
-    // - others:  end_at DESC (most recent first, nulls last)
-    if (a.status === 'upcoming' && b.status === 'upcoming') {
-      const sa = ts(a.start_at); const sb = ts(b.start_at);
-      if (sa == null && sb == null) return 0;
-      if (sa == null) return 1;  // nulls last
-      if (sb == null) return -1;
-      return sa - sb;            // ASC
-    }
+  // Sort by status, then dates (upcoming by start ASC, others by end DESC)
+  const sorted = useMemo(() => {
+    return [...filtered].sort((a, b) => {
+      const wa = STATUS_WEIGHT[a.status] ?? 999;
+      const wb = STATUS_WEIGHT[b.status] ?? 999;
+      if (wa !== wb) return wa - wb;
 
-    const ea = ts(a.end_at); const eb = ts(b.end_at);
-    if (ea == null && eb == null) return 0;
-    if (ea == null) return 1;    // nulls last
-    if (eb == null) return -1;
-    return eb - ea;              // DESC
-  });
-}, [filtered]);
-// REPLACE your existing pagination calc with:
-const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-const safePage = Math.min(Math.max(page, 1), totalPages);
-const start = (safePage - 1) * PAGE_SIZE;
-const pageRows = sorted.slice(start, start + PAGE_SIZE);
+      if (a.status === 'upcoming' && b.status === 'upcoming') {
+        const sa = ts(a.start_at); const sb = ts(b.start_at);
+        if (sa == null && sb == null) return 0;
+        if (sa == null) return 1;
+        if (sb == null) return -1;
+        return sa - sb;
+      }
+
+      const ea = ts(a.end_at); const eb = ts(b.end_at);
+      if (ea == null && eb == null) return 0;
+      if (ea == null) return 1;
+      if (eb == null) return -1;
+      return eb - ea;
+    });
+  }, [filtered]);
+
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(Math.max(page, 1), totalPages);
+  const start = (safePage - 1) * PAGE_SIZE;
+  const pageRows = sorted.slice(start, start + PAGE_SIZE);
+
   // ---------- On-chain reads for current page ----------
   const pagePoolKey = useMemo(
     () => [...new Set(pageRows.map(r => r.pool_address || ''))].join(','),
@@ -208,7 +232,7 @@ const pageRows = sorted.slice(start, start + PAGE_SIZE);
   );
 
   useEffect(() => {
-    if (!client) return; // no RPC configured
+    if (!client) return;
     const pools = [...new Set(pageRows
       .map(r => r.pool_address)
       .filter((a): a is string => !!a && /^0x[0-9a-fA-F]{40}$/.test(a)))];
@@ -234,13 +258,12 @@ const pageRows = sorted.slice(start, start + PAGE_SIZE);
           for (const e of entries) if (e) next[e[0]] = e[1];
           if (Object.keys(next).length) setRaisedMap(prev => ({ ...prev, ...next }));
         }
-      } catch { /* ignore; UI will fallback */ }
+      } catch { /* ignore */ }
     })();
 
     return () => { cancelled = true; };
   }, [client, pagePoolKey]);
 
-  // Prefer on-chain raised, fallback to DB
   function getRaisedLive(r: Row): number {
     if (r.pool_address && raisedMap[r.pool_address]) {
       const raw = raisedMap[r.pool_address];
@@ -261,7 +284,13 @@ const pageRows = sorted.slice(start, start + PAGE_SIZE);
           placeholder="Search name or symbol"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          style={{ background: 'var(--input-bg, var(--fl-surface))', border: '1px solid var(--input-border, var(--border))', color: 'var(--text)', borderRadius: 12, padding: '8px 12px', minWidth: 260, boxShadow: 'var(--input-shadow, none)', outline: 'none' }}
+          style={{
+            background: 'var(--input-bg, var(--fl-surface))',
+            border: '1px solid var(--input-border, var(--border))',
+            color: 'var(--text)',
+            borderRadius: 12, padding: '8px 12px', minWidth: 260,
+            boxShadow: 'var(--input-shadow, none)', outline: 'none'
+          }}
         />
       </div>
 
@@ -274,17 +303,9 @@ const pageRows = sorted.slice(start, start + PAGE_SIZE);
               <button
                 key={opt}
                 onClick={() => toggleFilter(opt)}
-                className="buttonfilter"
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: 999,
-                  background: isActive ? 'var(--chip-active-bg, var(--fl-purple))' : 'var(--chip-bg, transparent)',
-                  color: isActive ? 'var(--chip-active-fg, #ffffff)' : 'var(--chip-fg, var(--fl-purple))',
-                  border: '1px solid var(--chip-border, var(--fl-purple))',
-                  fontWeight: 600, textTransform: 'capitalize', cursor: 'pointer', transition: 'all 0.15s ease'
-                }}
-                onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--chip-hover-bg, rgba(0,0,0,.08))'; }}
-                onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'var(--chip-bg, transparent)'; }}
+                className={`buttonfilter${isActive ? ' is-active' : ''}`}
+                aria-pressed={isActive}
+                style={{ padding: '6px 12px', borderRadius: 999, fontWeight: 600, textTransform: 'capitalize', cursor: 'pointer' }}
               >
                 {opt}
               </button>
@@ -303,91 +324,133 @@ const pageRows = sorted.slice(start, start + PAGE_SIZE);
         <>
           {/* Grid (only 10 per page) */}
           <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', containIntrinsicSize: '1px 120px' }}>
-            {pageRows.map((r) => {
-              const isActive   = r.status === 'active';
-              const isUpcoming = r.status === 'upcoming';
-              const isFinal    = r.status === 'finalized';
-              const isFailed   = r.status === 'failed';
-              const isEnded    = r.status === 'ended';
+          {pageRows.map((r) => {
+  const isActive   = r.status === 'active';
+  const isUpcoming = r.status === 'upcoming';
+  const isFinal    = r.status === 'finalized';
+  const isFailed   = r.status === 'failed';
+  const isEnded    = r.status === 'ended';
 
-              const dateLabel =
-                isActive ? `Ends: ${fmtWhen(r.end_at)}`
-                : isUpcoming ? `Starts: ${fmtWhen(r.start_at)}`
-                : (isFinal || isFailed || isEnded) ? `Ended: ${fmtWhen(r.end_at || r.start_at)}`
-                : fmtWhen(r.start_at);
+  const dateLabel =
+    isActive ? `Ends: ${fmtWhen(r.end_at)}`
+    : isUpcoming ? `Starts: ${fmtWhen(r.start_at)}`
+    : (isFinal || isFailed || isEnded) ? `Ended: ${fmtWhen(r.end_at || r.start_at)}`
+    : fmtWhen(r.start_at);
 
-              const raised = getRaisedLive(r);
-              const hard   = getHard(r);
-              const percent = hard > 0 ? Math.round(Math.max(0, Math.min(100, (raised / hard) * 100))) : 0;
+  const raised = getRaisedLive(r);
+  const hard   = getHard(r);
+  const percent = hard > 0 ? Math.round(Math.max(0, Math.min(100, (raised / hard) * 100))) : 0;
 
-              return (
-                <Link key={r.id} to={`/sale/${r.id}`} className="card"
-                  style={{ padding: 12, textDecoration: 'none', color: 'inherit', background: 'var(--card-bg, var(--fl-surface))', border: '1px solid var(--card-border, var(--border))', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow)', display: 'flex', alignItems: 'center', gap: 12 }}
-                >
-                  {r.logo_url ? (
-                    <img
-                      src={r.logo_url!}
-                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://dengdefense.xyz/taxi.svg'; }}
-                      alt={`${r.token_symbol ?? r.token_name ?? 'Token'} logo`}
-                      width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
-                      style={{ width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0 }}
-                    />
-                  ) : (
-                    <img
-                      src="https://dengdefense.xyz/taxi.svg" alt="" width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
-                      style={{ width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0 }}
-                    />
-                  )}
+  // NEW: one accent per card (semantic)
+  const accentVar =
+    isActive   ? 'var(--success)'
+    : isUpcoming ? 'var(--info)'
+    : isFailed   ? 'var(--fl-danger)'
+    : /* finalized/ended/default */ 'var(--badge-muted-border, var(--border))';
 
-                  <div style={{ display: 'grid', gap: 4, width: '100%' }}>
-                    {/* Title w/ inline badge */}
-                    <div style={{ fontWeight: 800, color: 'var(--fl-gold)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                      {r.token_name ?? 'Untitled'}
-                      <span style={{ color: 'var(--muted)' }}>({r.token_symbol ?? '—'})</span>
-                      <StatusBadge s={r.status} />
-                    </div>
+  return (
+    <Link
+      key={r.id}
+      to={`/sale/${r.id}`}
+      className="card"
+      style={{
+        padding: 12,
+        textDecoration: 'none',
+        color: 'inherit',
+        background: 'var(--card-bg, var(--fl-surface))',
+        border: '1px solid var(--card-border, var(--border))',
+        borderRadius: 'var(--radius)',
+        boxShadow: 'var(--shadow)',
+        display: 'flex', alignItems: 'center', gap: 12,
+        position: 'relative',                           // enable stripe
+        transition: 'box-shadow .2s ease, transform .05s ease',
+        ['--card-accent' as any]: accentVar            // expose for children if needed
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow =
+          `0 8px 20px color-mix(in srgb, ${accentVar} 22%, transparent), var(--shadow)`;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = 'var(--shadow)';
+      }}
+    >
+      {/* status stripe */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
+          background: accentVar, borderTopLeftRadius: 'var(--radius)', borderBottomLeftRadius: 'var(--radius)'
+        }}
+      />
 
-                    {/* Date label */}
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)' }}>
-                      <span style={{ color: 'var(--muted)' }}>{dateLabel}</span>
-                    </div>
+      {r.logo_url ? (
+        <img
+          src={r.logo_url!}
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = 'https://dengdefense.xyz/taxi.svg'; }}
+          alt={`${r.token_symbol ?? r.token_name ?? 'Token'} logo`}
+          width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
+          style={{
+            width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0,
+            border: `2px solid color-mix(in srgb, ${accentVar} 55%, transparent)` // subtle avatar ring
+          }}
+        />
+      ) : (
+        <img
+          src="https://dengdefense.xyz/taxi.svg" alt="" width={62} height={62} loading="lazy" decoding="async" fetchPriority="low"
+          style={{
+            width: 62, height: 62, borderRadius: 'var(--radius)', objectFit: 'cover', flexShrink: 0,
+            border: `2px solid color-mix(in srgb, ${accentVar} 55%, transparent)`
+          }}
+        />
+      )}
 
-                    {/* Bottom block */}
-                    <div style={{ fontFamily: 'var(--font-data)' }}>
-                      {isActive ? (
-                        <div style={{ display: 'grid', gap: 6 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
-                            <span>Raised: {fmtNum(raised)} $WAPE</span>
-                            <span>{hard > 0 ? `${percent}%` : '—'}</span>
-                          </div>
-                          <ProgressBar value={percent} />
-                        </div>
-                      ) : isUpcoming ? (
-                        <div style={{ color: 'var(--muted)' }}>
-                          Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
-                        </div>
-                      ) : isFinal ? (
-                        <div style={{ color: 'var(--muted)' }}>
-                          Raised: {fmtNum(raised)} $WAPE • Hard: {fmtNum(hard)}
-                        </div>
-                      ) : isFailed ? (
-                        <div style={{ color: 'var(--muted)' }}>
-                          Raised: {fmtNum(raised)} {NATIVE_SYMBOL} {hard > 0 ? `(${percent}%)` : ''}
-                        </div>
-                      ) : isEnded ? (
-                        <div style={{ color: 'var(--muted)' }}>
-                          Raised: {fmtNum(raised)} {NATIVE_SYMBOL} • Hard: {fmtNum(hard)}
-                        </div>
-                      ) : (
-                        <div style={{ color: 'var(--muted)' }}>
-                          Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
+      <div style={{ display: 'grid', gap: 4, width: '100%' }}>
+        {/* Title + badge (keep neutral text; badge carries status color) */}
+        <div style={{ fontWeight: 800, color: 'var(--text)', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          {r.token_name ?? 'Untitled'}
+          <span style={{ color: 'var(--muted)' }}>({r.token_symbol ?? '—'})</span>
+          <StatusBadge s={r.status} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', fontFamily: 'var(--font-data)', color: 'var(--muted)' }}>
+          <span>{dateLabel}</span>
+        </div>
+
+        <div style={{ fontFamily: 'var(--font-data)' }}>
+          {isActive ? (
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--muted)' }}>
+                <span>Raised: {fmtNum(raised)} $WAPE</span>
+                <span>{hard > 0 ? `${percent}%` : '—'}</span>
+              </div>
+              <ProgressBar value={percent} />
+            </div>
+          ) : isUpcoming ? (
+            <div style={{ color: 'var(--muted)' }}>
+              Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
+            </div>
+          ) : isFinal ? (
+            <div style={{ color: 'var(--muted)' }}>
+              Raised: {fmtNum(raised)} $WAPE • Hard: {fmtNum(hard)}
+            </div>
+          ) : isFailed ? (
+            <div style={{ color: 'var(--muted)' }}>
+              Raised: {fmtNum(raised)} APE {hard > 0 ? `(${percent}%)` : ''}
+            </div>
+          ) : isEnded ? (
+            <div style={{ color: 'var(--muted)' }}>
+              Raised: {fmtNum(raised)} APE • Hard: {fmtNum(hard)}
+            </div>
+          ) : (
+            <div style={{ color: 'var(--muted)' }}>
+              Soft Cap: {r.soft_cap ?? '—'} • Hard Cap: {r.hard_cap ?? '—'}
+            </div>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+})}
           </div>
 
           {/* Bottom pagination (always visible) */}
@@ -400,16 +463,26 @@ const pageRows = sorted.slice(start, start + PAGE_SIZE);
 
 function StatusBadge({ s }: { s: Row['status'] }) {
   const styles: Record<string, React.CSSProperties> = {
-    active: { background: 'var(--badge-success-bg, rgba(46,204,113,.15))', color: 'var(--success, #2ecc71)', border: '1px solid var(--badge-success-border, rgba(46,204,113,.35))' },
-    upcoming:{ background: 'var(--badge-info-bg, rgba(52,152,219,.15))', color: 'var(--info, #3498db)', border: '1px solid var(--badge-info-border, rgba(52,152,219,.35))' },
-    ended:  { background: 'var(--badge-muted-bg, rgba(127,140,141,.15))', color: 'var(--muted-fg, #95a5a6)', border: '1px solid var(--badge-muted-border, rgba(127,140,141,.35))' },
-    failed: { background: 'var(--badge-danger-bg, rgba(231,76,60,.15))', color: 'var(--fl-danger, #e74c3c)', border: '1px solid var(--badge-danger-border, rgba(231,76,60,.35))' },
-    finalized:{ background: 'var(--badge-purple-bg, rgba(155,89,182,.15))', color: 'var(--fl-purple, #9b59b6)', border: '1px solid var(--badge-purple-border, rgba(155,89,182,.35))' },
-    created:{ background: 'var(--badge-warning-bg, rgba(241,196,15,.15))', color: 'var(--warning, #f1c40f)', border: '1px solid var(--badge-warning-border, rgba(241,196,15,.35))' },
-    draft:  { background: 'var(--badge-warning-bg, rgba(241,196,15,.15))', color: 'var(--warning, #f1c40f)', border: '1px solid var(--badge-warning-border, rgba(241,196,15,.35))' },
+    active:    { background: 'var(--badge-success-bg, rgba(46,204,113,.15))', color: 'var(--success, #2ecc71)',   border: '1px solid var(--badge-success-border, rgba(46,204,113,.35))' },
+    upcoming:  { background: 'var(--badge-info-bg, rgba(52,152,219,.15))',    color: 'var(--info, #3498db)',      border: '1px solid var(--badge-info-border, rgba(52,152,219,.35))' },
+    ended:     { background: 'var(--badge-muted-bg, rgba(127,140,141,.15))',  color: 'var(--muted-fg, #95a5a6)',  border: '1px solid var(--badge-muted-border, rgba(127,140,141,.35))' },
+    failed:    { background: 'var(--badge-danger-bg, rgba(231,76,60,.15))',   color: 'var(--fl-danger, #e74c3c)', border: '1px solid var(--badge-danger-border, rgba(231,76,60,.35))' },
+    finalized: { background: 'var(--badge-purple-bg, rgba(155,89,182,.15))',  color: 'var(--fl-purple, #9b59b6)', border: '1px solid var(--badge-purple-border, rgba(155,89,182,.35))' },
+    created:   { background: 'var(--badge-warning-bg, rgba(241,196,15,.15))', color: 'var(--warning, #f1c40f)',   border: '1px solid var(--badge-warning-border, rgba(241,196,15,.35))' },
+    draft:     { background: 'var(--badge-warning-bg, rgba(241,196,15,.15))', color: 'var(--warning, #f1c40f)',   border: '1px solid var(--badge-warning-border, rgba(241,196,15,.35))' },
   };
   return (
-    <span className="badge" style={{ ...(styles[s] || {}), padding: '2px 8px', borderRadius: 999, textTransform:'capitalize', fontWeight: 700, fontFamily: 'var(--font-data)' }}>
+    <span
+      className="badge"
+      style={{
+        ...(styles[s] || {}),
+        padding: '2px 8px',
+        borderRadius: 999,
+        textTransform:'capitalize',
+        fontWeight: 700,
+        fontFamily: 'var(--font-data)'
+      }}
+    >
       {s}
     </span>
   );

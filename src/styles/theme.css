@@ -88,7 +88,32 @@
     --badge-purple-bg: rgba(155,89,182,.15);
     --badge-purple-border: rgba(155,89,182,.35);
     --focus-ring: 0 0 0 2px color-mix(in srgb, var(--fl-purple) 30%, transparent);
-
+    --role-primary:   var(--fl-purple);
+    --on-primary:     #FFFFFF;
+  
+    --role-secondary: var(--fl-aqua);
+    --on-secondary:   #0F1115;
+  
+    --role-accent:    var(--fl-gold);
+    --on-accent:      #1A1C23;
+  
+    --role-link:      var(--role-primary);
+    --role-focus:     0 0 0 2px color-mix(in srgb, var(--role-primary) 30%, transparent);
+  
+    --button-primary-bg: var(--role-primary);
+    --button-primary-fg: var(--on-primary);
+  
+    --button-secondary-bg: var(--role-secondary);
+    --button-secondary-fg: var(--on-secondary);
+  
+    --button-accent-bg: var(--role-accent);
+    --button-accent-fg: var(--on-accent);
+  
+    --chip-active-bg: var(--role-primary);
+    --chip-active-fg: var(--on-primary);
+  
+    --link-color: var(--role-link);
+    --progress-bar: var(--role-primary);
   }
   
   :root[data-theme="light"] {
@@ -99,7 +124,7 @@
     --fl-danger: #D93030;
   
     /* Surfaces & text */
-    --fl-bg:      #e9f0ff;
+    --fl-bg:      #FFFFFF;
     --fl-surface: #FFFFFF;
     --fl-text:    #1B1F27;
     --fl-white:   #FFFFFF;
@@ -115,7 +140,7 @@
     --link-active-bg: rgba(0,0,0,.06);
   
     /* UI surfaces */
-    --nav-bg: #e9f0ff;
+    --nav-bg: #FFFFFF;
     --scrim: rgba(0,0,0,.40);
   
     /* Form + card tokens */
@@ -156,7 +181,31 @@
     --badge-purple-bg: rgba(155,89,182,.15);
     --badge-purple-border: rgba(155,89,182,.35);
     --focus-ring: 0 0 0 2px color-mix(in srgb, var(--fl-purple) 35%, transparent);
-
+    --role-primary:   var(--fl-purple); /* global CTA/link/focus hue */
+    --on-primary:     #FFFFFF;
+  
+    --role-secondary: var(--fl-aqua);   /* supporting action */
+    --on-secondary:   #0F1115;          /* AA on aqua */
+  
+    --role-accent:    var(--fl-gold);   /* brand flourish + headings */
+    --on-accent:      #1A1C23;
+  
+    --role-link:      var(--role-primary);
+    --role-focus:     0 0 0 2px color-mix(in srgb, var(--role-primary) 35%, transparent);
+    --button-primary-bg: var(--role-primary);
+    --button-primary-fg: var(--on-primary);
+  
+    --button-secondary-bg: var(--role-secondary);
+    --button-secondary-fg: var(--on-secondary);
+  
+    --button-accent-bg: var(--role-accent);
+    --button-accent-fg: var(--on-accent);
+  
+    --chip-active-bg: var(--role-primary);
+    --chip-active-fg: var(--on-primary);
+  
+    --link-color: var(--role-link);
+    --progress-bar: var(--role-primary);
   }
   
   /* ===========================================================================
@@ -173,8 +222,9 @@
   
   *, *::before, *::after { box-sizing: border-box; }
   
-  a { color: inherit; text-decoration: none; }
-  
+  a { color: var(--link-color); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
   nav, footer { flex: 0 0 auto; }
   
   /* One scrollbar layout */
@@ -190,8 +240,8 @@
   .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
   
   /* Headings */
-  .h1 { font-family: var(--font-head); font-weight: 800; font-size: 42px; color: var(--fl-gold); }
-  .h2 { font-family: var(--font-head); font-weight: 700; font-size: 28px; color: var(--fl-gold); }
+  .h1 { font-family: var(--font-head); font-weight: 800; font-size: 42px; color: var(--role-accent); }
+  .h2 { font-family: var(--font-head); font-weight: 700; font-size: 28px; color: var(--role-accent); }
   
   /* ===========================================================================
      3) COMPONENTS
@@ -201,14 +251,14 @@
     border-radius: var(--radius);
     padding: 12px 16px; font-weight: 600; cursor: pointer; border: none;
     transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
-    background-color: var(--fl-gold);
-    color: #1A1C23; /* note: brand choice on gold */
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-fg);
   }
   .button:active { transform: translateY(1px); }
-  .button-primary { background: var(--fl-gold); color: #111; }
-  .button-secondary { background: var(--fl-purple); color: var(--fl-white); }
-  .button-danger { background: var(--fl-danger); color: var(--fl-white); }
-  
+  .button-primary { background: var(--button-primary-bg); color: var(--button-primary-fg); }
+  .button-secondary { background: var(--button-secondary-bg); color: var(--button-secondary-fg); }
+  .button-danger { background: var(--fl-danger); color: #fff; }
+  .button-accent    { background: var(--button-accent-bg);    color: var(--button-accent-fg); }
   .buttonfilter {
     display:inline-flex; align-items:center; justify-content:center;
     border-radius: var(--radius);
@@ -224,9 +274,10 @@
   }
   
   .badge { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
-  .badge-active { background: var(--fl-aqua); color: #0b1120; }
-  .badge-upcoming { background: var(--fl-gold); color: #111; }
-  .badge-failed { background: var(--fl-danger); color: var(--fl-white); }
+  .badge-active   { background: var(--badge-success-bg); border: 1px solid var(--badge-success-border); color: #0F5D35; }
+  .badge-upcoming { background: var(--badge-info-bg);    border: 1px solid var(--badge-info-border);    color: #0E3E62; }
+  .badge-failed   { background: var(--badge-danger-bg);  border: 1px solid var(--badge-danger-border);  color: #6E1B12; }
+  .badge-final    { background: var(--badge-muted-bg);   border: 1px solid var(--badge-muted-border);   color: #4A4F57; }
   
   /* Form inputs (shared sizes) */
   input[type="datetime-local"],
@@ -242,11 +293,11 @@ input[type="range"] {
 }
 input[type="range"]::-webkit-slider-runnable-track {
   height: 6px; border-radius: 999px;
-  background: linear-gradient(90deg, var(--fl-purple), var(--fl-gold));
+  background: linear-gradient(90deg, var(--role-primary), var(--role-secondary));
 }
 input[type="range"]::-moz-range-track {
   height: 6px; border-radius: 999px;
-  background: linear-gradient(90deg, var(--fl-purple), var(--fl-gold));
+  background: linear-gradient(90deg, var(--role-primary), var(--role-secondary));
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
@@ -262,7 +313,7 @@ input[type="range"]::-moz-range-thumb {
 }
   input, textarea { transition: box-shadow .15s ease, border-color .15s ease, opacity .15s ease; }
 
-  input:focus, textarea:focus { border-color: var(--fl-purple); box-shadow: var(--focus-ring); }
+  input:focus, textarea:focus { border-color: var(--role-primary); box-shadow: var(--role-focus); }
   input:disabled, textarea:disabled { cursor: not-allowed; background: var(--card-bg); }
   .button[style*="--chip-"] { transition: background .15s ease, color .15s ease, border-color .15s ease; }
 
@@ -289,14 +340,14 @@ input[type="range"]::-moz-range-thumb {
   
   /* Progress bar */
   .progress-outer { height: 8px; border-radius: 999px; background: #2a2d36; overflow: hidden; }
-  .progress-inner { height: 100%; background: var(--fl-purple); }
+  .progress-inner { height: 100%; background: var(--progress-bar); }
   
   /* Sticky actions (mobile) */
   .sale-actions {
     display: flex; gap: 8px; flex-wrap: wrap;
     position: sticky; bottom: 0; padding: 10px 12px; width: 100%; box-sizing: border-box;
     background: color-mix(in srgb, var(--fl-bg) 92%, black 8%);
-    border-top: 1px solid rgba(255,255,255,.06);
+    border-top: 1px solid var(--border);
     backdrop-filter: blur(4px);
     z-index: 5;
   }
@@ -908,5 +959,148 @@ html { -webkit-text-size-adjust: 100%; }
   textarea,
   button {
     font-size: 16px; /* prevents zoom on focus */
+  }
+}
+.chip { 
+  background: var(--chip-bg); 
+  color: var(--chip-fg); 
+  border: 1px solid var(--chip-border); 
+}
+.chip:hover { background: var(--chip-hover-bg); }
+.chip.is-active { background: var(--chip-active-bg); color: var(--chip-active-fg); border-color: var(--chip-active-bg); }
+.table th.is-sorted { color: var(--role-primary); }
+/* ===== Compatibility shim: map legacy classes to role tokens ===== */
+
+/* Primary CTA everywhere */
+.button { background: var(--button-primary-bg); color: var(--button-primary-fg); }
+.button-primary   { background: var(--button-primary-bg);   color: var(--button-primary-fg); }
+.button-secondary { background: var(--button-secondary-bg); color: var(--button-secondary-fg); }
+.button-danger    { background: var(--fl-danger); color: #fff; }
+/* Rare promo use of gold */
+.button-accent    { background: var(--button-accent-bg); color: var(--button-accent-fg); }
+
+/* Old “buttonfilter” actually behaves like a chip/tab */
+.buttonfilter {
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  border: 1px solid var(--chip-border);
+}
+.buttonfilter:hover { background: var(--chip-hover-bg); }
+.buttonfilter.is-active {
+  background: var(--chip-active-bg);
+  color: var(--chip-active-fg);
+  border-color: var(--chip-active-bg);
+}
+
+/* Links finally look like links */
+a { color: var(--link-color); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Headings = brand accent only (no more gold buttons everywhere) */
+.h1, .h2 { color: var(--role-accent); }
+
+/* Focus & progress unify to Primary */
+input:focus, textarea:focus { border-color: var(--role-primary); box-shadow: var(--role-focus); }
+.progress-inner { background: var(--progress-bar); }
+
+/* Status badges use semantics (not brand) */
+.badge-active   { background: var(--badge-success-bg); border: 1px solid var(--badge-success-border); color: #0F5D35; }
+.badge-upcoming { background: var(--badge-info-bg);    border: 1px solid var(--badge-info-border);  color: #0E3E62; }
+.badge-failed   { background: var(--badge-danger-bg);  border: 1px solid var(--badge-danger-border);color: #6E1B12; }
+.badge-final    { background: var(--badge-muted-bg);   border: 1px solid var(--badge-muted-border); color: #4A4F57; }
+
+/* Nav active state = Primary (subtle, consistent) */
+.nav a.active, .nav .is-active { color: var(--role-primary); }
+
+/* Sticky action bar border uses neutral token */
+.sale-actions { border-top: 1px solid var(--border); }
+/* ===== Global button interaction states (role-aware) ===== */
+
+/* Variants declare their bg/fg once */
+.button,
+.button-primary   { --btn-bg: var(--button-primary-bg);   --btn-fg: var(--button-primary-fg); }
+.button-secondary { --btn-bg: var(--button-secondary-bg); --btn-fg: var(--button-secondary-fg); }
+.button-accent    { --btn-bg: var(--button-accent-bg);    --btn-fg: var(--button-accent-fg); }
+.button-danger    { --btn-bg: var(--fl-danger);           --btn-fg: #fff; }
+
+/* Base */
+.button,
+.button-primary,
+.button-secondary,
+.button-accent,
+.button-danger {
+  background: var(--btn-bg);
+  color: var(--btn-fg);
+  outline: none;
+  transition: transform .08s ease, box-shadow .15s ease, background .15s ease, filter .15s ease;
+  box-shadow: var(--shadow);
+}
+
+/* Focus (keyboard-visible) — consistent across the app */
+.button:focus-visible { box-shadow: var(--role-focus), var(--shadow); }
+
+/* Hover/Active using color-mix (with safe fallbacks below) */
+.button:hover,
+.button-primary:hover,
+.button-secondary:hover,
+.button-accent:hover,
+.button-danger:hover {
+  /* Lighten slightly in light theme, darken slightly in dark theme */
+  background: color-mix(in srgb, var(--btn-bg) 92%, var(--fl-white) 8%);
+}
+:root[data-theme="dark"] .button:hover,
+:root[data-theme="dark"] .button-primary:hover,
+:root[data-theme="dark"] .button-secondary:hover,
+:root[data-theme="dark"] .button-accent:hover,
+:root[data-theme="dark"] .button-danger:hover {
+  background: color-mix(in srgb, var(--btn-bg) 90%, black 10%);
+}
+
+.button:active,
+.button-primary:active,
+.button-secondary:active,
+.button-accent:active,
+.button-danger:active {
+  transform: translateY(1px);
+  background: color-mix(in srgb, var(--btn-bg) 85%, black 15%);
+}
+
+/* Disabled / aria-disabled */
+.button:disabled,
+.button[aria-disabled="true"] {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: none;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Reduced motion respect */
+@media (prefers-reduced-motion: reduce) {
+  .button { transition: none; }
+}
+
+/* Fallbacks when color-mix is not supported */
+@supports not (background: color-mix(in srgb, white 10%, black 90%)) {
+  .button:hover,
+  .button-primary:hover,
+  .button-secondary:hover,
+  .button-accent:hover,
+  .button-danger:hover {
+    filter: brightness(1.06);
+  }
+  :root[data-theme="dark"] .button:hover,
+  :root[data-theme="dark"] .button-primary:hover,
+  :root[data-theme="dark"] .button-secondary:hover,
+  :root[data-theme="dark"] .button-accent:hover,
+  :root[data-theme="dark"] .button-danger:hover {
+    filter: brightness(1.08);
+  }
+  .button:active,
+  .button-primary:active,
+  .button-secondary:active,
+  .button-accent:active,
+  .button-danger:active {
+    filter: brightness(0.92);
   }
 }
