@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase';
 import { formatNumber } from '../utils/format';
 import { useAccount, usePublicClient } from 'wagmi';
 import BuyModal from '../components/BuyModal';
-import { decodeEventLog, formatUnits } from 'viem';
+import { decodeEventLog, formatUnits, type Hex, type Log } from 'viem';
 import {
   launchpadFactoryAbi,
   LAUNCHPAD_FACTORY,
@@ -18,7 +18,93 @@ import {
 
 type AnyRow = Record<string, any>;
 
-// --- Small SVG icon components (no external deps) ---
+/* ──────────────────────────────────────────────────────────────
+   Page-scoped CSS
+   ────────────────────────────────────────────────────────────── */
+function ensureLocalCSS() {
+  const id = 'sale-detail-local-css';
+  if (typeof document === 'undefined' || document.getElementById(id)) return;
+  const s = document.createElement('style');
+  s.id = id;
+  s.textContent = `
+    .sale-grid{
+      display:grid;
+      grid-template-columns: minmax(0,1fr) minmax(280px,420px);
+      gap:16px;
+      align-items:start;
+    }
+    @media (max-width: 900px){
+      .sale-grid{ grid-template-columns: 1fr; }
+    }
+
+    .sale-card { padding: 12px; display: grid; gap: 10px; }
+    .meta-grid{ display:grid; grid-template-columns: repeat(2,minmax(140px,1fr)); gap:8px }
+    @media (max-width: 520px){
+      .meta-grid{ grid-template-columns: 1fr; }
+    }
+
+    .progress-outer{
+      position:relative; height:6px; border-radius:999px;
+      background: color-mix(in srgb, var(--fl-purple) 10%, #d9d9e1);
+      overflow:hidden;
+    }
+    .progress-inner{
+      height:100%; border-radius:999px; background: var(--primary, #2f66ff);
+      transition: width .3s ease;
+    }
+
+    .countdown-wrap{ display:flex; justify-content:flex-start; } /* left-justified */
+    .countdown-pill{
+      display:inline-flex; align-items:center; gap:8px;
+      font-weight:700; padding:6px 12px; border-radius:999px;
+      background: var(--primary, #2f66ff); color:#fff;
+      box-shadow: 0 6px 18px rgba(47,102,255,.25);
+    }
+    .countdown-pill svg{ flex:0 0 auto; }
+
+    .break-anywhere{ word-break: break-word; overflow-wrap: anywhere; }
+    .sale-logo{ width:56px; height:56px; border-radius:14px; object-fit:cover;
+      border:1px solid var(--card-border); background: var(--card-bg); }
+    .sale-logo.placeholder{ background: var(--input-bg); }
+
+    /* Buttons row = thirds */
+    .sale-actions{
+      display:grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap:8px; align-items:center;
+    }
+    .sale-actions .back { grid-column:1; }
+    .sale-actions .spacer { grid-column:2; }
+    .sale-actions .buy { grid-column:3; }
+    @media (max-width: 520px){
+      .sale-actions{ grid-template-columns: 1fr; }
+      .sale-actions .back,
+      .sale-actions .spacer,
+      .sale-actions .buy { grid-column:auto; }
+      .sale-actions .spacer{ display:none; }
+    }
+
+    /* Donut tooltip */
+    .donut-wrap{ position:relative; }
+    .donut-tip{
+      position:fixed; z-index:10;
+      background: var(--card-bg);
+      color: var(--text);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 8px 10px;
+      font: 600 12px var(--font-sans, Inter, system-ui, sans-serif);
+      box-shadow: 0 10px 22px rgba(0,0,0,.18);
+      pointer-events:none;
+      white-space: nowrap;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Small icon buttons
+   ────────────────────────────────────────────────────────────── */
 function IconWrap({
   children,
   disabled,
@@ -30,22 +116,20 @@ function IconWrap({
   href?: string;
   label: string;
 }) {
-// In SaleDetail.tsx – replace IconWrap's `common` style:
-// in IconWrap's common styles
-const common: React.CSSProperties = {
-  width: 36,
-  height: 36,
-  display: 'inline-grid',
-  placeItems: 'center',
-  borderRadius: 10,
-  border: '1px solid var(--card-border)',
-  background: 'var(--fl-purple)',   // better contrast on light theme too
-  boxShadow: '0 4px 10px rgba(0,0,0,.18)',
-  color: '#FFFFFF',
-  opacity: disabled ? 0.55 : 1,     // clearer disabled vs enabled
-  cursor: disabled ? 'not-allowed' : 'pointer',
-  transition: 'transform .12s ease, box-shadow .12s ease',
-};
+  const common: React.CSSProperties = {
+    width: 36,
+    height: 36,
+    display: 'inline-grid',
+    placeItems: 'center',
+    borderRadius: 10,
+    border: '1px solid var(--card-border)',
+    background: 'var(--fl-purple)',
+    boxShadow: '0 4px 10px rgba(0,0,0,.18)',
+    color: '#fff',
+    opacity: disabled ? 0.55 : 1,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    transition: 'transform .12s ease, box-shadow .12s ease',
+  };
 
   if (disabled || !href) {
     return (
@@ -71,103 +155,247 @@ const common: React.CSSProperties = {
         const el = e.currentTarget as HTMLAnchorElement;
         el.style.transform = 'translateY(0)';
         el.style.boxShadow = '0 4px 10px rgba(0,0,0,.15)';
-      }}      
+      }}
     >
       {children}
     </a>
   );
 }
-
 const GlobeIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-    <path
-      d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9Z"
-      stroke="currentColor"
-      strokeWidth="1.7"
-    />
+    <path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9Z" stroke="currentColor" strokeWidth="1.7" />
     <path d="M3 12h18M12 3c2.5 2.9 3.75 6 3.75 9S14.5 20.1 12 21m0-18C9.5 5.9 8.25 9 8.25 12S9.5 18.1 12 21" stroke="currentColor" strokeWidth="1.7" />
   </svg>
 );
-
 const TwitterIcon = () => (
-  // X logo
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
     <path d="M18.244 3H21l-6.46 7.383L22 21h-6.828l-4.31-5.4L5.9 21H3.142l6.905-7.896L2 3h6.914l3.9 4.973L18.244 3Zm-1.195 16.2h1.262L7.065 4.74H5.74L17.049 19.2Z" />
   </svg>
 );
-
 const TelegramIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
     <path d="M9.036 15.39 8.87 19.5c.442 0 .635-.19.865-.418l2.078-1.993 4.307 3.158c.79.434 1.352.205 1.568-.73l2.84-12.915h.001c.252-1.106-.4-1.536-1.167-1.266L3.54 9.7c-1.13.408-1.113.994-.191 1.254l4.412 1.224 10.235-6.46c.48-.292.915-.13.556.162" />
   </svg>
 );
 
+/* ──────────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────────── */
+function normalizeWebsite(u?: string | null): string | undefined {
+  if (!u) return;
+  const w = String(u).trim();
+  if (!w) return;
+  return /^https?:\/\//i.test(w) ? w : `https://${w}`;
+}
+function normalizeTwitter(t?: string | null): string | undefined {
+  if (!t) return;
+  let h = String(t).trim();
+  if (!h) return;
+  if (h.startsWith('@')) h = h.slice(1);
+  if (/^https?:\/\//i.test(h)) return h;
+  return `https://x.com/${h}`;
+}
+function toNum(v: unknown): number {
+  if (v === null || v === undefined) return NaN;
+  const n = Number(String(v).replace(/,/g, '').trim());
+  return Number.isFinite(n) ? n : NaN;
+}
+const fmt = (n: number) => (Number.isFinite(n) ? n.toLocaleString() : '—');
+
+/* ──────────────────────────────────────────────────────────────
+   Dependency-free SVG Donut with hover + tooltip
+   ────────────────────────────────────────────────────────────── */
+type Slice = { label: string; value: number; color: string };
+function Donut({
+  slices,
+  size = 260,
+  thickness = 32,
+  centerTitle,
+  centerValue,
+  centerSub,
+  tokenSymbol,
+}: {
+  slices: Slice[];
+  size?: number;
+  thickness?: number;
+  centerTitle?: string;
+  centerValue?: string;
+  centerSub?: string;
+  tokenSymbol?: string;
+}) {
+  const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null);
+
+  const total = Math.max(0, slices.reduce((a, s) => a + Math.max(0, s.value), 0));
+  const r = (size - thickness) / 2;
+  const c = 2 * Math.PI * r;
+  let offset = 0;
+
+  const tip = hover ? (
+    <div className="donut-tip" style={{ left: hover.x + 12, top: hover.y + 12 }}>
+      {slices[hover.i]?.label}: {fmt(slices[hover.i]?.value)} {tokenSymbol || ''}
+    </div>
+  ) : null;
+
+  return (
+    <div className="donut-wrap" style={{ display: 'grid', gap: 10, placeItems: 'center' }}>
+      {tip}
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        onMouseLeave={() => setHover(null)}
+      >
+        <g transform={`translate(${size / 2}, ${size / 2}) rotate(-90)`}>
+          <circle r={r} cx={0} cy={0} fill="none" stroke="var(--card-border)" strokeWidth={thickness} />
+          {slices.map((s, i) => {
+            const len = total > 0 ? (s.value / total) * c : 0;
+            const dash = `${len} ${c - len}`;
+            const active = hover?.i === i;
+            const faded = hover && !active;
+            const el = (
+              <circle
+                key={i}
+                r={r}
+                cx={0}
+                cy={0}
+                fill="none"
+                stroke={s.color}
+                strokeWidth={active ? thickness + 2 : thickness}
+                strokeLinecap="butt"
+                strokeDasharray={dash}
+                strokeDashoffset={-offset}
+                style={{ opacity: faded ? 0.35 : 1, cursor: 'pointer', transition: 'opacity .12s ease, stroke-width .12s ease' }}
+                onMouseEnter={(e) => setHover({ i, x: e.clientX, y: e.clientY })}
+                onMouseMove={(e) => setHover({ i, x: e.clientX, y: e.clientY })}
+              />
+            );
+            offset += len;
+            return el;
+          })}
+        </g>
+
+        {/* center text */}
+        <g transform={`translate(${size / 2}, ${size / 2})`} style={{ textAnchor: 'middle', dominantBaseline: 'middle' }}>
+          {centerTitle && (
+            <text y={-8} style={{ font: '600 14px var(--font-sans, Inter, system-ui, sans-serif)', fill: 'var(--text)' }}>
+              {centerTitle}
+            </text>
+          )}
+          {centerValue && (
+            <text y={14} style={{ font: '700 18px var(--font-sans, Inter, system-ui, sans-serif)', fill: 'var(--text)' }}>
+              {centerValue}
+            </text>
+          )}
+          {centerSub && (
+            <text y={34} style={{ font: '600 12px var(--font-sans, Inter, system-ui, sans-serif)', fill: 'var(--text)' }}>
+              {centerSub}
+            </text>
+          )}
+        </g>
+      </svg>
+
+      {/* legend */}
+      <div style={{ display: 'grid', gap: 6, width: '100%' }}>
+        {slices.map((s, i) => {
+          const pct = total > 0 ? (s.value / total) * 100 : 0;
+          return (
+            <div
+              key={i}
+              style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'var(--font-data)', cursor: 'default' }}
+              onMouseEnter={(e) => setHover({ i, x: (e as any).clientX, y: (e as any).clientY })}
+              onMouseLeave={() => setHover(null)}
+            >
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: s.color, border: '1px solid rgba(0,0,0,.1)' }} />
+              <span style={{ flex: 1 }}>{s.label}</span>
+              <span style={{ opacity: 0.8 }}>{pct.toFixed(1)}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Countdown pill with circular progress
+   ────────────────────────────────────────────────────────────── */
+function CountdownPill({
+  label,
+  d, h, m, s,
+  progress, // 0..1
+}: { label: string; d: number; h: number; m: number; s: number; progress: number }) {
+  const R = 7;
+  const C = 2 * Math.PI * R;
+  const len = Math.max(0, Math.min(1, progress)) * C;
+
+  return (
+    <div className="countdown-wrap">
+      <span className="countdown-pill">
+        <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden>
+          <circle cx="9" cy="9" r={R} fill="none" stroke="rgba(255,255,255,.35)" strokeWidth="2" />
+          <circle
+            cx="9" cy="9" r={R} fill="none"
+            stroke="#fff" strokeWidth="2" strokeLinecap="round"
+            strokeDasharray={`${len} ${C - len}`} strokeDashoffset="0"
+            transform="rotate(-90 9 9)"
+          />
+        </svg>
+        {label}: {d}d {h}h {m}m {s}s
+      </span>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Page
+   ────────────────────────────────────────────────────────────── */
+type Contribution = { address: string; amount: number; created_at: string; username?: string | null };
+
 export default function SaleDetail() {
+  ensureLocalCSS();
+
   const { id } = useParams();
   const [row, setRow] = useState<AnyRow | null>(null);
   const [err, setErr] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const { address, isConnected } = useAccount();
   const [showBuy, setShowBuy] = useState(false);
-  const [allowlisted, setAllowlisted] = useState<boolean>(true); // default true if allowlist disabled
+  const [allowlisted, setAllowlisted] = useState<boolean>(true);
   const publicClient = usePublicClient();
   const [checkingAllowlist, setCheckingAllowlist] = useState<boolean>(false);
 
-  // chain state
   const [chain, setChain] = useState<{
     softCap?: bigint;
     hardCap?: bigint;
     raised?: bigint;
     userContrib?: bigint;
-    presaleRate?: bigint;
-    listingRate?: bigint;
     lpPctBps?: number;
     platformFeeBps?: number;
     tokenFeeBps?: number;
-    lpLockDuration?: bigint; // seconds
-    payoutDelay?: bigint; // seconds
+    lpLockDuration?: bigint;
+    payoutDelay?: bigint;
+    totalSupply?: bigint;
+    saleTokensPool?: bigint;
+    tokenPctToLPBps?: number;
+    maxBuy?: bigint;
   }>({});
 
-  // ---- On-chain readers (mirroring Explore page style) ----
+  const [contribsDb, setContribsDb] = useState<Contribution[] | null>(null);
+  const [contribsOnchain, setContribsOnchain] = useState<Contribution[] | null>(null);
+
+  // read on-chain (incl. tokenomics fields)
   useEffect(() => {
     if (!publicClient || !row?.pool_address) return;
     let cancelled = false;
-
     const pool = row.pool_address as `0x${string}`;
-    console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
-    console.debug(
-      '[SaleDetail] abiHas(totalRaised)?',
-      Array.isArray(presalePoolAbi) &&
-        (presalePoolAbi as any[]).some((x) => x?.type === 'function' && x?.name === 'totalRaised')
-    );
-    
+
     const u256 = (fn: any) =>
-      publicClient.readContract({
-        address: pool,
-        abi: presalePoolAbi,
-        functionName: fn,
-      }) as Promise<bigint>;
-    const u16 = (fn: any) =>
-      publicClient.readContract({
-        address: pool,
-        abi: presalePoolAbi,
-        functionName: fn,
-      }) as Promise<number>;
-console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
+      publicClient.readContract({ address: pool, abi: presalePoolAbi, functionName: fn }) as Promise<bigint>;
+    const u16n = (fn: any) =>
+      publicClient.readContract({ address: pool, abi: presalePoolAbi, functionName: fn }) as Promise<number>;
 
     const fetchChain = async () => {
       try {
-        const probeRaised = await publicClient.readContract({
-          address: pool,
-          abi: presalePoolAbi,
-          functionName: 'totalRaised', // verify exact case with ABI
-        });
-        const probeHard = await publicClient.readContract({
-          address: pool,
-          abi: presalePoolAbi,
-          functionName: 'hardCap',
-        });
-        console.debug('[SaleDetail] probe totalRaised=', probeRaised.toString(), ' hardCap=', probeHard.toString());
         const [
           softCap,
           hardCap,
@@ -177,16 +405,24 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
           tokenFeeBps,
           lpLockDuration,
           payoutDelay,
+          totalSupply,
+          saleTokensPool,
+          tokenPctToLPBps,
+          maxBuy,
           userContrib,
         ] = await Promise.all([
           u256('softCap'),
           u256('hardCap'),
           u256('totalRaised'),
-          u16('lpPctBps'),
-          u16('platformFeeBps'),
-          u16('tokenFeeBps'),
+          u16n('lpPctBps'),
+          u16n('platformFeeBps'),
+          u16n('tokenFeeBps'),
           u256('lpLockDuration'),
           u256('payoutDelay'),
+          u256('totalSupply').catch(() => 0n),
+          u256('saleTokensPool').catch(() => 0n),
+          u16n('tokenPctToLPBps').catch(() => 0),
+          u256('maxBuy').catch(() => 0n),
           address
             ? (publicClient.readContract({
                 address: pool,
@@ -208,6 +444,10 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
             tokenFeeBps,
             lpLockDuration,
             payoutDelay,
+            totalSupply,
+            saleTokensPool,
+            tokenPctToLPBps,
+            maxBuy,
           });
         }
       } catch (e: any) {
@@ -223,7 +463,7 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
     };
   }, [publicClient, row?.pool_address, address]);
 
-  // ---- Allowlist check ----
+  // allowlist check
   useEffect(() => {
     if (!row?.id || !row.allowlist_enabled) {
       setAllowlisted(true);
@@ -242,7 +482,6 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
         .eq('sale_id', row.id)
         .eq('address', address.toLowerCase())
         .limit(1);
-
       if (cancelled) return;
       if (error) {
         console.error('allowlist check failed:', error);
@@ -257,12 +496,11 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
     };
   }, [row?.id, row?.allowlist_enabled, address]);
 
-  // ---- Backfill pool address from receipt if missing ----
+  // backfill pool address if needed
   useEffect(() => {
     (async () => {
       if (!publicClient) return;
       if (!row?.chain_tx_hash || row.pool_address) return;
-
       try {
         const receipt = await publicClient.getTransactionReceipt({
           hash: row.chain_tx_hash as `0x${string}`,
@@ -293,14 +531,14 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
     })();
   }, [publicClient, row?.chain_tx_hash, row?.pool_address, row?.id]);
 
-  // ticker for countdown
+  // timer tick
   const [, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, []);
 
-  // fetch the launch (and refetch)
+  // fetch launch
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -323,23 +561,148 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
     };
   }, [id]);
 
-  // ---- Early returns ----
+  // contributions from DB
+  useEffect(() => {
+    (async () => {
+      if (!row?.id || !supabase) return setContribsDb(null);
+      try {
+        const { data, error } = await supabase
+          .from('contributions')
+          .select('address,amount,created_at,username')
+          .eq('sale_id', row.id)
+          .order('created_at', { ascending: false })
+          .limit(100);
+        if (error) throw error;
+        const mapped: Contribution[] = (data ?? []).map((d: any) => ({
+          address: d.address,
+          amount: Number(d.amount ?? 0),
+          created_at: d.created_at,
+          username: d.username ?? null,
+        }));
+        setContribsDb(mapped);
+      } catch {
+        setContribsDb(null);
+      }
+    })();
+  }, [row?.id]);
+
+  // best-effort on-chain contributions (only if DB has none and raised > 0)
+  useEffect(() => {
+    (async () => {
+      if (!publicClient || !row?.pool_address) return setContribsOnchain(null);
+      if (Array.isArray(contribsDb) && contribsDb.length > 0) return setContribsOnchain(null);
+      if (!chain.raised || chain.raised === 0n) return setContribsOnchain(null);
+
+      try {
+        const pool = row.pool_address as `0x${string}`;
+        const toBlock = await publicClient.getBlockNumber();
+        let fromBlock: bigint | undefined;
+
+        // Try to start from the factory tx block if available
+        if (row.chain_tx_hash) {
+          try {
+            const r = await publicClient.getTransactionReceipt({ hash: row.chain_tx_hash as `0x${string}` });
+            fromBlock = (r.blockNumber as bigint) ?? undefined;
+          } catch {}
+        }
+        if (!fromBlock) {
+          fromBlock = toBlock > 50000n ? toBlock - 50000n : 0n; // last ~50k blocks fallback
+        }
+
+        // Fetch all logs for the pool, then decode and filter locally.
+        const logs = await publicClient.getLogs({
+          address: pool,
+          fromBlock,
+          toBlock,
+        });
+
+        // Candidate names that usually indicate a contribution-like event
+        const nameRegex = /contribut|contributed|contribution|buy|bought|purchase|invest/i;
+
+        const found: Contribution[] = [];
+        for (const log of logs as Log[]) {
+          try {
+            const decoded = decodeEventLog({
+              abi: presalePoolAbi,
+              data: log.data,
+              topics: log.topics,
+            });
+            if (!nameRegex.test(decoded.eventName)) continue;
+
+            // Heuristic: pick first address & first bigint from args
+            const args = decoded.args as Record<string, unknown>;
+            let addr: string | undefined;
+            let amt: bigint | undefined;
+
+            for (const k of Object.keys(args)) {
+              const v = args[k];
+              if (!addr && typeof v === 'string' && v.startsWith('0x') && v.length === 42) addr = v.toLowerCase();
+              if (!amt && typeof v === 'bigint') amt = v;
+            }
+            if (!addr || amt === undefined) continue;
+
+            const block = await publicClient.getBlock({ blockHash: log.blockHash as Hex });
+            const created_at = new Date(Number(block.timestamp) * 1000).toISOString();
+
+            found.push({
+              address: addr,
+              amount: Number(formatUnits(amt, QUOTE_DECIMALS)),
+              created_at,
+              username: null,
+            });
+          } catch {
+            // not one of ours; ignore
+          }
+        }
+
+        if (!found.length) return setContribsOnchain([]);
+
+        // Enrich usernames from DB (best-effort)
+        if (supabase) {
+          const uniqueAddrs = Array.from(new Set(found.map((c) => c.address)));
+          try {
+            const { data } = await supabase
+              .from('contributions')
+              .select('address,username')
+              .in('address', uniqueAddrs);
+            const map = new Map<string, string>();
+            (data ?? []).forEach((r: any) => {
+              if (r.username) map.set(String(r.address).toLowerCase(), String(r.username));
+            });
+            found.forEach((c) => {
+              const u = map.get(c.address.toLowerCase());
+              if (u) c.username = u;
+            });
+          } catch {}
+        }
+
+        found.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+        setContribsOnchain(found.slice(0, 100));
+      } catch (e) {
+        console.warn('on-chain contributions fetch failed:', e);
+        setContribsOnchain(null);
+      }
+    })();
+  }, [publicClient, row?.pool_address, row?.chain_tx_hash, chain.raised, contribsDb]);
+
+  // early returns
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
   if (!row) return <div style={{ padding: 24 }}>Sale not found.</div>;
 
-  // Derived display values
+  // derived display
   const start = row.start_at ? new Date(row.start_at) : null;
   const end = row.end_at ? new Date(row.end_at) : null;
 
   const phase = salePhase(Date.now(), row.start_at, row.end_at);
   const timeToShow = phase === 'upcoming' ? countdown(row.start_at) : phase === 'active' ? countdown(row.end_at) : null;
 
-  // Use DB status as source of truth for the badge, fallback to computed phase
   const statusToShow = (row.status as string | undefined) ?? (phase && phase !== 'tba' ? phase : 'created');
 
-  // quote + formatting
+  // quote / pair
   const quote: string = row.quote ?? 'WAPE';
+  const pairLabel = `${quote}/${row.token_symbol ?? 'TKN'}`;
+
   const hasPool = !!row.pool_address;
   const now = Date.now();
   const startMs = row.start_at ? new Date(row.start_at).getTime() : NaN;
@@ -357,7 +720,7 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
     buyLabel = 'Sale ended';
   } else if (beforeStart) {
     buyDisabled = true;
-    buyLabel = `Starts in ${timeToShow ? `${timeToShow.h}h ${timeToShow.m}m ${timeToShow.s}s` : ''}`;
+    buyLabel = timeToShow ? `Starts in ${timeToShow.d}d ${timeToShow.h}h ${timeToShow.m}m ${timeToShow.s}s` : 'Starts soon';
   } else if (!isConnected) {
     buyDisabled = true;
     buyLabel = 'Connect wallet';
@@ -371,38 +734,30 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
     buyDisabled = false;
     buyLabel = 'Buy';
   }
-<div style={{fontFamily:'var(--font-data)', fontSize:12, opacity:.75}}>
-  debug: raisedRaw={String(chain.raised ?? 'n/a')}
-  &nbsp; hardCapRaw={String(chain.hardCap ?? 'n/a')}
-  &nbsp; pool={row.pool_address || '—'}
-</div>
 
-  // progress (live on-chain)
+  // progress (on-chain)
   const raisedStr =
     chain.raised !== undefined
       ? `${Number(formatUnits(chain.raised, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
-      : `${formatNumber(0)} ${quote}`;
-
+      : `0 ${quote}`;
   const softStr =
     chain.softCap !== undefined
       ? `${Number(formatUnits(chain.softCap, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
       : Number.isFinite(Number(row.soft_cap))
       ? `${formatNumber(Number(row.soft_cap))} ${quote}`
       : '—';
-
   const hardStr =
     chain.hardCap !== undefined
       ? `${Number(formatUnits(chain.hardCap, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
       : Number.isFinite(Number(row.hard_cap))
       ? `${formatNumber(Number(row.hard_cap))} ${quote}`
       : '—';
-
   const pct =
     chain.hardCap !== undefined && chain.raised !== undefined && chain.hardCap > 0n
       ? Number((chain.raised * 10000n) / chain.hardCap) / 100
       : 0;
 
-  // Themed status badge
+  // badge styles
   const badgeStyle: React.CSSProperties = (() => {
     switch (statusToShow) {
       case 'active':
@@ -417,211 +772,215 @@ console.debug('[SaleDetail] pool', pool, 'chainId?', publicClient?.chain?.id);
     }
   })();
 
-  // LP / flow fields (support a few possible DB column names)
-  const raisePctToLP = Number(row.percent_to_lp ?? row.lp_percent_to_lp ?? row.raise_percent_to_lp ?? NaN);
-  const lockDays: number | undefined = row.lock_days ?? row.lockDays ?? undefined;
-  const saleTokensPool = row.sale_tokens_pool ?? row.saleTokensPool ?? undefined;
-// helpers (put top-level, outside component or inside before usage)
-function normalizeWebsite(u?: string | null): string | undefined {
-  if (!u) return undefined;
-  const w = String(u).trim();
-  if (!w) return undefined;
-  return /^https?:\/\//i.test(w) ? w : `https://${w}`;
-}
-function normalizeTwitter(t?: string | null): string | undefined {
-  if (!t) return undefined;
-  let h = String(t).trim();
-  if (!h) return undefined;
-  if (h.startsWith('@')) h = h.slice(1);
-  // allow pasted full URL
-  if (/^https?:\/\//i.test(h)) return h;
-  return `https://x.com/${h}`;
-}
+  // LIVE tokenomics for donut
+  const totalSupplyLive =
+    chain.totalSupply !== undefined
+      ? Number(formatUnits(chain.totalSupply, row.token_decimals ?? 18))
+      : toNum(row.total_supply);
 
-// …keep your early returns…
-if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
-if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
-if (!row) return <div style={{ padding: 24 }}>Sale not found.</div>;
+  const saleTokensLive =
+    chain.saleTokensPool !== undefined
+      ? Number(formatUnits(chain.saleTokensPool, row.token_decimals ?? 18))
+      : toNum(row.sale_tokens_pool ?? row.saleTokensPool);
 
-// THEN compute hrefs as plain variables (not hooks)
-const websiteHref = normalizeWebsite(row.website);
-const twitterHref = normalizeTwitter(row.twitter);
+  const lpTokensLive =
+    chain.tokenPctToLPBps !== undefined && Number.isFinite(totalSupplyLive)
+      ? Math.floor(totalSupplyLive * (Number(chain.tokenPctToLPBps) / 10000))
+      : 0;
 
+  const platformFeeTokensLive =
+    chain.tokenFeeBps !== undefined && Number.isFinite(totalSupplyLive)
+      ? Math.floor(totalSupplyLive * (Number(chain.tokenFeeBps) / 10000))
+      : 0;
+
+  const keptTokensLive =
+    Number.isFinite(totalSupplyLive) && Number.isFinite(saleTokensLive)
+      ? Math.max(totalSupplyLive - saleTokensLive - lpTokensLive - platformFeeTokensLive, 0)
+      : 0;
+
+  const donutSlices: Slice[] = [
+    { label: 'LP', color: 'var(--chart-lp, #3b5bdb)', value: Math.max(0, lpTokensLive) },
+    { label: 'Tokens for Sale', color: 'var(--chart-sale, #2fb344)', value: Math.max(0, saleTokensLive) },
+    { label: 'Kept', color: 'var(--chart-kept, #f59f00)', value: Math.max(0, keptTokensLive) },
+    { label: 'Platform Fee', color: 'var(--chart-fee, #868e96)', value: Math.max(0, platformFeeTokensLive) },
+  ];
+
+  const centerTitle = 'Total Supply';
+  const centerValue = Number.isFinite(totalSupplyLive) ? totalSupplyLive.toLocaleString() : '—';
+  const centerSub = row.token_symbol ? `$${row.token_symbol}` : '';
+
+  const websiteHref = normalizeWebsite(row.website);
+  const twitterHref = normalizeTwitter(row.twitter);
+
+  // countdown progress 0..1
+  const timeProgress = (() => {
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return 0;
+    if (now <= startMs) return 0;
+    if (now >= endMs) return 1;
+    return (now - startMs) / (endMs - startMs);
+  })();
+
+  // Your contribution / max per wallet
+  const userContribStr =
+    typeof chain.userContrib === 'bigint'
+      ? `${Number(formatUnits(chain.userContrib, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
+      : `0 ${quote}`;
+
+  const maxPerWalletStr = (() => {
+    if (typeof chain.maxBuy === 'bigint') {
+      if (chain.maxBuy <= 0n) return '—';
+      return `${Number(formatUnits(chain.maxBuy, QUOTE_DECIMALS)).toLocaleString()} ${quote}`;
+    }
+    const dbMax = row.max_per_wallet ?? row.maxPerWallet;
+    return Number.isFinite(Number(dbMax)) ? `${formatNumber(Number(dbMax))} ${quote}` : '—';
+  })();
+
+  // choose which contributions to render (DB first, else on-chain)
+  const contributionsList =
+    (Array.isArray(contribsDb) && contribsDb.length > 0)
+      ? contribsDb
+      : (Array.isArray(contribsOnchain) ? contribsOnchain : []);
 
   return (
     <div className="sale-detail" style={{ display: 'grid', gap: 16 }}>
       {/* Header */}
       <div className="sale-header" style={{ display: 'grid', gap: 12 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {row.logo_url ? (
-            <img src={row.logo_url} alt="" className="sale-logo" />
-          ) : (
-            <div className="sale-logo placeholder" />
-          )}
-<div className="sale-title" style={{ flex: 1, minWidth: 0 }}>
-  {/* Name + symbol */}
-  <div
-    className="h1"
-    style={{
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      flexWrap: 'wrap',          // allow wrapping on small screens
-      minWidth: 0,
-    }}
-  >
-    <span
-      style={{
-        flex: '0 1 auto',
-        whiteSpace: 'nowrap',     // keep name on one line
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        maxWidth: '100%',
-      }}
-    >
-      {row.token_name ?? 'Untitled'}
-    </span>
-    <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>
-      ({row.token_symbol ?? '—'})
-    </span>
-
-    {/* push icons right when space allows; otherwise they wrap under */}
-    <span style={{ marginLeft: 'auto' }} />
-
-    {/* Icons */}
-    <div style={{ display: 'flex', gap: 10, color: 'var(--fl-gold)' }}>
-      <IconWrap href={websiteHref} label="Website" disabled={!websiteHref}>
-        <GlobeIcon />
-      </IconWrap>
-      <IconWrap href={twitterHref} label="Twitter / X" disabled={!twitterHref}>
-        <TwitterIcon />
-      </IconWrap>
-      <IconWrap label="Telegram (soon)" disabled>
-        <TelegramIcon />
-      </IconWrap>
-    </div>
-  </div>
-
-  {/* Description under title */}
-  <div
-    className="break-anywhere"
-    style={{ marginTop: 8, opacity: 0.9, lineHeight: 1.4, wordBreak: 'break-word' }}
-  >
-    {row.description || '—'}
-  </div>
-</div>
+          {row.logo_url ? <img src={row.logo_url} alt="" className="sale-logo" /> : <div className="sale-logo placeholder" />}
+          <div className="sale-title" style={{ flex: 1, minWidth: 0 }}>
+            <div className="h1" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+              <span style={{ flex: '0 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                {row.token_name ?? 'Untitled'}
+              </span>
+              <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>({row.token_symbol ?? '—'})</span>
+              <span style={{ marginLeft: 'auto' }} />
+              <div style={{ display: 'flex', gap: 10, color: 'var(--fl-gold)' }}>
+                <IconWrap href={websiteHref} label="Website" disabled={!websiteHref}>
+                  <GlobeIcon />
+                </IconWrap>
+                <IconWrap href={twitterHref} label="Twitter / X" disabled={!twitterHref}>
+                  <TwitterIcon />
+                </IconWrap>
+                <IconWrap label="Telegram (soon)" disabled>
+                  <TelegramIcon />
+                </IconWrap>
+              </div>
+            </div>
+            <div className="break-anywhere" style={{ marginTop: 8, opacity: 0.9, lineHeight: 1.4, wordBreak: 'break-word' }}>
+              {row.description || '—'}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Status + countdown + progress */}
-      <div className="card" style={{ padding: 12, display: 'grid', gap: 10 }}>
-        <div className="meta-line" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span
-            className="badge"
-            style={{ ...badgeStyle, padding: '2px 8px', borderRadius: 999, textTransform: 'capitalize' }}
-          >
-            {statusToShow}
-          </span>
-          <span className="meta-text">
-            Presale Window:{' '}
-            <b>
-              {start
-                ? start.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                : 'TBA'}
-            </b>{' '}
-            →{' '}
-            <b>
-              {end
-                ? end.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-                : 'TBA'}
-            </b>
-          </span>
+      {/* Main grid: Left stack (Info + Tokenomics) and Right (Donut) */}
+      <div className="sale-grid">
+        {/* LEFT COLUMN — Info card */}
+        <div style={{ display: 'grid', gap: 16 }}>
+          <div className="card sale-card">
+            <div className="meta-line" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span className="badge" style={{ ...badgeStyle, padding: '2px 8px', borderRadius: 999, textTransform: 'capitalize' }}>
+                {statusToShow}
+              </span>
+              <span className="meta-text">
+                Presale Window:{' '}
+                <b>{start ? start.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBA'}</b> →{' '}
+                <b>{end ? end.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'TBA'}</b>
+              </span>
+            </div>
+
+            {timeToShow && (
+              <CountdownPill
+                label={phase === 'upcoming' ? 'Starts in' : 'Ends in'}
+                d={timeToShow.d} h={timeToShow.h} m={timeToShow.m} s={timeToShow.s}
+                progress={timeProgress}
+              />
+            )}
+
+            <div className="meta-grid">
+              <div>Soft Cap: <b>{softStr}</b></div>
+              <div>Hard Cap: <b>{hardStr}</b></div>
+              <div>Raised: <b>{raisedStr}</b></div>
+              <div>Pair: <b>{pairLabel}</b></div>
+            </div>
+
+            <div className="progress-outer"><div className="progress-inner" style={{ width: `${pct}%` }} /></div>
+
+            {/* Your Contribution / Max per wallet */}
+            <div style={{ fontFamily: 'var(--font-data)', display: 'flex', gap: 8, alignItems: 'baseline' }}>
+              <span>Your Contribution:</span>
+              <b>{userContribStr}</b>
+              <span style={{ opacity: .7 }}>/</span>
+              <b>{maxPerWalletStr}</b>
+            </div>
+
+            <div>
+              Creator Address:{' '}
+              <b>
+                <a className="break-anywhere"><code>{row.creator_wallet ?? '—'}</code></a>
+              </b>
+            </div>
+
+            <div>
+              Presale Address:{' '}
+              {row.pool_address ? (
+                <b>
+                  <a className="break-anywhere" href={`https://apescan.io/address/${row.pool_address}`} target="_blank" rel="noreferrer">
+                    <code>{row.pool_address}</code>
+                  </a>
+                </b>
+              ) : (
+                <b><code>—</code></b>
+              )}
+            </div>
+          </div>
+
+          {/* LEFT COLUMN — Tokenomics */}
+          <div className="card sale-card">
+            <div style={{ fontWeight: 700 }}>Tokenomics / LP</div>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
+              <div>
+                % of Raise funding LP:&nbsp;
+                <b>
+                  {typeof chain.lpPctBps === 'number'
+                    ? `${(chain.lpPctBps / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
+                    : row.lp_percent_to_lp
+                    ? `${row.lp_percent_to_lp}%`
+                    : '—'}
+                </b>
+              </div>
+              <div>
+                LP Lock:&nbsp;
+                <b>
+                  {chain.lpLockDuration !== undefined
+                    ? `${Math.round(Number(chain.lpLockDuration) / 86400)} days`
+                    : row.lock_days
+                    ? `${row.lock_days} days`
+                    : '—'}
+                </b>
+              </div>
+              <div>
+                Tokens for Sale:&nbsp;
+                <b className="break-anywhere">
+                  {Number.isFinite(saleTokensLive) ? formatNumber(Number(saleTokensLive)) : '—'}
+                </b>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {timeToShow && (
-          <div className="meta-timer">
-            {phase === 'upcoming' ? 'Starts in' : 'Ends in'}:{' '}
-            <b>
-              {timeToShow.d}d {timeToShow.h}h {timeToShow.m}m {timeToShow.s}s
-            </b>
-          </div>
-        )}
-
-<div className="meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 }}>
-  <div>Soft Cap: <b>{softStr}</b></div>
-  <div>Hard Cap: <b>{hardStr}</b></div>
-  <div>Raised:   <b>{raisedStr}</b></div>
-</div>
-
-{typeof chain.userContrib === 'bigint' && isConnected && (
-  <div className="meta-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: 8 }}>
-    <div>
-      Your Contribution:{' '}
-      <b>{Number(formatUnits(chain.userContrib, QUOTE_DECIMALS)).toLocaleString()} WAPE</b>
-    </div>
-  </div>
-)}
-
-{/* Progress bar now comes here */}
-<div className="progress-outer">
-  <div className="progress-inner" style={{ width: `${pct}%` }} />
-</div>
-
-{/* Creator now lives here */}
-<div  style={{ marginTop: 4 }}>
-  Creator Address: <b><a className="break-anywhere"><code>{row.creator_wallet ?? '—'}</code></a></b>
-</div>
-
-{/* Presale Address (linked) */}
-<div style={{ marginTop: 2 }}>
-  Presale Address:{' '}
-  {row.pool_address ? (
-    <b>
-      <a
-        className="break-anywhere"
-        href={`https://apescan.io/address/${row.pool_address}`}
-        target="_blank"
-        rel="noreferrer"
-      >
-        <code>{row.pool_address}</code>
-      </a>
-    </b>
-  ) : (
-    <b><code>—</code></b>
-  )}
-</div>
-      </div>
-
-      {/* Tokenomics / LP (on-chain) */}
-      <div className="card" style={{ padding: 12, display: 'grid', gap: 6 }}>
-        <div style={{ fontWeight: 700, marginBottom: 4 }}>Tokenomics / LP</div>
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
-          <div>
-            % of Raise funding LP:&nbsp;
-            <b>
-              {typeof chain.lpPctBps === 'number'
-                ? `${(chain.lpPctBps / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}%`
-                : Number.isFinite(raisePctToLP)
-                ? `${raisePctToLP}%`
-                : '—'}
-            </b>
-          </div>
-
-          <div>
-            LP Lock:&nbsp;
-            <b>
-              {chain.lpLockDuration !== undefined
-                ? `${Math.round(Number(chain.lpLockDuration) / 86400)} days`
-                : lockDays
-                ? `${lockDays} days`
-                : '—'}
-            </b>
-          </div>
-
-          <div>
-            Tokens for Sale:&nbsp;
-            <b className="break-anywhere">{saleTokensPool ? formatNumber(Number(saleTokensPool)) : '—'}</b>
-          </div>
+        {/* RIGHT COLUMN — Donut */}
+        <div className="card sale-card">
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Token Distribution</div>
+          <Donut
+            slices={donutSlices}
+            size={typeof window !== 'undefined' && window.innerWidth < 520 ? 220 : 260}
+            thickness={34}
+            centerTitle={centerTitle}
+            centerValue={centerValue}
+            centerSub={centerSub}
+            tokenSymbol={row.token_symbol ? `$${row.token_symbol}` : ''}
+          />
         </div>
       </div>
 
@@ -630,16 +989,54 @@ const twitterHref = normalizeTwitter(row.twitter);
         <AllowlistCheck key={row.id} saleId={row.id} root={row.allowlist_root} />
       </div>
 
-      {/* Actions */}
-      <div className="sale-actions" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <Link className="button" to="/">
+      {/* Contributions — only show if we have at least one */}
+      {(contributionsList.length > 0) && (
+        <div className="card sale-card" style={{ gap: 10 }}>
+          <div style={{ fontWeight: 700 }}>Contributions</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            {contributionsList.map((c, i) => (
+              <div
+                key={`${c.address}-${i}-${c.created_at}`}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'minmax(0,1fr) auto auto',
+                  gap: 8,
+                  alignItems: 'center',
+                  border: '1px solid var(--card-border)',
+                  background: 'var(--card-bg)',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                  fontFamily: 'var(--font-data)',
+                }}
+              >
+                <div className="break-anywhere" style={{ fontWeight: 600 }}>
+                  {c.username || c.address}
+                </div>
+                <div style={{ whiteSpace: 'nowrap' }}>
+                  {Number(c.amount).toLocaleString()} {quote}
+                </div>
+                <div style={{ whiteSpace: 'nowrap', opacity: 0.8 }}>
+                  {new Date(c.created_at).toLocaleString([], {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Actions (thirds) */}
+      <div className="sale-actions">
+        <Link className="button button-secondary back" to="/" style={{ padding: '8px 12px' }}>
           ← Back
         </Link>
-        <button className="button" disabled>
-          Claim (soon)
-        </button>
+        <div className="spacer" />
         <button
-          className="button button-secondary"
+          className="button button-primary buy"
           disabled={buyDisabled}
           onClick={() => setShowBuy(true)}
           title={buyDisabled ? buyLabel : 'Contribute to this presale'}
@@ -654,9 +1051,7 @@ const twitterHref = normalizeTwitter(row.twitter);
         poolAddress={row.pool_address as `0x${string}`}
         saleId={row.id}
         allowlistRoot={row.allowlist_root as any}
-        
       />
-      
     </div>
   );
 }
