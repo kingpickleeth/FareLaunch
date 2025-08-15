@@ -102,7 +102,7 @@ export default function AllowlistCheck({ saleId, root }: Props) {
             />
             {address && (
               <button
-                className="button"
+                className="button button-secondary"
                 type="button"
                 onClick={() => setInput(address)}
                 title="Use my wallet"

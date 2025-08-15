@@ -598,7 +598,6 @@ export default function SaleDetail() {
         const toBlock = await publicClient.getBlockNumber();
         let fromBlock: bigint | undefined;
 
-        // Try to start from the factory tx block if available
         if (row.chain_tx_hash) {
           try {
             const r = await publicClient.getTransactionReceipt({ hash: row.chain_tx_hash as `0x${string}` });
@@ -606,17 +605,15 @@ export default function SaleDetail() {
           } catch {}
         }
         if (!fromBlock) {
-          fromBlock = toBlock > 50000n ? toBlock - 50000n : 0n; // last ~50k blocks fallback
+          fromBlock = toBlock > 50000n ? toBlock - 50000n : 0n;
         }
 
-        // Fetch all logs for the pool, then decode and filter locally.
         const logs = await publicClient.getLogs({
           address: pool,
           fromBlock,
           toBlock,
         });
 
-        // Candidate names that usually indicate a contribution-like event
         const nameRegex = /contribut|contributed|contribution|buy|bought|purchase|invest/i;
 
         const found: Contribution[] = [];
@@ -629,7 +626,6 @@ export default function SaleDetail() {
             });
             if (!nameRegex.test(decoded.eventName)) continue;
 
-            // Heuristic: pick first address & first bigint from args
             const args = decoded.args as Record<string, unknown>;
             let addr: string | undefined;
             let amt: bigint | undefined;
@@ -650,14 +646,11 @@ export default function SaleDetail() {
               created_at,
               username: null,
             });
-          } catch {
-            // not one of ours; ignore
-          }
+          } catch {}
         }
 
         if (!found.length) return setContribsOnchain([]);
 
-        // Enrich usernames from DB (best-effort)
         if (supabase) {
           const uniqueAddrs = Array.from(new Set(found.map((c) => c.address)));
           try {
@@ -772,7 +765,7 @@ export default function SaleDetail() {
     }
   })();
 
-  // LIVE tokenomics for donut
+  // LIVE tokenomics (numbers)
   const totalSupplyLive =
     chain.totalSupply !== undefined
       ? Number(formatUnits(chain.totalSupply, row.token_decimals ?? 18))
@@ -785,24 +778,30 @@ export default function SaleDetail() {
 
   const lpTokensLive =
     chain.tokenPctToLPBps !== undefined && Number.isFinite(totalSupplyLive)
-      ? Math.floor(totalSupplyLive * (Number(chain.tokenPctToLPBps) / 10000))
-      : 0;
+      ? totalSupplyLive * (Number(chain.tokenPctToLPBps) / 10000)
+      : NaN;
+
+  const tokenPctToLPpct =
+    typeof chain.tokenPctToLPBps === 'number'
+      ? (chain.tokenPctToLPBps / 100)
+      : NaN;
 
   const platformFeeTokensLive =
     chain.tokenFeeBps !== undefined && Number.isFinite(totalSupplyLive)
-      ? Math.floor(totalSupplyLive * (Number(chain.tokenFeeBps) / 10000))
-      : 0;
+      ? totalSupplyLive * (Number(chain.tokenFeeBps) / 10000)
+      : NaN;
 
   const keptTokensLive =
-    Number.isFinite(totalSupplyLive) && Number.isFinite(saleTokensLive)
+    Number.isFinite(totalSupplyLive) && Number.isFinite(saleTokensLive) && Number.isFinite(lpTokensLive) && Number.isFinite(platformFeeTokensLive)
       ? Math.max(totalSupplyLive - saleTokensLive - lpTokensLive - platformFeeTokensLive, 0)
-      : 0;
+      : NaN;
 
+  // Donut slices
   const donutSlices: Slice[] = [
-    { label: 'LP', color: 'var(--chart-lp, #3b5bdb)', value: Math.max(0, lpTokensLive) },
-    { label: 'Tokens for Sale', color: 'var(--chart-sale, #2fb344)', value: Math.max(0, saleTokensLive) },
-    { label: 'Kept', color: 'var(--chart-kept, #f59f00)', value: Math.max(0, keptTokensLive) },
-    { label: 'Platform Fee', color: 'var(--chart-fee, #868e96)', value: Math.max(0, platformFeeTokensLive) },
+    { label: 'LP', color: 'var(--chart-lp, #3b5bdb)', value: Math.max(0, lpTokensLive || 0) },
+    { label: 'Tokens for Sale', color: 'var(--chart-sale, #2fb344)', value: Math.max(0, saleTokensLive || 0) },
+    { label: 'Kept', color: 'var(--chart-kept, #f59f00)', value: Math.max(0, keptTokensLive || 0) },
+    { label: 'Platform Fee', color: 'var(--chart-fee, #868e96)', value: Math.max(0, platformFeeTokensLive || 0) },
   ];
 
   const centerTitle = 'Total Supply';
@@ -821,10 +820,12 @@ export default function SaleDetail() {
   })();
 
   // Your contribution / max per wallet
-  const userContribStr =
+  const userContribNum =
     typeof chain.userContrib === 'bigint'
-      ? `${Number(formatUnits(chain.userContrib, QUOTE_DECIMALS)).toLocaleString()} ${quote}`
-      : `0 ${quote}`;
+      ? Number(formatUnits(chain.userContrib, QUOTE_DECIMALS))
+      : 0;
+
+  const userContribStr = `${userContribNum.toLocaleString()} ${quote}`;
 
   const maxPerWalletStr = (() => {
     if (typeof chain.maxBuy === 'bigint') {
@@ -835,12 +836,35 @@ export default function SaleDetail() {
     return Number.isFinite(Number(dbMax)) ? `${formatNumber(Number(dbMax))} ${quote}` : '—';
   })();
 
-  // choose which contributions to render (DB first, else on-chain)
-  const contributionsList =
-    (Array.isArray(contribsDb) && contribsDb.length > 0)
-      ? contribsDb
-      : (Array.isArray(contribsOnchain) ? contribsOnchain : []);
+  // ===== New derived metrics for Tokenomics card =====
+  const raisedQuote = typeof chain.raised === 'bigint' ? Number(formatUnits(chain.raised, QUOTE_DECIMALS)) : 0;
+  const lpPct = typeof chain.lpPctBps === 'number' ? chain.lpPctBps / 10000 : 0;
+// Only consider we "have" contributions when we actually have rows
+const hasAnyContribution =
+  (Array.isArray(contribsDb) && contribsDb.length > 0) ||
+  (Array.isArray(contribsOnchain) && contribsOnchain.length > 0);
 
+// Show a loading state only while we know something was raised
+// but neither DB nor on-chain list has resolved yet.
+const contribsLoading =
+  (typeof chain.raised === 'bigint' && chain.raised > 0n) &&
+  contribsDb === null &&
+  contribsOnchain === null;
+
+const contribList =
+  (Array.isArray(contribsDb) && contribsDb.length > 0)
+    ? contribsDb
+    : (Array.isArray(contribsOnchain) ? contribsOnchain : []);
+
+
+
+  const quoteToLP = (raisedQuote > 0 && lpPct > 0) ? raisedQuote * lpPct : 0;
+  const tokensToLP = Number.isFinite(lpTokensLive) ? (lpTokensLive as number) : 0;
+
+  const predictedListingPrice = (quoteToLP > 0 && tokensToLP > 0) ? (quoteToLP / tokensToLP) : NaN; // WAPE per token
+  const predictedFDV = Number.isFinite(predictedListingPrice) && Number.isFinite(totalSupplyLive)
+    ? predictedListingPrice * (totalSupplyLive as number)
+    : NaN;
   return (
     <div className="sale-detail" style={{ display: 'grid', gap: 16 }}>
       {/* Header */}
@@ -937,8 +961,8 @@ export default function SaleDetail() {
 
           {/* LEFT COLUMN — Tokenomics */}
           <div className="card sale-card">
-            <div style={{ fontWeight: 700 }}>Tokenomics / LP</div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontFamily: 'var(--font-data)' }}>
+            <div style={{ fontWeight: 700 }}>Tokenomics / LP Info:</div>
+            <div style={{ display: 'grid', gap: 8, fontFamily: 'var(--font-data)' }}>
               <div>
                 % of Raise funding LP:&nbsp;
                 <b>
@@ -950,7 +974,11 @@ export default function SaleDetail() {
                 </b>
               </div>
               <div>
-                LP Lock:&nbsp;
+                % of Tokens funding LP:&nbsp;
+                <b>{Number.isFinite(tokenPctToLPpct) ? `${tokenPctToLPpct.toLocaleString(undefined, { maximumFractionDigits: 2 })}%` : '—'}</b>
+              </div>
+              <div>
+                Liquidity Lock:&nbsp;
                 <b>
                   {chain.lpLockDuration !== undefined
                     ? `${Math.round(Number(chain.lpLockDuration) / 86400)} days`
@@ -959,10 +987,13 @@ export default function SaleDetail() {
                     : '—'}
                 </b>
               </div>
+
               <div>
-                Tokens for Sale:&nbsp;
-                <b className="break-anywhere">
-                  {Number.isFinite(saleTokensLive) ? formatNumber(Number(saleTokensLive)) : '—'}
+                Predicted opening marketcap:&nbsp;
+                <b>
+                  {Number.isFinite(predictedFDV)
+                    ? `${predictedFDV.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${quote}`
+                    : '—'}
                 </b>
               </div>
             </div>
@@ -990,44 +1021,49 @@ export default function SaleDetail() {
       </div>
 
       {/* Contributions — only show if we have at least one */}
-      {(contributionsList.length > 0) && (
-        <div className="card sale-card" style={{ gap: 10 }}>
-          <div style={{ fontWeight: 700 }}>Contributions</div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            {contributionsList.map((c, i) => (
-              <div
-                key={`${c.address}-${i}-${c.created_at}`}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'minmax(0,1fr) auto auto',
-                  gap: 8,
-                  alignItems: 'center',
-                  border: '1px solid var(--card-border)',
-                  background: 'var(--card-bg)',
-                  borderRadius: 10,
-                  padding: '8px 10px',
-                  fontFamily: 'var(--font-data)',
-                }}
-              >
-                <div className="break-anywhere" style={{ fontWeight: 600 }}>
-                  {c.username || c.address}
-                </div>
-                <div style={{ whiteSpace: 'nowrap' }}>
-                  {Number(c.amount).toLocaleString()} {quote}
-                </div>
-                <div style={{ whiteSpace: 'nowrap', opacity: 0.8 }}>
-                  {new Date(c.created_at).toLocaleString([], {
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </div>
-              </div>
-            ))}
+      {contribsLoading ? (
+  <div className="card sale-card" style={{ gap: 10 }}>
+    <div style={{ fontWeight: 700 }}>Contributions</div>
+    <div style={{ color: 'var(--muted)' }}>Loading on-chain contributions…</div>
+  </div>
+) : hasAnyContribution ? (
+  <div className="card sale-card" style={{ gap: 10 }}>
+    <div style={{ fontWeight: 700 }}>Contributions</div>
+    <div style={{ display: 'grid', gap: 6 }}>
+      {contribList.map((c, i) => (
+        <div
+          key={`${c.address}-${i}-${c.created_at}`}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0,1fr) auto auto',
+            gap: 8,
+            alignItems: 'center',
+            border: '1px solid var(--card-border)',
+            background: 'var(--card-bg)',
+            borderRadius: 10,
+            padding: '8px 10px',
+            fontFamily: 'var(--font-data)',
+          }}
+        >
+          <div className="break-anywhere" style={{ fontWeight: 600 }}>
+            {c.username || c.address}
+          </div>
+          <div style={{ whiteSpace: 'nowrap' }}>
+            {Number(c.amount).toLocaleString()} {quote}
+          </div>
+          <div style={{ whiteSpace: 'nowrap', opacity: 0.8 }}>
+            {new Date(c.created_at).toLocaleString([], {
+              month: 'short',
+              day: 'numeric',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </div>
         </div>
-      )}
+      ))}
+    </div>
+  </div>
+) : null}
 
       {/* Actions (thirds) */}
       <div className="sale-actions">
