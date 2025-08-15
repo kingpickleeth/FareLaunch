@@ -8,13 +8,15 @@ import { supabase } from '../lib/supabase';
 import { formatNumber } from '../utils/format';
 import { useAccount, usePublicClient } from 'wagmi';
 import BuyModal from '../components/BuyModal';
-import { decodeEventLog, formatUnits, type Hex, type Log } from 'viem';
+import { decodeEventLog, formatUnits, type Hex, parseAbiItem, getAddress } from 'viem';
 import {
   launchpadFactoryAbi,
   LAUNCHPAD_FACTORY,
   presalePoolAbi,
   QUOTE_DECIMALS,
 } from '../lib/contracts';
+
+const DEBUG_CONTRIB = true;
 
 type AnyRow = Record<string, any>;
 
@@ -201,6 +203,20 @@ function toNum(v: unknown): number {
   return Number.isFinite(n) ? n : NaN;
 }
 const fmt = (n: number) => (Number.isFinite(n) ? n.toLocaleString() : '—');
+// Known / fallback signatures (adjust if your event is different)
+// If you DO know your exact event, set this to a precise ABI item for best decoding:
+const CONTRIB_ABI_EVENT = parseAbiItem('event Contributed(address indexed buyer, uint256 amount)');
+// Put this near your CONTRIB_ABI_EVENT
+const CONTRIBUTION_EVENT_SIGS = [
+  'event Contributed(address indexed buyer, uint256 amount)',
+  'event Contribution(address indexed buyer, uint256 amount)',
+  'event Bought(address indexed buyer, uint256 amount)',
+  'event TokensPurchased(address indexed purchaser, uint256 value)',
+  'event Invested(address indexed buyer, uint256 amount)',
+] as const;
+
+const CONTRIBUTION_EVENTS = CONTRIBUTION_EVENT_SIGS.map((sig) => parseAbiItem(sig));
+const shortAddr = (a?: string) => (a ? `${a.slice(0, 6)}....${a.slice(-4)}` : '');
 
 /* ──────────────────────────────────────────────────────────────
    Dependency-free SVG Donut with hover + tooltip
@@ -380,7 +396,7 @@ export default function SaleDetail() {
     maxBuy?: bigint;
   }>({});
 
-  const [contribsDb, setContribsDb] = useState<Contribution[] | null>(null);
+  const [, setContribsDb] = useState<Contribution[] | null>(null);
   const [contribsOnchain, setContribsOnchain] = useState<Contribution[] | null>(null);
 
   // read on-chain (incl. tokenomics fields)
@@ -562,122 +578,153 @@ export default function SaleDetail() {
   }, [id]);
 
   // contributions from DB
-  useEffect(() => {
-    (async () => {
-      if (!row?.id || !supabase) return setContribsDb(null);
-      try {
-        const { data, error } = await supabase
-          .from('contributions')
-          .select('address,amount,created_at,username')
-          .eq('sale_id', row.id)
-          .order('created_at', { ascending: false })
-          .limit(100);
-        if (error) throw error;
-        const mapped: Contribution[] = (data ?? []).map((d: any) => ({
-          address: d.address,
-          amount: Number(d.amount ?? 0),
-          created_at: d.created_at,
-          username: d.username ?? null,
-        }));
-        setContribsDb(mapped);
-      } catch {
-        setContribsDb(null);
+ // contributions from DB (explicitly mark as none; we’ll use on-chain only)
+useEffect(() => {
+  setContribsDb([]);
+}, [row?.id]);
+
+// best-effort on-chain contributions (only if raised > 0)
+useEffect(() => {
+  (async () => {
+    if (!publicClient || !row?.pool_address) return setContribsOnchain(null);
+    if (!chain.raised || chain.raised === 0n) return setContribsOnchain([]);
+
+    try {
+      const pool = row.pool_address as `0x${string}`;
+      const toBlock = await publicClient.getBlockNumber();
+
+      let fromBlock: bigint = 0n;
+      if (row.chain_tx_hash) {
+        try {
+          const r = await publicClient.getTransactionReceipt({ hash: row.chain_tx_hash as `0x${string}` });
+          fromBlock = (r.blockNumber as bigint) ?? 0n;
+        } catch {}
       }
-    })();
-  }, [row?.id]);
+      if (fromBlock === 0n && toBlock > 50_000n) fromBlock = toBlock - 50_000n;
 
-  // best-effort on-chain contributions (only if DB has none and raised > 0)
-  useEffect(() => {
-    (async () => {
-      if (!publicClient || !row?.pool_address) return setContribsOnchain(null);
-      if (Array.isArray(contribsDb) && contribsDb.length > 0) return setContribsOnchain(null);
-      if (!chain.raised || chain.raised === 0n) return setContribsOnchain(null);
+      let logs: any[] = [];
 
+      // 1) Exact ABI item first (auto-decoded with .args)
       try {
-        const pool = row.pool_address as `0x${string}`;
-        const toBlock = await publicClient.getBlockNumber();
-        let fromBlock: bigint | undefined;
-
-        if (row.chain_tx_hash) {
-          try {
-            const r = await publicClient.getTransactionReceipt({ hash: row.chain_tx_hash as `0x${string}` });
-            fromBlock = (r.blockNumber as bigint) ?? undefined;
-          } catch {}
-        }
-        if (!fromBlock) {
-          fromBlock = toBlock > 50000n ? toBlock - 50000n : 0n;
-        }
-
-        const logs = await publicClient.getLogs({
+        logs = await publicClient.getLogs({
           address: pool,
           fromBlock,
           toBlock,
-        });
+          event: CONTRIB_ABI_EVENT, // e.g. Contributed(address indexed buyer, uint256 amount)
+        } as any);
+        if (DEBUG_CONTRIB) console.debug('[CHAIN] decoded via exact ABI item', logs.length);
+      } catch {}
 
-        const nameRegex = /contribut|contributed|contribution|buy|bought|purchase|invest/i;
-
-        const found: Contribution[] = [];
-        for (const log of logs as Log[]) {
-          try {
-            const decoded = decodeEventLog({
-              abi: presalePoolAbi,
-              data: log.data,
-              topics: log.topics,
-            });
-            if (!nameRegex.test(decoded.eventName)) continue;
-
-            const args = decoded.args as Record<string, unknown>;
-            let addr: string | undefined;
-            let amt: bigint | undefined;
-
-            for (const k of Object.keys(args)) {
-              const v = args[k];
-              if (!addr && typeof v === 'string' && v.startsWith('0x') && v.length === 42) addr = v.toLowerCase();
-              if (!amt && typeof v === 'bigint') amt = v;
-            }
-            if (!addr || amt === undefined) continue;
-
-            const block = await publicClient.getBlock({ blockHash: log.blockHash as Hex });
-            const created_at = new Date(Number(block.timestamp) * 1000).toISOString();
-
-            found.push({
-              address: addr,
-              amount: Number(formatUnits(amt, QUOTE_DECIMALS)),
-              created_at,
-              username: null,
-            });
-          } catch {}
-        }
-
-        if (!found.length) return setContribsOnchain([]);
-
-        if (supabase) {
-          const uniqueAddrs = Array.from(new Set(found.map((c) => c.address)));
-          try {
-            const { data } = await supabase
-              .from('contributions')
-              .select('address,username')
-              .in('address', uniqueAddrs);
-            const map = new Map<string, string>();
-            (data ?? []).forEach((r: any) => {
-              if (r.username) map.set(String(r.address).toLowerCase(), String(r.username));
-            });
-            found.forEach((c) => {
-              const u = map.get(c.address.toLowerCase());
-              if (u) c.username = u;
-            });
-          } catch {}
-        }
-
-        found.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-        setContribsOnchain(found.slice(0, 100));
-      } catch (e) {
-        console.warn('on-chain contributions fetch failed:', e);
-        setContribsOnchain(null);
+      // 2) If none, try a set of common contribution events (also auto-decoded)
+      if (!logs.length) {
+        logs = await publicClient.getLogs({
+          address: pool,
+          fromBlock,
+          toBlock,
+          events: CONTRIBUTION_EVENTS as any,
+        } as any);
+        if (DEBUG_CONTRIB) console.debug('[CHAIN] decoded via candidate events', logs.length);
       }
-    })();
-  }, [publicClient, row?.pool_address, row?.chain_tx_hash, chain.raised, contribsDb]);
 
+      // 3) If still none, last resort: fetch all logs for the address, then try decoding each
+      if (!logs.length) {
+        const raw = await publicClient.getLogs({ address: pool, fromBlock, toBlock });
+        if (DEBUG_CONTRIB) console.debug('[CHAIN] raw address logs', raw.length);
+
+        const decoded: any[] = [];
+        for (const log of raw) {
+          let hit: any | null = null;
+          for (const ev of [CONTRIB_ABI_EVENT, ...CONTRIBUTION_EVENTS]) {
+            try {
+              const d = decodeEventLog({ abi: [ev], data: log.data, topics: log.topics });
+              hit = { ...log, args: d.args };
+              break;
+            } catch {}
+          }
+          if (hit) decoded.push(hit);
+        }
+        logs = decoded;
+        if (DEBUG_CONTRIB) console.debug('[CHAIN] decoded from raw by trying candidates', logs.length);
+      }
+
+      const out: Contribution[] = [];
+      for (const log of logs) {
+        try {
+          const args = (log as any).args as Record<string, unknown> | undefined;
+          if (!args) continue;
+
+          let buyer: string | undefined;
+          let amount: bigint | undefined;
+
+          for (const k of Object.keys(args)) {
+            const v = (args as any)[k];
+            if (!buyer && typeof v === 'string' && v.startsWith('0x') && v.length === 42) buyer = v.toLowerCase();
+            if (!amount && typeof v === 'bigint') amount = v;
+          }
+          if (!buyer || amount === undefined) continue;
+
+          const block = await publicClient.getBlock({ blockHash: log.blockHash as Hex });
+          out.push({
+            address: buyer,
+            amount: Number(formatUnits(amount, QUOTE_DECIMALS)),
+            created_at: new Date(Number(block.timestamp) * 1000).toISOString(),
+            username: null,
+          });
+        } catch (e) {
+          if (DEBUG_CONTRIB) console.debug('[CHAIN] parse skip', e);
+        }
+      }
+
+      if (!out.length) return setContribsOnchain([]);
+
+      // Enrich with profiles (usernames)
+  // Enrich with profiles (usernames) — handles lowercase vs checksum & "wallet" vs "address" column.
+// Enrich with profiles (usernames)
+// Enrich with creators (display_name), matching wallets case-insensitively
+try {
+  const unique = Array.from(new Set(out.map(r => r.address)));
+  // also include checksummed versions so a case-sensitive IN() will still match mixed-case rows
+  const checksummed = unique.map(a => {
+    try { return getAddress(a); } catch { return a; }
+  });
+  const querySet = Array.from(new Set([...unique, ...checksummed])); // dedupe
+
+  const { data: creators, error: creatorsErr } = await supabase
+    .from('creators')
+    .select('wallet, display_name, avatar_url')     // grab what we need
+    .in('wallet', querySet);
+
+  if (creatorsErr) {
+    if (DEBUG_CONTRIB) console.debug('[CREATORS] error', creatorsErr.message);
+  } else {
+    if (DEBUG_CONTRIB) console.debug('[CREATORS] rows', creators?.length ?? 0, creators?.slice(0,3));
+    const nameMap = new Map<string, { name?: string; avatar?: string }>();
+    (creators ?? []).forEach((row: any) => {
+      const w = String(row.wallet || '').toLowerCase();
+      const name = row.display_name || null;
+      const avatar = row.avatar_url || null;
+      nameMap.set(w, { name: name ?? undefined, avatar: avatar ?? undefined });
+    });
+
+    out.forEach(r => {
+      const hit = nameMap.get(r.address.toLowerCase());
+      if (hit?.name) r.username = hit.name;
+      // if you want avatar later, attach r.avatar = hit?.avatar
+    });
+  }
+} catch (e) {
+  if (DEBUG_CONTRIB) console.debug('[CREATORS] lookup failed', e);
+}
+
+      out.sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
+      setContribsOnchain(out);
+    } catch (e) {
+      console.warn('on-chain contributions fetch failed:', e);
+      setContribsOnchain([]);
+    }
+  })();
+}, [publicClient, row?.pool_address, row?.chain_tx_hash, chain.raised]);
+  
   // early returns
   if (loading) return <div style={{ padding: 24 }}>Loading…</div>;
   if (err) return <div style={{ padding: 24, color: 'var(--fl-danger)' }}>Error: {err}</div>;
@@ -840,21 +887,16 @@ export default function SaleDetail() {
   const raisedQuote = typeof chain.raised === 'bigint' ? Number(formatUnits(chain.raised, QUOTE_DECIMALS)) : 0;
   const lpPct = typeof chain.lpPctBps === 'number' ? chain.lpPctBps / 10000 : 0;
 // Only consider we "have" contributions when we actually have rows
-const hasAnyContribution =
-  (Array.isArray(contribsDb) && contribsDb.length > 0) ||
-  (Array.isArray(contribsOnchain) && contribsOnchain.length > 0);
+const hasAnyContribution = Array.isArray(contribsOnchain) && contribsOnchain.length > 0;
+
 
 // Show a loading state only while we know something was raised
 // but neither DB nor on-chain list has resolved yet.
 const contribsLoading =
   (typeof chain.raised === 'bigint' && chain.raised > 0n) &&
-  contribsDb === null &&
   contribsOnchain === null;
 
-const contribList =
-  (Array.isArray(contribsDb) && contribsDb.length > 0)
-    ? contribsDb
-    : (Array.isArray(contribsOnchain) ? contribsOnchain : []);
+const contribList = Array.isArray(contribsOnchain) ? contribsOnchain : [];
 
 
 
@@ -1045,20 +1087,20 @@ const contribList =
             fontFamily: 'var(--font-data)',
           }}
         >
-          <div className="break-anywhere" style={{ fontWeight: 600 }}>
-            {c.username || c.address}
-          </div>
-          <div style={{ whiteSpace: 'nowrap' }}>
-            {Number(c.amount).toLocaleString()} {quote}
-          </div>
-          <div style={{ whiteSpace: 'nowrap', opacity: 0.8 }}>
-            {new Date(c.created_at).toLocaleString([], {
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </div>
+      <div className="break-anywhere" style={{ fontWeight: 600 }}>
+  {c.username || shortAddr(c.address)}
+</div>
+<div className="contrib-amount">
+  {Number(c.amount).toLocaleString()} {quote}
+</div>
+<div className="contrib-date">
+  {new Date(c.created_at).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })}
+</div>
         </div>
       ))}
     </div>
