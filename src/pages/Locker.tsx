@@ -292,8 +292,11 @@ function DateTimePopover({ value, min, max, onChange, disabled, placeholder }: D
 /* =========================================================================================
    Presentational bits (Fare theme)
    ========================================================================================= */
-const Card: React.FC<{ title: string; children: React.ReactNode; mb?: number }> = ({
+// ⬇️ replace your existing Card with this version (supports titleNode)
+// and add StepHeader next to it.
+const Card: React.FC<{ title?: string; titleNode?: React.ReactNode; children: React.ReactNode; mb?: number }> = ({
   title,
+  titleNode,
   children,
   mb = 16,
 }) => (
@@ -310,10 +313,45 @@ const Card: React.FC<{ title: string; children: React.ReactNode; mb?: number }> 
       marginBottom: mb,
     }}
   >
-    <div style={{ fontWeight: 800, color: "var(--fl-gold)" }}>{title}</div>
+    {titleNode ? (
+      titleNode
+    ) : title ? (
+      <div style={{ fontWeight: 800, color: "var(--fl-gold)" }}>{title}</div>
+    ) : null}
     {children}
   </div>
 );
+
+// Exact same gold number chip style as in FareDrop
+function StepHeader({ n, text, right }: { n: number; text: string; right?: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: right ? "space-between" : "flex-start" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span
+          aria-hidden
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            width: 22,
+            height: 22,
+            borderRadius: 999,
+            background: "color-mix(in srgb, var(--fl-gold) 18%, transparent)",
+            border: "1px solid var(--fl-gold)",
+            color: "var(--fl-gold)",
+            fontWeight: 900,
+            fontSize: 12,
+          }}
+        >
+          {n}
+        </span>
+        <span style={{ fontWeight: 800, color: "var(--text)" }}>{text}</span>
+      </div>
+      {right}
+    </div>
+  );
+}
+
 
 const Row: React.FC<{ children: React.ReactNode; gap?: number }> = ({ children, gap = 12 }) => (
   <div style={{ display: "grid", gap, gridTemplateColumns: "1fr 1fr" }}>{children}</div>
@@ -992,34 +1030,19 @@ export default function Locker() {
   return (
     <div className="tool-container fdl-pad" style={{ maxWidth: 820, margin: "0 auto" }}>
  {/* Tabs */}
-<div className="tabs" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-  {(["lock", "manage"] as const).map((t) => {
-    const active = tab === t;
-    const base: React.CSSProperties = {
-      padding: "10px 14px",
-      borderRadius: 12,
-      border: "1px solid var(--border)",
-      background: active ? "rgba(255,184,46,0.24)" : "var(--fl-bg)",
-      color: "var(--text)",
-      fontWeight: 800,
-      boxShadow: active ? "0 2px 10px rgba(0,0,0,.15)" : "none",
-      cursor: "pointer",
-      outline: "none",
-    };
-    return (
-      <button
-        key={t}
-        type="button"
-        onClick={() => {
-          setTab(t);
-          if (t === "manage") loadMyLocks();
-        }}
-        style={base}
-      >
-        {t === "lock" ? "Lock LP Tokens" : "My Locks"}
-      </button>
-    );
-  })}
+ <div role="tablist" aria-label="Locker sections" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+  {(["lock", "manage"] as const).map((t) => (
+    <button
+      key={t}
+      role="tab"
+      aria-selected={tab === t}
+      onClick={() => { setTab(t); if (t === "manage") loadMyLocks(); }}
+      className={`buttonfilter${tab === t ? " is-active" : ""}`}
+      style={{ padding: "10px 12px", borderRadius: 999, fontWeight: 700 }}
+    >
+      {t === "lock" ? "Lock LP Tokens" : "My Locks"}
+    </button>
+  ))}
 </div>
 
       {tab === "lock" && (
@@ -1027,357 +1050,437 @@ export default function Locker() {
           <h1 className="tool-title" style={{ marginBottom: 12 }}>Lock LP Tokens</h1>
 
           {/* STEP 1: Pick LP */}
-          <Card title="1) Select LP token">
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <button
-  type="button"
-  className="btn-secondary"
-  onClick={refreshAll}
-  disabled={refreshing}
-  aria-busy={refreshing}
-  title="Reload your LP list and balances"
+     {/* STEP 1: Pick LP */}
+<Card
+  titleNode={
+    <StepHeader
+      n={1}
+      text="Select LP token"
+      right={
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={refreshAll}
+          disabled={refreshing}
+          title="Reload your LP list and balances"
+          style={{ padding: "8px 10px" }}
+        >
+          {refreshing
+            ? "⟳ Refreshing…"
+            : userLPs.length
+            ? "⟳ Refresh my LPs"
+            : "⟳ Load my LPs"}
+        </button>
+      }
+    />
+  }
 >
-  {refreshing ? <span className="spin">⟳</span> : "⟳"} {userLPs.length ? "Refresh my LPs" : "Load my LPs"}
-</button>
-              </div>
+  <div style={{ display: "grid", gap: 10 }}>
+    <div>
+      <select
+        value={selectedLP}
+        onChange={(e) => {
+          setSelectedLP(e.target.value as Address);
+          setStep(1); // reset if they choose a different LP
+        }}
+      >
+        <option value="" disabled>
+          {userLPs.length ? "Select an LP" : "No LPs found"}
+        </option>
+        {userLPs.map((row) => (
+          <option key={row.lpAddress} value={row.lpAddress}>
+            {row.symbol0}/{row.symbol1} — {row.lpAddress.slice(0, 6)}…
+            {row.lpAddress.slice(-4)}
+          </option>
+        ))}
+      </select>
+    </div>
 
-              <div>
-                <select
-                  value={selectedLP}
-                  onChange={(e) => {
-                    setSelectedLP(e.target.value as Address);
-                    setStep(1); // ensure step reset if they choose a different LP
-                  }}
-                >
-                  <option value="" disabled>
-                    {userLPs.length ? "Select an LP" : "No LPs found"}
-                  </option>
-                  {userLPs.map((row) => (
-                    <option key={row.lpAddress} value={row.lpAddress}>
-                      {row.symbol0}/{row.symbol1} — {row.lpAddress.slice(0, 6)}…{row.lpAddress.slice(-4)}
-                    </option>
-                  ))}
-                </select>
-              </div>
+    {/* Pair info + balance */}
+    {pair && (
+      <div
+        style={{
+          display: "grid",
+          gap: 10,
+          border: "1px solid var(--border)",
+          borderRadius: 12,
+          padding: 12,
+          background: "var(--fl-bg)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            flexWrap: "wrap",
+          }}
+        >
+          {badge(pair.token0, pair.symbol0)}
+          <span style={{ opacity: 0.6 }}>/</span>
+          {badge(pair.token1, pair.symbol1)}
+          <span className="muted">LP: {pair.lpSymbol || "—"}</span>
+        </div>
 
-              {/* Pair info + balance */}
-              {pair && (
+        {pair.type === "erc20-v2" && (
+          <>
+            <div className="muted">
+              <b>Your LP Balance:</b> {lpBalanceHuman}
+            </div>
+            {pair.reserve0 != null &&
+              pair.reserve1 != null &&
+              pair.decimals0 != null &&
+              pair.decimals1 != null && (
                 <div
-                  style={{
-                    display: "grid",
-                    gap: 10,
-                    border: "1px solid var(--border)",
-                    borderRadius: 12,
-                    padding: 12,
-                    background: "var(--fl-bg)",
-                  }}
+                  className="muted"
+                  style={{ display: "flex", gap: 16, flexWrap: "wrap" }}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                    {badge(pair.token0, pair.symbol0)}
-                    <span style={{ opacity: 0.6 }}>/</span>
-                    {badge(pair.token1, pair.symbol1)}
-                    <span className="muted">LP: {pair.lpSymbol || "—"}</span>
-                  </div>
-
-                  {pair.type === "erc20-v2" && (
-                    <>
-                      <div className="muted"><b>Your LP Balance:</b> {lpBalanceHuman}</div>
-                      {(pair.reserve0 != null && pair.reserve1 != null && pair.decimals0 != null && pair.decimals1 != null) && (
-                        <div className="muted" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                          <span>
-                            <b>Reserves:</b> {pair.symbol0 || "Token0"} ≈ {fmt2(Number(formatUnits(pair.reserve0!, pair.decimals0!)))}
-                          </span>
-                          <span>
-                            {pair.symbol1 || "Token1"} ≈ {fmt2(Number(formatUnits(pair.reserve1!, pair.decimals1!)))}
-                          </span>
-                          {pair.totalSupply != null && pair.lpDecimals != null && (
-                            <span>
-                              <b>Total LP Supply:</b> {fmt2(Number(formatUnits(pair.totalSupply!, pair.lpDecimals!)))}
-                            </span>
-                          )}
-                        </div>
+                  <span>
+                    <b>Reserves:</b> {pair.symbol0 || "Token0"} ≈{" "}
+                    {fmt2(
+                      Number(formatUnits(pair.reserve0!, pair.decimals0!))
+                    )}
+                  </span>
+                  <span>
+                    {pair.symbol1 || "Token1"} ≈{" "}
+                    {fmt2(
+                      Number(formatUnits(pair.reserve1!, pair.decimals1!))
+                    )}
+                  </span>
+                  {pair.totalSupply != null && pair.lpDecimals != null && (
+                    <span>
+                      <b>Total LP Supply:</b>{" "}
+                      {fmt2(
+                        Number(
+                          formatUnits(pair.totalSupply!, pair.lpDecimals!)
+                        )
                       )}
-                    </>
-                  )}
-
-                  {pair.type === "erc721-v3" && (
-                    <div style={{ color: "var(--fl-danger)" }}>
-                      Detected NFT-style LP (Camelot/Uni V3). The current LiquidityLocker accepts ERC-20 LP tokens only.
-                    </div>
+                    </span>
                   )}
                 </div>
               )}
+          </>
+        )}
+
+        {pair.type === "erc721-v3" && (
+          <div style={{ color: "var(--fl-danger)" }}>
+            Detected NFT-style LP (Camelot/Uni V3). The current
+            LiquidityLocker accepts ERC-20 LP tokens only.
+          </div>
+        )}
+      </div>
+    )}
+  </div>
+
+  {/* Continue button disappears after proceeding */}
+  {step === 1 && (
+    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+      <button
+        type="button"
+        className={`button ${canAdvanceStep1 ? "button-primary" : ""}`}
+        disabled={!canAdvanceStep1}
+        onClick={() => setStep(2)}
+      >
+        {canAdvanceStep1 ? "Continue" : "Select an LP token"}
+      </button>
+    </div>
+  )}
+</Card>
+
+{/* STEP 2: Amount, beneficiary, unlock time */}
+{step >= 2 && (
+  <Card titleNode={<StepHeader n={2} text="Lock details" />}>
+    {pair?.type === "erc721-v3" ? (
+      <div style={{ color: "var(--fl-danger)" }}>
+        This LP is an ERC-721 position. To lock it, we’ll need an NFT-locker
+        contract (or a wrapper that mints an ERC-20 against your position).
+      </div>
+    ) : (
+      <>
+        <Row>
+          <div>
+            <div style={{ marginBottom: 6 }}>Amount to lock</div>
+
+            {/* input + Max inline */}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 8,
+              }}
+            >
+              <input
+                inputMode="decimal"
+                placeholder={pair ? `0.00 (max ${lpBalanceHuman})` : "0.00"}
+                value={amountText}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAmountText(v);
+                  if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return;
+                  try {
+                    const wei = parseUnits(
+                      (v || "0").replace(/,/g, "").trim() || "0",
+                      pair.lpDecimals
+                    );
+                    if (wei > lpBalance) {
+                      const exact = formatUnits(lpBalance, pair.lpDecimals);
+                      setAmountText(exact);
+                    }
+                  } catch {}
+                }}
+                style={{
+                  borderColor:
+                    pair && amountWei > lpBalance
+                      ? "var(--fl-danger)"
+                      : "var(--border)",
+                }}
+              />
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => {
+                  if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return;
+                  const exact = formatUnits(lpBalance, pair.lpDecimals); // precise string
+                  setAmountText(exact); // do not round
+                }}
+                title="Use your full LP balance"
+              >
+                Max
+              </button>
             </div>
 
-            {/* Continue button disappears after proceeding */}
-            {step === 1 && (
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+            <div className="muted" style={{ marginTop: 4 }}>
+              Balance: {lpBalanceHuman} {pair?.lpSymbol || ""}
+            </div>
+          </div>
+
+          <div>
+            <div style={{ marginBottom: 6 }}>Beneficiary</div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr auto",
+                gap: 8,
+              }}
+            >
+              <input
+                placeholder="0x… address that can withdraw"
+                value={beneficiary}
+                onChange={(e) => setBeneficiary(e.target.value as Address)}
+              />
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => {
+                  if (address) setBeneficiary(address as Address);
+                }}
+                title="Use your connected wallet address"
+              >
+                Use my wallet
+              </button>
+            </div>
+
+            <div className="muted" style={{ marginTop: 4 }}>
+              This will be the owner of the liquidity lock.
+            </div>
+          </div>
+        </Row>
+
+        <div style={{ marginTop: 8 }}>
+          <div style={{ marginBottom: 6 }}>Unlock date & time</div>
+          <DateTimePopover
+            value={unlockAtISO}
+            min={fmtLocal(new Date())}
+            onChange={(next) => setUnlockAtISO(next)}
+            placeholder="Select unlock time"
+          />
+          <div className="muted" style={{ marginTop: 4 }}>
+            Must be in the future.
+          </div>
+        </div>
+
+        {/* Context-aware CTA */}
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            justifyContent: "flex-end",
+            marginTop: 10,
+          }}
+        >
+          {needsApprove ? (
+            <button
+              type="button"
+              className={`button ${!cta.disabled ? "button-primary" : ""}`}
+              disabled={cta.disabled}
+              onClick={approve}
+              title={cta.label}
+            >
+              {cta.label}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`button ${!cta.disabled ? "button-primary" : ""}`}
+              disabled={cta.disabled}
+              onClick={lock}
+              title={cta.label}
+            >
+              {cta.label}
+            </button>
+          )}
+        </div>
+      </>
+    )}
+  </Card>
+)}
+
+{/* STEP 3: Confirmation */}
+{step >= 3 && (
+  <Card titleNode={<StepHeader n={3} text="Done" />}>
+    <div className="muted">
+      Your LP tokens are locked. You can manage them in “My Locks”.
+    </div>
+    <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
+      <button
+        type="button"
+        className="button button-secondary"
+        onClick={() => setTab("manage")}
+      >
+        Go to My Locks
+      </button>
+    </div>
+  </Card>
+)}
+
+        </>
+      )}
+
+{tab === "manage" && (
+  <>
+    <h1 className="tool-title" style={{ marginBottom: 12 }}>My Locks</h1>
+
+    <Card
+      titleNode={
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <span style={{ fontWeight: 800, color: "var(--text)" }}>Your active & past locks</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={loadMyLocks}
+              title="Reload your locks"
+              style={{ padding: "8px 10px" }}
+            >
+              ⟳ Refresh
+            </button>
+            <button
+              type="button"
+              className="button button-secondary"
+              onClick={() => setTab("lock")}
+              style={{ padding: "8px 10px" }}
+            >
+              + New Lock
+            </button>
+          </div>
+        </div>
+      }
+    >
+      {loadingLocks ? (
+        <div className="muted">Loading…</div>
+      ) : myLocks.length === 0 ? (
+        <div className="muted">No locks found.</div>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {myLocks.map((L) => (
+            <div
+              key={L.id}
+              style={{
+                border: "1px solid var(--border)",
+                borderRadius: 12,
+                padding: 12,
+                background: "var(--fl-bg)",
+                display: "grid",
+                gap: 8,
+                opacity: L.withdrawn ? 0.45 : 1,
+                filter: L.withdrawn ? "grayscale(1)" : "none",
+              }}
+            >
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <strong>Lock #{L.id}</strong>
+
+                {L.pair?.type === "erc20-v2" ? (
+                  <>
+                    <span className="muted">Pair:</span>
+                    {badge(L.pair.token0, L.pair.symbol0)}
+                    <span style={{ opacity: 0.6 }}>/</span>
+                    {badge(L.pair.token1, L.pair.symbol1)}
+                  </>
+                ) : (
+                  <>
+                    <span className="muted">Token:</span> {badge(L.token)}
+                  </>
+                )}
+              </div>
+
+              <div className="muted" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                <span>
+                  <b>LP Amount:</b> {L.amountHuman ?? L.amount.toString()} {L.pair?.lpSymbol ?? ""}
+                </span>
+                <span>
+                  <b>Unlocks:</b> {new Date(Number(L.unlockAt) * 1000).toLocaleString()}
+                </span>
+                <span>
+                  <b>Status:</b>{" "}
+                  {L.withdrawn
+                    ? "Withdrawn"
+                    : Date.now() >= Number(L.unlockAt) * 1000
+                    ? "Unlocked"
+                    : `Locked (${fmtTimeLeft(Date.now(), Number(L.unlockAt))})`}
+                </span>
+              </div>
+
+              {L.underlying0Human != null && L.underlying1Human != null && (
+                <div className="muted" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  <span>
+                    <b>Underlying:</b> {L.underlying0Human} {L.pair?.symbol0 ?? "Token0"} + {L.underlying1Human}{" "}
+                    {L.pair?.symbol1 ?? "Token1"}
+                  </span>
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
                 <button
                   type="button"
-                  className={`btn ${canAdvanceStep1 ? "btn-primary" : ""}`}
-                  disabled={!canAdvanceStep1}
-                  onClick={() => setStep(2)}
+                  className="button button-secondary"
+                  onClick={() => withdrawLock(L.id)}
+                  disabled={L.withdrawn || Date.now() < Number(L.unlockAt) * 1000 || isPending}
+                  title={
+                    L.withdrawn
+                      ? "Already withdrawn"
+                      : Date.now() >= Number(L.unlockAt) * 1000
+                      ? "Withdraw tokens"
+                      : "Still locked"
+                  }
                 >
-                  {canAdvanceStep1 ? "Continue" : "Select an LP token"}
-                </button>
-              </div>
-            )}
-          </Card>
-
-          {/* STEP 2: Amount, beneficiary, unlock time */}
-          {step >= 2 && (
-            <Card title="2) Lock details">
-              {pair?.type === "erc721-v3" ? (
-                <div style={{ color: "var(--fl-danger)" }}>
-                  This LP is an ERC-721 position. To lock it, we’ll need an NFT-locker contract (or a wrapper that mints an ERC-20 against your position).
-                </div>
-              ) : (
-                <>
-                  <Row>
-                  <div>
-  <div style={{ marginBottom: 6 }}>Amount to lock</div>
-
-  {/* input + Max inline */}
-  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-    <input
-      inputMode="decimal"
-      placeholder={pair ? `0.00 (max ${lpBalanceHuman})` : "0.00"}
-      value={amountText}
-      onChange={(e) => {
-        const v = e.target.value;
-        setAmountText(v);
-        if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return;
-        try {
-          const wei = parseUnits((v || "0").replace(/,/g, "").trim() || "0", pair.lpDecimals);
-          if (wei > lpBalance) {
-            // snap to exact balance (avoids “exceeds” while typing)
-            const exact = formatUnits(lpBalance, pair.lpDecimals);
-            setAmountText(exact);
-          }
-        } catch {
-          /* ignore parse errors while typing */
-        }
-      }}      
-      style={{
-        borderColor: pair && amountWei > lpBalance ? "var(--fl-danger)" : "var(--border)",
-      }}
-    />
-    <button
-      type="button"
-      className="btn-secondary"
-      onClick={() => {
-        if (!pair || pair.type !== "erc20-v2" || !pair.lpDecimals) return;
-        const exact = formatUnits(lpBalance, pair.lpDecimals); // precise string
-        setAmountText(exact);                                  // do not round; let parseUnits handle it
-      }}      
-      title="Use your full LP balance"
-    >
-      Max
-    </button>
-  </div>
-
-  <div className="muted" style={{ marginTop: 4 }}>
-    Balance: {lpBalanceHuman} {pair?.lpSymbol || ""}
-  </div>
-</div>
-<div>
-  <div style={{ marginBottom: 6 }}>Beneficiary</div>
-
-  <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-    <input
-      placeholder="0x… address that can withdraw"
-      value={beneficiary}
-      onChange={(e) => setBeneficiary(e.target.value as Address)}
-    />
-    <button
-      type="button"
-      className="btn-secondary"
-      onClick={() => { if (address) setBeneficiary(address as Address); }}
-      title="Use your connected wallet address"
-    >
-      Use my wallet
-    </button>
-  </div>
-
-  <div className="muted" style={{ marginTop: 4 }}>
-    This will be the owner of the liquidity lock. 
-  </div>
-</div>
-                  </Row>
-
-                  <div style={{ marginTop: 8 }}>
-                    <div style={{ marginBottom: 6 }}>Unlock date & time</div>
-                    <DateTimePopover
-                      value={unlockAtISO}
-                      min={fmtLocal(new Date())}
-                      onChange={(next) => setUnlockAtISO(next)}
-                      placeholder="Select unlock time"
-                    />
-                    <div className="muted" style={{ marginTop: 4 }}>
-                      Must be in the future.
-                    </div>
-                  </div>
-
-                  {/* Context-aware CTA */}
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 10 }}>
-                    {needsApprove ? (
-                      <button
-                        type="button"
-                        className={`btn ${!cta.disabled ? "btn-primary" : ""}`}
-                        disabled={cta.disabled}
-                        onClick={approve}
-                        title={cta.label}
-                      >
-                        {cta.label}
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        className={`btn ${!cta.disabled ? "btn-primary" : ""}`}
-                        disabled={cta.disabled}
-                        onClick={lock}
-                        title={cta.label}
-                      >
-                        {cta.label}
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-            </Card>
-          )}
-
-          {/* STEP 3: Confirmation */}
-          {step >= 3 && (
-            <Card title="3) Done">
-              <div className="muted">Your LP tokens are locked. You can manage them in “My Locks”.</div>
-              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 10 }}>
-                <button type="button" className="btn-secondary" onClick={() => setTab("manage")}>
-                  Go to My Locks
-                </button>
-              </div>
-            </Card>
-          )}
-        </>
-      )}
-
-      {tab === "manage" && (
-        <>
-          <h1 className="tool-title" style={{ marginBottom: 12 }}>My Locks</h1>
-          <Card title="Your active & past locks">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <div className="muted">
-                View locks where you are the beneficiary. You can withdraw once they unlock.
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" className="btn-secondary" onClick={loadMyLocks}>
-                  Refresh
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => setTab("lock")}>
-                  + New Lock
+                  {L.withdrawn
+                    ? "Withdrawn"
+                    : Date.now() >= Number(L.unlockAt) * 1000
+                    ? isPending
+                      ? "Withdrawing..."
+                      : "Withdraw"
+                    : "Locked"}
                 </button>
               </div>
             </div>
-
-            {loadingLocks ? (
-              <div className="muted">Loading…</div>
-            ) : myLocks.length === 0 ? (
-              <div className="muted">No locks found.</div>
-            ) : (
-              <div style={{ display: "grid", gap: 10 }}>
-                {myLocks.map((L) => {
-                  return (
-                    <div
-                    key={L.id}
-                    style={{
-                      border: "1px solid var(--border)",
-                      borderRadius: 12,
-                      padding: 12,
-                      background: "var(--fl-bg)",
-                      display: "grid",
-                      gap: 8,
-                      // 🔽 Clearly mark past/withdrawn
-                      opacity: L.withdrawn ? 0.45 : 1,
-                      filter: L.withdrawn ? "grayscale(1)" : "none",
-                    }}
-                  >
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <strong>Lock #{L.id}</strong>
-                  
-                      {L.pair?.type === "erc20-v2" ? (
-                        <>
-                          <span className="muted">Pair:</span>
-                          {badge(L.pair.token0, L.pair.symbol0)}
-                          <span style={{ opacity: 0.6 }}>/</span>
-                          {badge(L.pair.token1, L.pair.symbol1)}
-                        </>
-                      ) : (
-                        <>
-                          <span className="muted">Token:</span> {badge(L.token)}
-                        </>
-                      )}
-                    </div>
-                  
-                    <div className="muted" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                      <span>
-                        <b>LP Amount:</b>{" "}
-                        {L.amountHuman ?? L.amount.toString()} {L.pair?.lpSymbol ?? ""}
-                      </span>
-                      <span>
-                        <b>Unlocks:</b> {new Date(Number(L.unlockAt) * 1000).toLocaleString()}
-                      </span>
-                      <span>
-                        <b>Status:</b>{" "}
-                        {L.withdrawn
-                          ? "Withdrawn"
-                          : Date.now() >= Number(L.unlockAt) * 1000
-                          ? "Unlocked"
-                          : `Locked (${fmtTimeLeft(Date.now(), Number(L.unlockAt))})`}
-                      </span>
-                    </div>
-                  
-                    {L.underlying0Human != null && L.underlying1Human != null && (
-                      <div className="muted" style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-                        <span>
-                          <b>Underlying:</b>{" "}
-                          {L.underlying0Human} {L.pair?.symbol0 ?? "Token0"}{" "}
-                          + {L.underlying1Human} {L.pair?.symbol1 ?? "Token1"}
-                        </span>
-                      </div>
-                    )}
-                  
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => withdrawLock(L.id)}
-                        disabled={
-                          L.withdrawn || Date.now() < Number(L.unlockAt) * 1000 || isPending
-                        }
-                        title={
-                          L.withdrawn
-                            ? "Already withdrawn"
-                            : Date.now() >= Number(L.unlockAt) * 1000
-                            ? "Withdraw tokens"
-                            : "Still locked"
-                        }
-                      >
-                        {L.withdrawn
-                          ? "Withdrawn"
-                          : Date.now() >= Number(L.unlockAt) * 1000
-                          ? isPending ? "Withdrawing..." : "Withdraw"
-                          : "Locked"}
-                      </button>
-                    </div>
-                  </div>                  
-                  );
-                })}
-              </div>
-            )}
-          </Card>
-        </>
+          ))}
+        </div>
       )}
+    </Card>
+  </>
+)}
+
     </div>
   );
 }
