@@ -1104,3 +1104,173 @@ input:focus, textarea:focus { border-color: var(--role-primary); box-shadow: var
     filter: brightness(0.92);
   }
 }
+/* =========================
+   NAV / TOP BAR POLISH
+   ========================= */
+
+/* Brand glow (stronger in dark, subtle in light) */
+.brand-glow {
+  color: var(--fl-gold);
+  letter-spacing: .2px;
+}
+:root[data-theme="dark"] .brand-glow {
+  text-shadow:
+    0 0 10px color-mix(in srgb, var(--fl-gold) 35%, transparent),
+    0 0 22px color-mix(in srgb, var(--fl-gold) 40%, transparent);
+}
+:root[data-theme="light"] .brand-glow {
+  text-shadow: 0 1px 0 #fff, 0 0 6px rgba(255,184,46,.25);
+}
+
+/* Nav pills (Explore / Tools / Dashboard) */
+.navbtn {
+  display:inline-flex; align-items:center; justify-content:center;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  color: var(--link, var(--text));
+  background: transparent;
+  border: 1px solid transparent;
+  position: relative; overflow: hidden;
+  transition: background .15s ease, border-color .15s ease, box-shadow .15s ease, color .15s ease;
+}
+.navbtn:hover,
+.navbtn:focus-visible {
+  background: var(--link-active-bg, rgba(0,0,0,.06));
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--fl-purple) 30%, transparent);
+}
+.navbtn.is-active {
+  /* Use brand but keep it subtle in light; deeper in dark */
+  background: color-mix(in srgb, var(--fl-gold) 32%, transparent);
+  border-color: color-mix(in srgb, var(--fl-gold) 55%, transparent);
+  box-shadow:
+    0 6px 18px color-mix(in srgb, var(--fl-gold) 25%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--fl-gold) 25%, transparent);
+  color: var(--text);
+}
+
+/* Ripple (triggered by .do-ripple on mousedown) */
+.navbtn::after {
+  content: "";
+  position: absolute;
+  left: 0; top: 0;                 /* values don't matter when size is 0 */
+  width: 0; height: 0;             /* <- prevents “gold dot” artifacts */
+  border-radius: 999px;
+  opacity: 0;
+  background: transparent;         /* no paint by default */
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: none;
+}
+
+.navbtn.do-ripple::after {
+  /* only during the ripple do we set position/size/color */
+  left: var(--rx, 50%);
+  top:  var(--ry, 50%);
+  width: 6px;
+  height: 6px;
+  background: color-mix(in srgb, var(--fl-gold) 60%, #fff 40%);
+  animation: nav-ripple .42s ease; /* no 'forwards' */
+}
+
+/* expands then fades to 0 opacity; class removal returns to zero-sized base */
+@keyframes nav-ripple {
+  0%   { opacity: .28; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0;   transform: translate(-50%, -50%) scale(22); }
+}
+/* Tools dropdown card */
+.menu-card {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  min-width: 240px;
+  background: var(--menu-panel-bg, var(--fl-surface));
+  color: var(--text);
+  border: 1px solid var(--panel-border, var(--border));
+  border-radius: 14px;
+  padding: 10px;
+  box-shadow:
+    0 16px 42px rgba(0,0,0,.35),
+    0 2px 0 color-mix(in srgb, var(--fl-gold) 18%, transparent) inset;
+  opacity: 0; transform: translateY(6px) scale(.98);
+  pointer-events: none;
+  transition: opacity .12s ease, transform .12s ease;
+  z-index: 3000;
+}
+.menu-card.show,
+.tools-wrap:focus-within .menu-card {
+  opacity: 1; transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.menu-item {
+  display: block;
+  padding: 10px 10px;
+  border-radius: 10px;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--item-active-bg, rgba(0,0,0,.08));
+  outline: none;
+}
+
+/* Thin gold progress underline under nav (uses --p from App.tsx) */
+.nav-underline {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background:
+    linear-gradient(
+      90deg,
+      var(--fl-gold) 0%,
+      var(--fl-gold) var(--p, 0%),
+      color-mix(in srgb, var(--fl-gold) 25%, transparent) var(--p, 0%),
+      transparent 100%
+    );
+  box-shadow: 0 1px 0 rgba(0,0,0,.25) inset;
+  opacity: .9;
+}
+
+/* Mobile panel body keeps the same visual language */
+@media (max-width: 768px) {
+  .menu-card { display: none !important; } /* desktop-only popover */
+}
+.navbtn:hover::after { background: transparent; width: 0; height: 0; opacity: 0; }
+/* Make button triggers look exactly like nav links */
+.navbtn--plain {
+  background: transparent;
+  border: none;
+  padding: 8px 10px;         /* match your link padding */
+  border-radius: 10px;
+  color: var(--link, var(--text));
+  font: inherit;             /* ✅ fixes the Tools font change */
+  font-weight: 600;          /* keep your pill weight */
+  cursor: pointer;
+}
+
+/* Active pill */
+.navbtn.is-active {
+  background: color-mix(in srgb, var(--fl-gold) 32%, transparent);
+  opacity: 1;
+}
+
+/* Dropdown item states */
+.menu-item {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: var(--text);
+  text-decoration: none;
+}
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--item-active-bg, var(--link-active-bg));
+  outline: none;
+}
+.menu-item.is-active {
+  background: var(--item-active-bg, var(--link-active-bg));
+  font-weight: 700;
+  box-shadow: inset 3px 0 0 var(--fl-gold); /* subtle left accent */
+}

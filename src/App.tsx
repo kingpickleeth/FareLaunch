@@ -162,6 +162,10 @@ export default function App() {
   const { isConnected } = useAccount();
   const { pathname } = useLocation();
   const isPublic = PUBLIC_ROUTES.has(pathname);
+  // under: const { pathname } = useLocation();
+const toolsActive =
+/^\/(simulator|launch(?:-erc20)?|locker|faredrop)(\/|$)/.test(pathname);
+
   const { openConnectModal } = useConnectModal();
   const { theme, toggle } = useTheme();
   const closeTimer = useRef<number | null>(null);
@@ -344,9 +348,11 @@ backdropFilter:'blur(8px)', zIndex:2000}}>
   onKeyDown={(e) => { if (e.key === 'Escape') setToolsOpen(false); }}
   className="tools-wrap"
 >
-  <NavLink
-    to="/tools"
-    className={({ isActive }) => `navbtn ${isActive ? 'is-active' : ''}`}
+  <button
+    type="button"
+    className={`navbtn navbtn--plain ${toolsActive ? 'is-active' : ''}`}
+    aria-haspopup="menu"
+    aria-expanded={toolsOpen}
     onMouseDown={(e) => {
       const t = e.currentTarget as HTMLElement;
       const r = t.getBoundingClientRect();
@@ -355,42 +361,26 @@ backdropFilter:'blur(8px)', zIndex:2000}}>
       t.classList.add('do-ripple');
       setTimeout(() => t.classList.remove('do-ripple'), 420);
     }}
-    
-    aria-haspopup="true"
-    aria-expanded={toolsOpen}
+    onClick={() => setToolsOpen(v => !v)}
   >
     Tools ▾
-  </NavLink>
-{/* Always render; toggle visibility via class */}
-<div
+  </button>
+
+  <div
     className={`menu-card ${toolsOpen ? 'show' : ''}`}
     role="menu"
     aria-hidden={!toolsOpen}
-    onMouseEnter={cancelClose}   // keep open when entering popover
-    onMouseLeave={scheduleClose} // close only after leaving popover
+    onMouseEnter={cancelClose}
+    onMouseLeave={scheduleClose}
   >
-  <NavLink to="/simulator" className="menu-item" role="menuitem">
-    Launch Simulator
-  </NavLink>
-
-  <NavLink to="/launch" className="menu-item" role="menuitem">
-    Create FareLaunch
-  </NavLink>
-
-  <NavLink to="/launch-erc20" className="menu-item" role="menuitem">
-    Create ERC20
-  </NavLink>
-
-  <NavLink to="/locker" className="menu-item" role="menuitem">
-    Liquidity Locker
-  </NavLink>
-
-  <NavLink to="/faredrop" className="menu-item" role="menuitem">
-    FareDrop
-  </NavLink>
+    <NavLink to="/simulator"   className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Launch Simulator</NavLink>
+    <NavLink to="/launch"      className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Create FareLaunch</NavLink>
+    <NavLink to="/launch-erc20" className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Create ERC20</NavLink>
+    <NavLink to="/locker"      className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Liquidity Locker</NavLink>
+    <NavLink to="/faredrop"    className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">FareDrop</NavLink>
+  </div>
 </div>
 
-      </div>
 
       <NavLink to="/me" className={({ isActive }) => `navbtn ${isActive ? 'is-active' : ''}`}  onMouseDown={(e) => {
     const t = e.currentTarget as HTMLElement;
