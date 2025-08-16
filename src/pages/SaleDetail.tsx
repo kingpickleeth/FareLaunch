@@ -1,5 +1,5 @@
 // src/pages/SaleDetail.tsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getLaunch } from '../data/launches';
 import { salePhase, countdown } from '../utils/time';
@@ -100,6 +100,54 @@ function ensureLocalCSS() {
       pointer-events:none;
       white-space: nowrap;
     }
+          /* Share dropdown */
+    .share-menu{
+      position:absolute;
+      top:42px; /* 36px icon + gap */
+      right:0;
+      min-width: 200px;
+      padding: 8px;
+      border: 1px solid var(--card-border);
+      background: var(--card-bg);
+      border-radius: 12px;
+      box-shadow: 0 12px 28px rgba(0,0,0,.25);
+      z-index: 50;
+      display:grid;
+      gap:4px;
+    }
+    .share-item{
+      display:flex; align-items:center; gap:8px;
+      padding:8px 10px; border-radius:8px;
+      font: 600 13px var(--font-sans, Inter, system-ui, sans-serif);
+      color: var(--text);
+      cursor:pointer;
+      text-decoration:none;
+    }
+    .share-item:hover{ background: var(--hover-bg, rgba(255,255,255,.06)); }
+
+    /* Simple modal for Embed code */
+    .modal-overlay{
+      position:fixed; inset:0;
+      background: rgba(0,0,0,.5);
+      display:grid; place-items:center;
+      z-index:80;
+    }
+    .modal-card{
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px;
+      width: min(720px, 96vw);
+      display:grid; gap:10px;
+    }
+    .embed-textarea{
+      width:100%; height: 200px; resize: vertical;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 13px; line-height: 1.4;
+      border-radius: 10px; padding: 10px;
+      background: var(--input-bg); color: var(--text);
+      border: 1px solid var(--card-border);
+    }
   `;
   document.head.appendChild(s);
 }
@@ -107,62 +155,131 @@ function ensureLocalCSS() {
 /* ──────────────────────────────────────────────────────────────
    Small icon buttons
    ────────────────────────────────────────────────────────────── */
-function IconWrap({
-  children,
-  disabled,
-  href,
-  label,
-}: {
-  children: React.ReactNode;
-  disabled?: boolean;
-  href?: string;
-  label: string;
-}) {
-  const common: React.CSSProperties = {
-    width: 36,
-    height: 36,
-    display: 'inline-grid',
-    placeItems: 'center',
-    borderRadius: 10,
-    border: '1px solid var(--card-border)',
-    background: 'var(--fl-purple)',
-    boxShadow: '0 4px 10px rgba(0,0,0,.18)',
-    color: '#fff',
-    opacity: disabled ? 0.55 : 1,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    transition: 'transform .12s ease, box-shadow .12s ease',
-  };
-
-  if (disabled || !href) {
+   function IconWrap({
+    children,
+    disabled,
+    href,
+    label,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    disabled?: boolean;
+    href?: string;
+    label: string;
+    onClick?: () => void;
+  }) {
+    const common: React.CSSProperties = {
+      width: 36,
+      height: 36,
+      display: 'inline-grid',
+      placeItems: 'center',
+      borderRadius: 10,
+      border: '1px solid var(--card-border)',
+      background: 'var(--fl-purple)',
+      boxShadow: '0 4px 10px rgba(0,0,0,.18)',
+      color: '#fff',
+      opacity: disabled ? 0.55 : 1,
+      cursor: disabled ? 'not-allowed' : 'pointer',
+      transition: 'transform .12s ease, box-shadow .12s ease',
+    };
+  
+    if (disabled || !href) {
+      return (
+        <span
+          title={label}
+          aria-label={label}
+          role="button"
+          tabIndex={0}
+          onClick={disabled ? undefined : onClick}
+          onKeyDown={(e) => {
+            if (!disabled && (e.key === 'Enter' || e.key === ' ')) onClick?.();
+          }}
+          style={common}
+        >
+          {children}
+        </span>
+      );
+    }
     return (
-      <span title={label} aria-label={label} style={common}>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        title={label}
+        aria-label={label}
+        style={{ ...common, textDecoration: 'none' }}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget as HTMLAnchorElement;
+          el.style.transform = 'translateY(-2px)';
+          el.style.boxShadow = '0 8px 16px rgba(0,0,0,.22)';
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget as HTMLAnchorElement;
+          el.style.transform = 'translateY(0)';
+          el.style.boxShadow = '0 4px 10px rgba(0,0,0,.15)';
+        }}
+      >
         {children}
-      </span>
+      </a>
     );
   }
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      title={label}
-      aria-label={label}
-      style={{ ...common, textDecoration: 'none' }}
-      onMouseEnter={(e) => {
-        const el = e.currentTarget as HTMLAnchorElement;
-        el.style.transform = 'translateY(-2px)';
-        el.style.boxShadow = '0 8px 16px rgba(0,0,0,.22)';
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget as HTMLAnchorElement;
-        el.style.transform = 'translateY(0)';
-        el.style.boxShadow = '0 4px 10px rgba(0,0,0,.15)';
-      }}
-    >
-      {children}
-    </a>
-  );
-}
+  function IconPill({
+    text,
+    onClick,
+  }: {
+    text: string;
+    onClick?: () => void;
+  }) {
+    const base: React.CSSProperties = {
+      height: 36,
+      display: 'inline-flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '0 12px',                 // a tad wider for the label
+      borderRadius: 10,
+      border: '1px solid var(--card-border)',
+      background: 'var(--fl-purple)',
+      boxShadow: '0 4px 10px rgba(0,0,0,.18)',
+      color: '#fff',
+      cursor: 'pointer',
+      userSelect: 'none',
+      transition: 'transform .12s ease, box-shadow .12s ease',
+      font: '700 12px var(--font-sans, Inter, system-ui, sans-serif)',
+    };
+  
+    return (
+      <button
+        type="button"
+        title={text}
+        aria-label={text}
+        onClick={onClick}
+        style={base}
+        onMouseEnter={(e) => {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.transform = 'translateY(-2px)';              // same as IconWrap
+          el.style.boxShadow = '0 8px 16px rgba(0,0,0,.22)';
+        }}
+        onMouseLeave={(e) => {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.transform = 'translateY(0)';
+          el.style.boxShadow = '0 4px 10px rgba(0,0,0,.15)';
+        }}
+        onMouseDown={(e) => {
+          const el = e.currentTarget as HTMLButtonElement;       // subtle press effect
+          el.style.transform = 'translateY(0)';
+          el.style.boxShadow = '0 4px 10px rgba(0,0,0,.18)';
+        }}
+        onMouseUp={(e) => {
+          const el = e.currentTarget as HTMLButtonElement;
+          el.style.transform = 'translateY(-2px)';
+          el.style.boxShadow = '0 8px 16px rgba(0,0,0,.22)';
+        }}
+      >
+        <span>Share</span>
+      </button>
+    );
+  }
+  
 const GlobeIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
     <path d="M12 21c4.97 0 9-4.03 9-9s-4.03-9-9-9-9 4.03-9 9 4.03 9 9 9Z" stroke="currentColor" strokeWidth="1.7" />
@@ -177,6 +294,21 @@ const TwitterIcon = () => (
 const TelegramIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
     <path d="M9.036 15.39 8.87 19.5c.442 0 .635-.19.865-.418l2.078-1.993 4.307 3.158c.79.434 1.352.205 1.568-.73l2.84-12.915h.001c.252-1.106-.4-1.536-1.167-1.266L3.54 9.7c-1.13.408-1.113.994-.191 1.254l4.412 1.224 10.235-6.46c.48-.292.915-.13.556.162" />
+  </svg>
+);
+const ShareIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M18 8a3 3 0 1 0-2.83-4h.01A3 3 0 0 0 18 8Zm-12 8a3 3 0 1 0 2.83 4H8.8A3 3 0 0 0 6 16Zm0-4a3 3 0 1 0 2.83-4H8.8A3 3 0 0 0 6 12Zm10.59-5.41-8.2 4.1m8.2 8.72-8.2-4.1" stroke="currentColor" strokeWidth="1.7" fill="none" strokeLinecap="round"/>
+  </svg>
+);
+const LinkIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <path d="M10.5 13.5l3-3m-6 6l-1.9 1.9a3 3 0 1 1-4.2-4.2L5.3 12m13.4 0l1.9-1.9a3 3 0 0 0-4.2-4.2L15 7.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+  </svg>
+);
+const CodeIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+    <path d="M8 16 4 12l4-4m8 0 4 4-4 4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"/>
   </svg>
 );
 
@@ -398,6 +530,66 @@ export default function SaleDetail() {
 
   const [, setContribsDb] = useState<Contribution[] | null>(null);
   const [contribsOnchain, setContribsOnchain] = useState<Contribution[] | null>(null);
+  const shareRef = useRef<HTMLDivElement | null>(null);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [showEmbed, setShowEmbed] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  // Close dropdown on outside click / Esc
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (shareRef.current && !shareRef.current.contains(e.target as Node)) setShareOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShareOpen(false); };
+    document.addEventListener('click', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('click', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
+
+// use id for the SSR fallback, not row.id
+const presaleUrl =
+  typeof window !== 'undefined' ? window.location.href : `https://farelaunch.xyz/sale/${id ?? ''}`;
+
+// optional-chain row in the tweet text
+const tweetText = encodeURIComponent(
+  `Presale for $${row?.token_symbol || row?.token_name || 'token'} on FareLaunch.`
+);
+const tweetUrl = `https://x.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(presaleUrl)}`;
+
+// rest unchanged…
+const handleCopyUrl = async () => {
+  try {
+    // modern API
+    await navigator.clipboard.writeText(presaleUrl);
+    setCopied(true);
+  } catch (err) {
+    // fallback for older browsers / blocked clipboard
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = presaleUrl;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setCopied(true);
+    } catch (e) {
+      // last-resort fallback
+      window.prompt('Copy URL', presaleUrl);
+    }
+  } finally {
+    setShareOpen(false);
+    window.setTimeout(() => setCopied(false), 1200);
+  }
+};
+
+const embedSrc = presaleUrl + (presaleUrl.includes('?') ? '&' : '?') + 'embed=1';
+const embedCode = `<iframe src="${embedSrc}" …></iframe>`;
 
   // read on-chain (incl. tokenomics fields)
   useEffect(() => {
@@ -920,17 +1112,51 @@ const contribList = Array.isArray(contribsOnchain) ? contribsOnchain : [];
               </span>
               <span style={{ opacity: 0.7, whiteSpace: 'nowrap' }}>({row.token_symbol ?? '—'})</span>
               <span style={{ marginLeft: 'auto' }} />
-              <div style={{ display: 'flex', gap: 10, color: 'var(--fl-gold)' }}>
-                <IconWrap href={websiteHref} label="Website" disabled={!websiteHref}>
-                  <GlobeIcon />
-                </IconWrap>
-                <IconWrap href={twitterHref} label="Twitter / X" disabled={!twitterHref}>
-                  <TwitterIcon />
-                </IconWrap>
-                <IconWrap label="Telegram (soon)" disabled>
-                  <TelegramIcon />
-                </IconWrap>
-              </div>
+              <div style={{ display: 'flex', gap: 10, color: 'var(--fl-gold)', alignItems: 'center' }}>
+  {/* Share (dropdown) */}
+  <div
+  ref={shareRef}
+  style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}
+>
+  {/* was: <IconPill icon={<ShareIcon />} text="Share" ... /> */}
+  <IconPill text="Share" onClick={() => setShareOpen((v) => !v)} />
+
+  {shareOpen && (
+    <div className="share-menu">
+      <a className="share-item" href={tweetUrl} target="_blank" rel="noreferrer" onClick={() => setShareOpen(false)}>
+        <TwitterIcon /> <span>Share to X</span>
+      </a>
+      <button
+  type="button"
+  className="share-item"
+  onClick={handleCopyUrl}
+  style={{ background: 'transparent', border: 0 }}
+>
+  <LinkIcon /> <span>{copied ? 'Copied!' : 'Copy URL'}</span>
+</button>
+      <button
+        className="share-item"
+        onClick={() => { setShowEmbed(true); setShareOpen(false); }}
+        style={{ background: 'transparent', border: 0 }}
+      >
+        <CodeIcon /> <span>Embed this Presale</span>
+      </button>
+    </div>
+  )}
+</div>
+
+  {/* Existing socials */}
+  <IconWrap href={websiteHref} label="Website" disabled={!websiteHref}>
+    <GlobeIcon />
+  </IconWrap>
+  <IconWrap href={twitterHref} label="Twitter / X" disabled={!twitterHref}>
+    <TwitterIcon />
+  </IconWrap>
+  <IconWrap label="Telegram (soon)" disabled>
+    <TelegramIcon />
+  </IconWrap>
+</div>
+
             </div>
             <div className="break-anywhere" style={{ marginTop: 8, opacity: 0.9, lineHeight: 1.4, wordBreak: 'break-word' }}>
               {row.description || '—'}
@@ -1130,6 +1356,31 @@ const contribList = Array.isArray(contribsOnchain) ? contribsOnchain : [];
         saleId={row.id}
         allowlistRoot={row.allowlist_root as any}
       />
+      {showEmbed && (
+  <div className="modal-overlay" onClick={() => setShowEmbed(false)}>
+    <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+      <div style={{ fontWeight: 700, fontSize: 16 }}>Embed this Presale</div>
+      <div style={{ fontSize: 13, opacity: 0.85 }}>
+        Paste this iframe on your website. You can style the container around it as needed.
+      </div>
+      <textarea className="embed-textarea" readOnly value={embedCode} />
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+        <button className="button button-secondary" onClick={() => setShowEmbed(false)}>Close</button>
+        <button
+          className="button button-primary"
+          onClick={async () => {
+            try { await navigator.clipboard.writeText(embedCode); } catch {}
+            setShowEmbed(false);
+          }}
+        >
+          Copy Embed Code
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }
