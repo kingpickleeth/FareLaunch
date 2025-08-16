@@ -374,7 +374,7 @@ backdropFilter:'blur(8px)', zIndex:2000}}>
     onMouseLeave={scheduleClose}
   >
     <NavLink to="/simulator"   className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Launch Simulator</NavLink>
-    <NavLink to="/launch"      className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Create FareLaunch</NavLink>
+    <NavLink to="/launch"      className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Create Presale</NavLink>
     <NavLink to="/launch-erc20" className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Create ERC20</NavLink>
     <NavLink to="/locker"      className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">Liquidity Locker</NavLink>
     <NavLink to="/faredrop"    className={({isActive}) => `menu-item${isActive ? ' is-active' : ''}`} role="menuitem">FareDrop</NavLink>
@@ -517,7 +517,7 @@ backdropFilter:'blur(8px)', zIndex:2000}}>
                 setMenuOpen(false);
               }}
             >
-              Create FareLaunch
+              Create Presale
             </NavLink>
             <NavLink
   to="/launch-erc20"
