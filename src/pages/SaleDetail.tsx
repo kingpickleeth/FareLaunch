@@ -296,11 +296,6 @@ const TelegramIcon = () => (
     <path d="M9.036 15.39 8.87 19.5c.442 0 .635-.19.865-.418l2.078-1.993 4.307 3.158c.79.434 1.352.205 1.568-.73l2.84-12.915h.001c.252-1.106-.4-1.536-1.167-1.266L3.54 9.7c-1.13.408-1.113.994-.191 1.254l4.412 1.224 10.235-6.46c.48-.292.915-.13.556.162" />
   </svg>
 );
-const ShareIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M18 8a3 3 0 1 0-2.83-4h.01A3 3 0 0 0 18 8Zm-12 8a3 3 0 1 0 2.83 4H8.8A3 3 0 0 0 6 16Zm0-4a3 3 0 1 0 2.83-4H8.8A3 3 0 0 0 6 12Zm10.59-5.41-8.2 4.1m8.2 8.72-8.2-4.1" stroke="currentColor" strokeWidth="1.7" fill="none" strokeLinecap="round"/>
-  </svg>
-);
 const LinkIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
     <path d="M10.5 13.5l3-3m-6 6l-1.9 1.9a3 3 0 1 1-4.2-4.2L5.3 12m13.4 0l1.9-1.9a3 3 0 0 0-4.2-4.2L15 7.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
